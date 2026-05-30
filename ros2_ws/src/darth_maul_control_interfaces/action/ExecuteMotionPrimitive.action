@@ -1,0 +1,60 @@
+# Goal
+# Execute one simple odom-based motion primitive.
+#
+# DRIVE_FORWARD and DRIVE_BACKWARD:
+#   value is distance in meters and must be > 0.
+#
+# ROTATE_RELATIVE:
+#   value is signed angle in radians, positive is counterclockwise.
+#
+# ROTATE_TO_HEADING:
+#   value is absolute odom-frame yaw in radians.
+
+uint8 DRIVE_FORWARD=1
+uint8 DRIVE_BACKWARD=2
+uint8 ROTATE_RELATIVE=3
+uint8 ROTATE_TO_HEADING=4
+
+uint8 primitive_type
+float64 value
+
+# Optional tolerances. Zero means node defaults.
+float64 position_tolerance_m
+float64 heading_tolerance_rad
+
+# Optional per-goal velocity limits. Zero means package defaults.
+# Primitive API intentionally has no lateral velocity limit.
+float64 max_linear_x_mps
+float64 max_angular_z_radps
+
+# Zero duration means node default.
+builtin_interfaces/Duration timeout
+---
+# Result
+bool success
+
+uint8 RESULT_SUCCESS=0
+uint8 RESULT_CANCELED=1
+uint8 RESULT_TIMEOUT=2
+uint8 RESULT_INVALID_GOAL=3
+uint8 RESULT_ODOM_UNAVAILABLE=4
+uint8 RESULT_CONTROL_FAILED=5
+
+uint8 result_code
+string message
+
+geometry_msgs/PoseStamped start_pose
+geometry_msgs/PoseStamped final_pose
+
+float64 distance_traveled_m
+float64 final_position_error_m
+float64 final_heading_error_rad
+---
+# Feedback
+geometry_msgs/PoseStamped current_pose
+
+float64 distance_traveled_m
+float64 remaining_distance_m
+float64 heading_error_rad
+
+string status
