@@ -1,0 +1,18 @@
+darth_maul_control:
+  ros__parameters:
+    control_rate_hz: 20.0
+    odom_topic: odom
+    cmd_vel_topic: controller/cmd_vel
+    status_topic: /darth_maul_control/status
+
+    max_linear_x_mps: 0.20
+    max_linear_y_mps: 0.20
+    max_angular_z_radps: 0.50
+
+    k_position: 0.6
+    k_heading: 1.2
+
+    default_position_tolerance_m: 0.04
+    default_heading_tolerance_rad: 0.10
+    default_timeout_sec: 30.0
+    odom_timeout_sec: 0.5
