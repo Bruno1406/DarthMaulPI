@@ -52,10 +52,6 @@ class VelocityLimiter:
         return bounded
 
     @staticmethod
-    def zero_twist():
-        return Twist()
-
-    @staticmethod
     def _clean_limit(value):
         if not math.isfinite(value):
             return 0.0

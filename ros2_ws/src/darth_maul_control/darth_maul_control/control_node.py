@@ -4,6 +4,7 @@ import threading
 import time
 
 from darth_maul_control.geometry import (
+    is_finite_pose_stamped,
     normalize_angle,
     planar_distance,
     yaw_from_quaternion,
@@ -19,6 +20,27 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
 from rclpy.node import Node
 from std_srvs.srv import Trigger
+
+
+DRIVE_PRIMITIVE_TYPES = (
+    ExecuteMotionPrimitive.Goal.DRIVE_FORWARD,
+    ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD,
+)
+STRAFE_PRIMITIVE_TYPES = (
+    ExecuteMotionPrimitive.Goal.STRAFE_LEFT,
+    ExecuteMotionPrimitive.Goal.STRAFE_RIGHT,
+)
+TRANSLATION_PRIMITIVE_TYPES = DRIVE_PRIMITIVE_TYPES + STRAFE_PRIMITIVE_TYPES
+SUPPORTED_PRIMITIVE_TYPES = TRANSLATION_PRIMITIVE_TYPES + (
+    ExecuteMotionPrimitive.Goal.ROTATE_RELATIVE,
+)
+PRIMITIVE_STATUS_TEXT = {
+    ExecuteMotionPrimitive.Goal.DRIVE_FORWARD: 'driving forward',
+    ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD: 'driving backward',
+    ExecuteMotionPrimitive.Goal.STRAFE_LEFT: 'strafing left',
+    ExecuteMotionPrimitive.Goal.STRAFE_RIGHT: 'strafing right',
+    ExecuteMotionPrimitive.Goal.ROTATE_RELATIVE: 'rotating relative',
+}
 
 
 class DarthMaulControlNode(Node):
@@ -140,16 +162,10 @@ class DarthMaulControlNode(Node):
 
     def _goal_callback(self, goal_request):
         del goal_request
-        return self._claim_motion_goal('execute_motion_primitive')
-
-    def _primitive_goal_callback(self, goal_request):
-        return self._goal_callback(goal_request)
-
-    def _claim_motion_goal(self, action_name):
         with self._state_lock:
             if self._active_goal:
                 self.get_logger().warn(
-                    f'Rejecting {action_name} goal; another goal is active.'
+                    'Rejecting execute_motion_primitive goal; another goal is active.'
                 )
                 return GoalResponse.REJECT
             self._active_goal = True
@@ -245,8 +261,8 @@ class DarthMaulControlNode(Node):
                 )
 
             primitive_type = goal.primitive_type
-            status = self._primitive_status_text(primitive_type)
-            if primitive_type in self._translation_primitive_types():
+            status = PRIMITIVE_STATUS_TEXT.get(primitive_type, 'unknown primitive')
+            if primitive_type in TRANSLATION_PRIMITIVE_TYPES:
                 target_pose = self._translation_target_pose(
                     primitive_type,
                     start_pose,
@@ -317,24 +333,14 @@ class DarthMaulControlNode(Node):
                 self._stop_requested = False
             self._publish_status()
 
-    def _execute_primitive_callback(self, goal_handle):
-        return self._execute_callback(goal_handle)
-
     def _validate_goal(self, goal):
-        valid_types = {
-            ExecuteMotionPrimitive.Goal.DRIVE_FORWARD,
-            ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD,
-            ExecuteMotionPrimitive.Goal.STRAFE_LEFT,
-            ExecuteMotionPrimitive.Goal.STRAFE_RIGHT,
-            ExecuteMotionPrimitive.Goal.ROTATE_RELATIVE,
-        }
-        if goal.primitive_type not in valid_types:
+        if goal.primitive_type not in SUPPORTED_PRIMITIVE_TYPES:
             return False, 'primitive_type must be a supported motion primitive.'
 
         if not math.isfinite(goal.value):
             return False, 'value must be finite.'
 
-        if goal.primitive_type in self._translation_primitive_types() and goal.value <= 0.0:
+        if goal.primitive_type in TRANSLATION_PRIMITIVE_TYPES and goal.value <= 0.0:
             return False, 'Translation primitive value must be > 0.'
 
         if (
@@ -366,17 +372,10 @@ class DarthMaulControlNode(Node):
 
         return True, ''
 
-    def _validate_primitive_goal(self, goal):
-        return self._validate_goal(goal)
-
     def _goal_timeout_sec(self, timeout_msg):
         if timeout_msg.sec == 0 and timeout_msg.nanosec == 0:
             return self.default_timeout_sec
-        return self._duration_to_seconds(timeout_msg)
-
-    @staticmethod
-    def _duration_to_seconds(duration_msg):
-        return float(duration_msg.sec) + float(duration_msg.nanosec) * 1e-9
+        return float(timeout_msg.sec) + float(timeout_msg.nanosec) * 1e-9
 
     def _run_translation(
         self,
@@ -587,18 +586,6 @@ class DarthMaulControlNode(Node):
 
         return None
 
-    def _check_primitive_interruption(self, *args, **kwargs):
-        return self._check_interruption(*args, **kwargs)
-
-    @staticmethod
-    def _translation_primitive_types():
-        return (
-            ExecuteMotionPrimitive.Goal.DRIVE_FORWARD,
-            ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD,
-            ExecuteMotionPrimitive.Goal.STRAFE_LEFT,
-            ExecuteMotionPrimitive.Goal.STRAFE_RIGHT,
-        )
-
     def _translation_target_pose(self, primitive_type, start_pose, distance_m):
         start_yaw = yaw_from_quaternion(start_pose.pose.orientation)
         direction_yaw = start_yaw
@@ -618,31 +605,9 @@ class DarthMaulControlNode(Node):
         )
         return target_pose
 
-    def _drive_primitive_target_pose(self, primitive_type, start_pose, distance_m):
-        return self._translation_target_pose(primitive_type, start_pose, distance_m)
-
     @staticmethod
     def _rotation_target_heading(current_yaw, value):
         return normalize_angle(current_yaw + value)
-
-    @staticmethod
-    def _rotation_primitive_target_heading(primitive_type, current_yaw, value):
-        del primitive_type
-        return DarthMaulControlNode._rotation_target_heading(current_yaw, value)
-
-    @staticmethod
-    def _primitive_status_text(primitive_type):
-        if primitive_type == ExecuteMotionPrimitive.Goal.DRIVE_FORWARD:
-            return 'driving forward'
-        if primitive_type == ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD:
-            return 'driving backward'
-        if primitive_type == ExecuteMotionPrimitive.Goal.STRAFE_LEFT:
-            return 'strafing left'
-        if primitive_type == ExecuteMotionPrimitive.Goal.STRAFE_RIGHT:
-            return 'strafing right'
-        if primitive_type == ExecuteMotionPrimitive.Goal.ROTATE_RELATIVE:
-            return 'rotating relative'
-        return 'unknown primitive'
 
     def _translation_twist(
         self,
@@ -658,10 +623,7 @@ class DarthMaulControlNode(Node):
         body_y_error = -math.sin(yaw) * dx + math.cos(yaw) * dy
 
         twist = Twist()
-        if primitive_type in (
-            ExecuteMotionPrimitive.Goal.DRIVE_FORWARD,
-            ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD,
-        ):
+        if primitive_type in DRIVE_PRIMITIVE_TYPES:
             twist.linear.x = self.k_position * body_x_error
         else:
             twist.linear.y = self.k_position * body_y_error
@@ -670,14 +632,6 @@ class DarthMaulControlNode(Node):
         twist.angular.z = self.k_heading * heading_error
         return twist, heading_error
 
-    def _compute_drive_primitive_twist(self, current_pose, target_pose, target_heading):
-        return self._translation_twist(
-            ExecuteMotionPrimitive.Goal.DRIVE_FORWARD,
-            current_pose,
-            target_pose,
-            target_heading,
-        )
-
     def _velocity_limits_for_primitive(self, goal):
         sanitized = self._limiter.sanitize_goal_limits(
             goal.max_linear_x_mps,
@@ -685,28 +639,19 @@ class DarthMaulControlNode(Node):
             goal.max_angular_z_radps,
         )
 
-        if goal.primitive_type in (
-            ExecuteMotionPrimitive.Goal.DRIVE_FORWARD,
-            ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD,
-        ):
+        if goal.primitive_type in DRIVE_PRIMITIVE_TYPES:
             return VelocityLimits(
                 sanitized.max_linear_x_mps,
                 0.0,
                 sanitized.max_angular_z_radps,
             )
-        if goal.primitive_type in (
-            ExecuteMotionPrimitive.Goal.STRAFE_LEFT,
-            ExecuteMotionPrimitive.Goal.STRAFE_RIGHT,
-        ):
+        if goal.primitive_type in STRAFE_PRIMITIVE_TYPES:
             return VelocityLimits(
                 0.0,
                 sanitized.max_linear_y_mps,
                 sanitized.max_angular_z_radps,
             )
         return VelocityLimits(0.0, 0.0, sanitized.max_angular_z_radps)
-
-    def _primitive_velocity_limits(self, goal):
-        return self._velocity_limits_for_primitive(goal)
 
     def _start_execution_status(
         self,
@@ -726,9 +671,6 @@ class DarthMaulControlNode(Node):
             self._distance_traveled_m = distance_traveled
             self._heading_error_rad = heading_error
         self._publish_status()
-
-    def _start_primitive_status(self, status, distance, heading_error):
-        self._start_execution_status(0, status, distance, 0.0, heading_error)
 
     def _update_execution_status(
         self,
@@ -763,9 +705,6 @@ class DarthMaulControlNode(Node):
         feedback.status = status
         goal_handle.publish_feedback(feedback)
 
-    def _publish_primitive_feedback(self, *args, **kwargs):
-        return self._publish_feedback(*args, **kwargs)
-
     def _finish_successful_translation(
         self,
         goal_handle,
@@ -794,20 +733,6 @@ class DarthMaulControlNode(Node):
             heading_error,
         )
 
-    def _finish_successful_drive_primitive(
-        self,
-        goal_handle,
-        start_pose,
-        target_pose,
-        target_heading,
-    ):
-        return self._finish_successful_translation(
-            goal_handle,
-            start_pose,
-            target_pose,
-            target_heading,
-        )
-
     def _finish_successful_rotation(self, goal_handle, start_pose, target_heading):
         final_pose, distance_traveled, position_error, heading_error = (
             self._result_values(start_pose, target_heading=target_heading)
@@ -825,14 +750,6 @@ class DarthMaulControlNode(Node):
             position_error,
             heading_error,
         )
-
-    def _finish_successful_rotate_primitive(
-        self,
-        goal_handle,
-        start_pose,
-        target_heading,
-    ):
-        return self._finish_successful_rotation(goal_handle, start_pose, target_heading)
 
     def _finish_with_current_values(
         self,
@@ -867,13 +784,15 @@ class DarthMaulControlNode(Node):
             heading_error,
         )
 
-    def _finish_primitive_with_current_values(self, *args, **kwargs):
-        return self._finish_with_current_values(*args, **kwargs)
-
     def _result_values(self, start_pose, target_pose=None, target_heading=None):
         final_pose = self._get_current_pose_stamped()
+        with self._state_lock:
+            last_distance_remaining = self._distance_remaining_m
+            last_distance_traveled = self._distance_traveled_m
+            last_heading_error = self._heading_error_rad
+
         if start_pose is None or final_pose is None:
-            distance_traveled = self._last_distance_traveled()
+            distance_traveled = last_distance_traveled
         else:
             distance_traveled = planar_distance(start_pose, final_pose)
 
@@ -882,7 +801,7 @@ class DarthMaulControlNode(Node):
             position_error = (
                 planar_distance(final_pose, target_pose)
                 if final_pose is not None
-                else self._last_distance_remaining()
+                else last_distance_remaining
             )
 
         heading_error = 0.0
@@ -892,13 +811,10 @@ class DarthMaulControlNode(Node):
                     target_heading - yaw_from_quaternion(final_pose.pose.orientation)
                 )
                 if final_pose is not None
-                else self._last_heading_error()
+                else last_heading_error
             )
 
         return final_pose, distance_traveled, position_error, heading_error
-
-    def _primitive_result_values(self, *args, **kwargs):
-        return self._result_values(*args, **kwargs)
 
     def _finish_action(
         self,
@@ -947,14 +863,11 @@ class DarthMaulControlNode(Node):
         result.final_heading_error_rad = final_heading_error
         return result
 
-    def _finish_primitive_action(self, *args, **kwargs):
-        return self._finish_action(*args, **kwargs)
-
     def publish_zero_twist(self):
         try:
             if not rclpy.ok():
                 return False
-            self._publish_twist(self._limiter.zero_twist())
+            self._publish_twist(Twist())
         except Exception as exc:
             try:
                 self.get_logger().warn(f'Failed to publish zero Twist: {exc}')
@@ -969,7 +882,7 @@ class DarthMaulControlNode(Node):
             with self._state_lock:
                 command_enabled = self._command_enabled
             if not command_enabled:
-                publish_twist = self._limiter.zero_twist()
+                publish_twist = Twist()
         self._cmd_vel_pub.publish(self._limiter.clamp(publish_twist, limits))
 
     @staticmethod
@@ -1011,35 +924,18 @@ class DarthMaulControlNode(Node):
                 return False
             return time.monotonic() - self._last_odom_monotonic <= self.odom_timeout_sec
 
-    def _get_current_odom(self):
+    def _get_current_pose_stamped(self):
         with self._odom_lock:
             if self._current_odom is None:
                 return None
-            return deepcopy(self._current_odom)
+            odom = deepcopy(self._current_odom)
 
-    def _get_current_pose_stamped(self):
-        odom = self._get_current_odom()
-        if odom is None:
-            return None
         pose = PoseStamped()
         pose.header = odom.header
         pose.pose = odom.pose.pose
+        if not is_finite_pose_stamped(pose):
+            return None
         return pose
-
-    def _last_distance_remaining(self):
-        with self._state_lock:
-            return self._distance_remaining_m
-
-    def _last_distance_traveled(self):
-        with self._state_lock:
-            return self._distance_traveled_m
-
-    def _last_distance(self):
-        return self._last_distance_remaining()
-
-    def _last_heading_error(self):
-        with self._state_lock:
-            return self._heading_error_rad
 
     def destroy_node(self):
         if hasattr(self, '_action_server'):
