@@ -3,7 +3,7 @@
 <package format="3">
   <name>darth_maul_control</name>
   <version>0.0.0</version>
-  <description>Safe waypoint-following motion-control foundation for the DarthMaulPI robot.</description>
+  <description>Primitive motion-control executor for the DarthMaulPI robot.</description>
   <maintainer email="dtdav@todo.todo">dtdav</maintainer>
   <license>MIT</license>
 

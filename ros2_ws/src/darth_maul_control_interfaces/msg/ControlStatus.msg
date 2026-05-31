@@ -13,8 +13,7 @@ string status
 bool odom_available
 bool command_enabled
 
-uint32 active_waypoint_index
-uint32 waypoint_count
-
-float64 distance_to_active_waypoint_m
+uint8 active_primitive_type
+float64 distance_remaining_m
+float64 distance_traveled_m
 float64 heading_error_rad

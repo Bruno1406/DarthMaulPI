@@ -4,13 +4,12 @@ import threading
 import time
 
 from darth_maul_control.geometry import (
-    is_finite_pose_stamped,
     normalize_angle,
     planar_distance,
     yaw_from_quaternion,
 )
 from darth_maul_control.velocity_limiter import VelocityLimiter, VelocityLimits
-from darth_maul_control_interfaces.action import ExecuteMotionPrimitive, FollowWaypoints
+from darth_maul_control_interfaces.action import ExecuteMotionPrimitive
 from darth_maul_control_interfaces.msg import ControlStatus
 from geometry_msgs.msg import PoseStamped, Twist
 from nav_msgs.msg import Odometry
@@ -61,9 +60,9 @@ class DarthMaulControlNode(Node):
         self._state = ControlStatus.STATE_IDLE
         self._status = 'ready'
         self._command_enabled = True
-        self._active_waypoint_index = 0
-        self._waypoint_count = 0
-        self._distance_to_active_waypoint_m = 0.0
+        self._active_primitive_type = 0
+        self._distance_remaining_m = 0.0
+        self._distance_traveled_m = 0.0
         self._heading_error_rad = 0.0
         self._active_goal = False
         self._stop_requested = False
@@ -89,19 +88,10 @@ class DarthMaulControlNode(Node):
         )
         self._action_server = ActionServer(
             self,
-            FollowWaypoints,
-            '/darth_maul_control/follow_waypoints',
-            execute_callback=self._execute_callback,
-            goal_callback=self._goal_callback,
-            cancel_callback=self._cancel_callback,
-            callback_group=self._callback_group,
-        )
-        self._primitive_action_server = ActionServer(
-            self,
             ExecuteMotionPrimitive,
             '/darth_maul_control/execute_motion_primitive',
-            execute_callback=self._execute_primitive_callback,
-            goal_callback=self._primitive_goal_callback,
+            execute_callback=self._execute_callback,
+            goal_callback=self._goal_callback,
             cancel_callback=self._cancel_callback,
             callback_group=self._callback_group,
         )
@@ -116,8 +106,8 @@ class DarthMaulControlNode(Node):
             'darth_maul_control unless cmd_vel is remapped or muxed.'
         )
         self.get_logger().warn(
-            'This initial controller depends on odometry quality; validate forward, '
-            'backward, rotation, stop, and odom response before trusting pose control.'
+            'This primitive controller depends on odometry quality; validate forward, '
+            'backward, strafe, rotation, stop, and odom response before trusting it.'
         )
         self.publish_zero_twist()
         self._publish_status()
@@ -150,11 +140,10 @@ class DarthMaulControlNode(Node):
 
     def _goal_callback(self, goal_request):
         del goal_request
-        return self._claim_motion_goal('follow_waypoints')
+        return self._claim_motion_goal('execute_motion_primitive')
 
     def _primitive_goal_callback(self, goal_request):
-        del goal_request
-        return self._claim_motion_goal('execute_motion_primitive')
+        return self._goal_callback(goal_request)
 
     def _claim_motion_goal(self, action_name):
         with self._state_lock:
@@ -186,9 +175,9 @@ class DarthMaulControlNode(Node):
                 self._command_enabled = True
                 self._state = ControlStatus.STATE_IDLE
                 self._status = 'stopped'
-                self._active_waypoint_index = 0
-                self._waypoint_count = 0
-                self._distance_to_active_waypoint_m = 0.0
+                self._active_primitive_type = 0
+                self._distance_remaining_m = 0.0
+                self._distance_traveled_m = 0.0
                 self._heading_error_rad = 0.0
             self.publish_zero_twist()
             self._publish_status()
@@ -208,108 +197,11 @@ class DarthMaulControlNode(Node):
 
     def _execute_callback(self, goal_handle):
         goal = goal_handle.request
-        try:
-            valid, message, goal_frame = self._validate_goal(goal)
-            if not valid:
-                return self._finish_action(
-                    goal_handle,
-                    'abort',
-                    ControlStatus.STATE_FAILED,
-                    FollowWaypoints.Result.RESULT_INVALID_GOAL,
-                    False,
-                    message,
-                    0.0,
-                    0.0,
-                )
-
-            if not self._is_odom_fresh():
-                return self._finish_action(
-                    goal_handle,
-                    'abort',
-                    ControlStatus.STATE_FAILED,
-                    FollowWaypoints.Result.RESULT_ODOM_UNAVAILABLE,
-                    False,
-                    'Odometry is unavailable or stale.',
-                    0.0,
-                    0.0,
-                )
-
-            frame_ok, frame_message = self._goal_frame_matches_odom(goal_frame)
-            if not frame_ok:
-                return self._finish_action(
-                    goal_handle,
-                    'abort',
-                    ControlStatus.STATE_FAILED,
-                    FollowWaypoints.Result.RESULT_INVALID_GOAL,
-                    False,
-                    frame_message,
-                    0.0,
-                    0.0,
-                )
-
-            position_tolerance_m = (
-                goal.position_tolerance_m
-                if goal.position_tolerance_m > 0.0
-                else self.default_position_tolerance_m
-            )
-            heading_tolerance_rad = (
-                goal.heading_tolerance_rad
-                if goal.heading_tolerance_rad > 0.0
-                else self.default_heading_tolerance_rad
-            )
-            timeout_sec = self._goal_timeout_sec(goal.timeout)
-            limits = self._limiter.sanitize_goal_limits(
-                goal.max_linear_x_mps,
-                goal.max_linear_y_mps,
-                goal.max_angular_z_radps,
-            )
-
-            with self._state_lock:
-                self._state = ControlStatus.STATE_EXECUTING
-                self._status = 'executing follow_waypoints'
-                self._command_enabled = True
-                self._stop_requested = False
-                self._active_waypoint_index = 0
-                self._waypoint_count = len(goal.waypoints)
-                self._distance_to_active_waypoint_m = 0.0
-                self._heading_error_rad = 0.0
-            self._publish_status()
-
-            return self._run_goal(
-                goal_handle,
-                goal,
-                position_tolerance_m,
-                heading_tolerance_rad,
-                timeout_sec,
-                limits,
-            )
-        except Exception as exc:
-            self.get_logger().error(f'Control loop failed: {exc}')
-            return self._finish_action(
-                goal_handle,
-                'abort',
-                ControlStatus.STATE_FAILED,
-                FollowWaypoints.Result.RESULT_CONTROL_FAILED,
-                False,
-                f'Control loop failed: {exc}',
-                self._last_distance(),
-                self._last_heading_error(),
-            )
-        finally:
-            self.publish_zero_twist()
-            with self._state_lock:
-                self._active_goal = False
-                self._command_enabled = True
-                self._stop_requested = False
-            self._publish_status()
-
-    def _execute_primitive_callback(self, goal_handle):
-        goal = goal_handle.request
         start_pose = None
         try:
-            valid, message = self._validate_primitive_goal(goal)
+            valid, message = self._validate_goal(goal)
             if not valid:
-                return self._finish_primitive_action(
+                return self._finish_action(
                     goal_handle,
                     'abort',
                     ControlStatus.STATE_FAILED,
@@ -329,10 +221,10 @@ class DarthMaulControlNode(Node):
                 else self.default_heading_tolerance_rad
             )
             timeout_sec = self._goal_timeout_sec(goal.timeout)
-            limits = self._primitive_velocity_limits(goal)
+            limits = self._velocity_limits_for_primitive(goal)
 
             if not self._is_odom_fresh():
-                return self._finish_primitive_action(
+                return self._finish_action(
                     goal_handle,
                     'abort',
                     ControlStatus.STATE_FAILED,
@@ -343,7 +235,7 @@ class DarthMaulControlNode(Node):
 
             start_pose = self._get_current_pose_stamped()
             if start_pose is None:
-                return self._finish_primitive_action(
+                return self._finish_action(
                     goal_handle,
                     'abort',
                     ControlStatus.STATE_FAILED,
@@ -352,21 +244,26 @@ class DarthMaulControlNode(Node):
                     'Odometry is unavailable.',
                 )
 
-            if goal.primitive_type in (
-                ExecuteMotionPrimitive.Goal.DRIVE_FORWARD,
-                ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD,
-            ):
-                target_pose = self._drive_primitive_target_pose(
-                    goal.primitive_type,
+            primitive_type = goal.primitive_type
+            status = self._primitive_status_text(primitive_type)
+            if primitive_type in self._translation_primitive_types():
+                target_pose = self._translation_target_pose(
+                    primitive_type,
                     start_pose,
                     goal.value,
                 )
                 remaining_distance = planar_distance(start_pose, target_pose)
                 target_heading = yaw_from_quaternion(start_pose.pose.orientation)
-                status = self._primitive_status_text(goal.primitive_type)
-                self._start_primitive_status(status, remaining_distance, 0.0)
-                return self._run_drive_primitive(
+                self._start_execution_status(
+                    primitive_type,
+                    status,
+                    remaining_distance,
+                    0.0,
+                    0.0,
+                )
+                return self._run_translation(
                     goal_handle,
+                    primitive_type,
                     start_pose,
                     target_pose,
                     target_heading,
@@ -377,15 +274,16 @@ class DarthMaulControlNode(Node):
                 )
 
             current_yaw = yaw_from_quaternion(start_pose.pose.orientation)
-            target_heading = self._rotation_primitive_target_heading(
-                goal.primitive_type,
-                current_yaw,
-                goal.value,
-            )
+            target_heading = self._rotation_target_heading(current_yaw, goal.value)
             heading_error = normalize_angle(target_heading - current_yaw)
-            status = self._primitive_status_text(goal.primitive_type)
-            self._start_primitive_status(status, 0.0, heading_error)
-            return self._run_rotate_primitive(
+            self._start_execution_status(
+                primitive_type,
+                status,
+                0.0,
+                0.0,
+                heading_error,
+            )
+            return self._run_rotation(
                 goal_handle,
                 start_pose,
                 target_heading,
@@ -397,9 +295,9 @@ class DarthMaulControlNode(Node):
         except Exception as exc:
             self.get_logger().error(f'Motion primitive failed: {exc}')
             final_pose, distance_traveled, position_error, heading_error = (
-                self._primitive_result_values(start_pose)
+                self._result_values(start_pose)
             )
-            return self._finish_primitive_action(
+            return self._finish_action(
                 goal_handle,
                 'abort',
                 ControlStatus.STATE_FAILED,
@@ -419,458 +317,16 @@ class DarthMaulControlNode(Node):
                 self._stop_requested = False
             self._publish_status()
 
-    def _start_primitive_status(self, status, distance, heading_error):
-        with self._state_lock:
-            self._state = ControlStatus.STATE_EXECUTING
-            self._status = status
-            self._command_enabled = True
-            self._stop_requested = False
-            self._active_waypoint_index = 0
-            self._waypoint_count = 1
-            self._distance_to_active_waypoint_m = distance
-            self._heading_error_rad = heading_error
-        self._publish_status()
-
-    def _run_drive_primitive(
-        self,
-        goal_handle,
-        start_pose,
-        target_pose,
-        target_heading,
-        position_tolerance_m,
-        timeout_sec,
-        limits,
-        status,
-    ):
-        start_time = time.monotonic()
-        period_sec = 1.0 / self.control_rate_hz
-
-        while rclpy.ok():
-            interruption = self._check_primitive_interruption(
-                goal_handle,
-                start_time,
-                timeout_sec,
-                start_pose,
-                target_pose=target_pose,
-                target_heading=target_heading,
-            )
-            if interruption is not None:
-                return interruption
-
-            current_pose = self._get_current_pose_stamped()
-            if current_pose is None:
-                return self._finish_primitive_with_current_values(
-                    goal_handle,
-                    'abort',
-                    ControlStatus.STATE_FAILED,
-                    ExecuteMotionPrimitive.Result.RESULT_ODOM_UNAVAILABLE,
-                    False,
-                    'Odometry is unavailable.',
-                    start_pose,
-                    target_pose=target_pose,
-                    target_heading=target_heading,
-                )
-
-            remaining_distance = planar_distance(current_pose, target_pose)
-            distance_traveled = planar_distance(start_pose, current_pose)
-            twist, heading_error = self._compute_drive_primitive_twist(
-                current_pose,
-                target_pose,
-                target_heading,
-            )
-            self._update_execution_status(
-                0,
-                1,
-                remaining_distance,
-                heading_error,
-                status,
-            )
-            self._publish_primitive_feedback(
-                goal_handle,
-                current_pose,
-                distance_traveled,
-                remaining_distance,
-                heading_error,
-                status,
-            )
-
-            if remaining_distance <= position_tolerance_m:
-                break
-
-            self._publish_twist(twist, limits)
-            time.sleep(period_sec)
-
-        return self._finish_successful_drive_primitive(
-            goal_handle,
-            start_pose,
-            target_pose,
-            target_heading,
-        )
-
-    def _run_rotate_primitive(
-        self,
-        goal_handle,
-        start_pose,
-        target_heading,
-        heading_tolerance_rad,
-        timeout_sec,
-        limits,
-        status,
-    ):
-        start_time = time.monotonic()
-        period_sec = 1.0 / self.control_rate_hz
-
-        while rclpy.ok():
-            interruption = self._check_primitive_interruption(
-                goal_handle,
-                start_time,
-                timeout_sec,
-                start_pose,
-                target_heading=target_heading,
-            )
-            if interruption is not None:
-                return interruption
-
-            current_pose = self._get_current_pose_stamped()
-            if current_pose is None:
-                return self._finish_primitive_with_current_values(
-                    goal_handle,
-                    'abort',
-                    ControlStatus.STATE_FAILED,
-                    ExecuteMotionPrimitive.Result.RESULT_ODOM_UNAVAILABLE,
-                    False,
-                    'Odometry is unavailable.',
-                    start_pose,
-                    target_heading=target_heading,
-                )
-
-            current_yaw = yaw_from_quaternion(current_pose.pose.orientation)
-            heading_error = normalize_angle(target_heading - current_yaw)
-            distance_traveled = planar_distance(start_pose, current_pose)
-            self._update_execution_status(0, 1, 0.0, heading_error, status)
-            self._publish_primitive_feedback(
-                goal_handle,
-                current_pose,
-                distance_traveled,
-                0.0,
-                heading_error,
-                status,
-            )
-
-            if abs(heading_error) <= heading_tolerance_rad:
-                break
-
-            twist = Twist()
-            twist.angular.z = self.k_heading * heading_error
-            self._publish_twist(twist, limits)
-            time.sleep(period_sec)
-
-        return self._finish_successful_rotate_primitive(
-            goal_handle,
-            start_pose,
-            target_heading,
-        )
-
-    def _check_primitive_interruption(
-        self,
-        goal_handle,
-        start_time,
-        timeout_sec,
-        start_pose,
-        target_pose=None,
-        target_heading=None,
-    ):
-        if goal_handle.is_cancel_requested:
-            return self._finish_primitive_with_current_values(
-                goal_handle,
-                'cancel',
-                ControlStatus.STATE_CANCELED,
-                ExecuteMotionPrimitive.Result.RESULT_CANCELED,
-                False,
-                'Action cancel requested.',
-                start_pose,
-                target_pose=target_pose,
-                target_heading=target_heading,
-            )
-
-        with self._state_lock:
-            stop_requested = self._stop_requested
-        if stop_requested:
-            return self._finish_primitive_with_current_values(
-                goal_handle,
-                'abort',
-                ControlStatus.STATE_CANCELED,
-                ExecuteMotionPrimitive.Result.RESULT_CANCELED,
-                False,
-                'Stop requested.',
-                start_pose,
-                target_pose=target_pose,
-                target_heading=target_heading,
-            )
-
-        if time.monotonic() - start_time > timeout_sec:
-            return self._finish_primitive_with_current_values(
-                goal_handle,
-                'abort',
-                ControlStatus.STATE_FAILED,
-                ExecuteMotionPrimitive.Result.RESULT_TIMEOUT,
-                False,
-                'Motion primitive timed out.',
-                start_pose,
-                target_pose=target_pose,
-                target_heading=target_heading,
-            )
-
-        if not self._is_odom_fresh():
-            return self._finish_primitive_with_current_values(
-                goal_handle,
-                'abort',
-                ControlStatus.STATE_FAILED,
-                ExecuteMotionPrimitive.Result.RESULT_ODOM_UNAVAILABLE,
-                False,
-                'Odometry became stale during execution.',
-                start_pose,
-                target_pose=target_pose,
-                target_heading=target_heading,
-            )
-
-        return None
-
-    def _run_goal(
-        self,
-        goal_handle,
-        goal,
-        position_tolerance_m,
-        heading_tolerance_rad,
-        timeout_sec,
-        limits,
-    ):
-        start_time = time.monotonic()
-        period_sec = 1.0 / self.control_rate_hz
-        waypoint_count = len(goal.waypoints)
-
-        for waypoint_index, waypoint in enumerate(goal.waypoints):
-            while rclpy.ok():
-                interruption = self._check_interruption(goal_handle, start_time, timeout_sec)
-                if interruption is not None:
-                    return interruption
-
-                current_pose = self._get_current_pose_stamped()
-                if current_pose is None:
-                    return self._finish_action(
-                        goal_handle,
-                        'abort',
-                        ControlStatus.STATE_FAILED,
-                        FollowWaypoints.Result.RESULT_ODOM_UNAVAILABLE,
-                        False,
-                        'Odometry is unavailable.',
-                        self._last_distance(),
-                        self._last_heading_error(),
-                    )
-
-                distance = planar_distance(current_pose, waypoint)
-                heading_error = self._feedback_heading_error(goal, current_pose)
-                self._update_execution_status(
-                    waypoint_index,
-                    waypoint_count,
-                    distance,
-                    heading_error,
-                    'moving to waypoint',
-                )
-                self._publish_feedback(
-                    goal_handle,
-                    waypoint_index,
-                    waypoint_count,
-                    current_pose,
-                    distance,
-                    heading_error,
-                    'moving to waypoint',
-                )
-
-                if distance <= position_tolerance_m:
-                    self.publish_zero_twist()
-                    break
-
-                self._publish_twist(
-                    self._compute_position_twist(current_pose, waypoint),
-                    limits,
-                )
-                time.sleep(period_sec)
-
-        if goal.use_final_heading:
-            while rclpy.ok():
-                interruption = self._check_interruption(goal_handle, start_time, timeout_sec)
-                if interruption is not None:
-                    return interruption
-
-                current_pose = self._get_current_pose_stamped()
-                if current_pose is None:
-                    return self._finish_action(
-                        goal_handle,
-                        'abort',
-                        ControlStatus.STATE_FAILED,
-                        FollowWaypoints.Result.RESULT_ODOM_UNAVAILABLE,
-                        False,
-                        'Odometry is unavailable.',
-                        self._last_distance(),
-                        self._last_heading_error(),
-                    )
-
-                heading_error = normalize_angle(
-                    goal.final_heading_rad - yaw_from_quaternion(current_pose.pose.orientation)
-                )
-                distance = planar_distance(current_pose, goal.waypoints[-1])
-                active_index = waypoint_count - 1
-                self._update_execution_status(
-                    active_index,
-                    waypoint_count,
-                    distance,
-                    heading_error,
-                    'aligning final heading',
-                )
-                self._publish_feedback(
-                    goal_handle,
-                    active_index,
-                    waypoint_count,
-                    current_pose,
-                    distance,
-                    heading_error,
-                    'aligning final heading',
-                )
-
-                if abs(heading_error) <= heading_tolerance_rad:
-                    self.publish_zero_twist()
-                    break
-
-                twist = Twist()
-                twist.angular.z = self.k_heading * heading_error
-                self._publish_twist(twist, limits)
-                time.sleep(period_sec)
-
-        final_pose = self._get_current_pose_stamped()
-        final_position_error = 0.0
-        final_heading_error = 0.0
-        if final_pose is not None:
-            final_position_error = planar_distance(final_pose, goal.waypoints[-1])
-            if goal.use_final_heading:
-                final_heading_error = normalize_angle(
-                    goal.final_heading_rad - yaw_from_quaternion(final_pose.pose.orientation)
-                )
-
-        with self._state_lock:
-            self._active_waypoint_index = waypoint_count
-            self._distance_to_active_waypoint_m = final_position_error
-            self._heading_error_rad = final_heading_error
-
-        return self._finish_action(
-            goal_handle,
-            'succeed',
-            ControlStatus.STATE_SUCCEEDED,
-            FollowWaypoints.Result.RESULT_SUCCESS,
-            True,
-            'Waypoint goal succeeded.',
-            final_position_error,
-            final_heading_error,
-        )
-
-    def _check_interruption(self, goal_handle, start_time, timeout_sec):
-        if goal_handle.is_cancel_requested:
-            return self._finish_action(
-                goal_handle,
-                'cancel',
-                ControlStatus.STATE_CANCELED,
-                FollowWaypoints.Result.RESULT_CANCELED,
-                False,
-                'Action cancel requested.',
-                self._last_distance(),
-                self._last_heading_error(),
-            )
-
-        with self._state_lock:
-            stop_requested = self._stop_requested
-        if stop_requested:
-            return self._finish_action(
-                goal_handle,
-                'abort',
-                ControlStatus.STATE_CANCELED,
-                FollowWaypoints.Result.RESULT_CANCELED,
-                False,
-                'Stop requested.',
-                self._last_distance(),
-                self._last_heading_error(),
-            )
-
-        if time.monotonic() - start_time > timeout_sec:
-            return self._finish_action(
-                goal_handle,
-                'abort',
-                ControlStatus.STATE_FAILED,
-                FollowWaypoints.Result.RESULT_TIMEOUT,
-                False,
-                'Waypoint goal timed out.',
-                self._last_distance(),
-                self._last_heading_error(),
-            )
-
-        if not self._is_odom_fresh():
-            return self._finish_action(
-                goal_handle,
-                'abort',
-                ControlStatus.STATE_FAILED,
-                FollowWaypoints.Result.RESULT_ODOM_UNAVAILABLE,
-                False,
-                'Odometry became stale during execution.',
-                self._last_distance(),
-                self._last_heading_error(),
-            )
-
-        return None
+    def _execute_primitive_callback(self, goal_handle):
+        return self._execute_callback(goal_handle)
 
     def _validate_goal(self, goal):
-        if not goal.waypoints:
-            return False, 'Goal must contain at least one waypoint.', ''
-
-        frame_id = goal.waypoints[0].header.frame_id.strip()
-        if not frame_id:
-            return False, 'Waypoint frame_id must not be empty.', ''
-
-        for index, waypoint in enumerate(goal.waypoints):
-            if waypoint.header.frame_id.strip() != frame_id:
-                return False, 'All waypoint frame_id values must match.', ''
-            if not is_finite_pose_stamped(waypoint):
-                return False, f'Waypoint {index} contains NaN or infinite pose values.', ''
-
-        if (
-            not math.isfinite(goal.position_tolerance_m)
-            or goal.position_tolerance_m < 0.0
-        ):
-            return False, 'position_tolerance_m must be finite and nonnegative.', ''
-        if (
-            not math.isfinite(goal.heading_tolerance_rad)
-            or goal.heading_tolerance_rad < 0.0
-        ):
-            return False, 'heading_tolerance_rad must be finite and nonnegative.', ''
-        if goal.timeout.sec < 0 or goal.timeout.nanosec >= 1000000000:
-            return False, 'timeout must be nonnegative.', ''
-        if goal.use_final_heading and not math.isfinite(goal.final_heading_rad):
-            return False, 'final_heading_rad must be finite when final heading is enabled.', ''
-
-        goal_limits = (
-            goal.max_linear_x_mps,
-            goal.max_linear_y_mps,
-            goal.max_angular_z_radps,
-        )
-        if not all(math.isfinite(value) for value in goal_limits):
-            return False, 'Velocity limits must be finite.', ''
-
-        return True, '', frame_id
-
-    def _validate_primitive_goal(self, goal):
         valid_types = {
             ExecuteMotionPrimitive.Goal.DRIVE_FORWARD,
             ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD,
+            ExecuteMotionPrimitive.Goal.STRAFE_LEFT,
+            ExecuteMotionPrimitive.Goal.STRAFE_RIGHT,
             ExecuteMotionPrimitive.Goal.ROTATE_RELATIVE,
-            ExecuteMotionPrimitive.Goal.ROTATE_TO_HEADING,
         }
         if goal.primitive_type not in valid_types:
             return False, 'primitive_type must be a supported motion primitive.'
@@ -878,14 +334,8 @@ class DarthMaulControlNode(Node):
         if not math.isfinite(goal.value):
             return False, 'value must be finite.'
 
-        if (
-            goal.primitive_type in (
-                ExecuteMotionPrimitive.Goal.DRIVE_FORWARD,
-                ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD,
-            )
-            and goal.value <= 0.0
-        ):
-            return False, 'Drive primitive value must be > 0.'
+        if goal.primitive_type in self._translation_primitive_types() and goal.value <= 0.0:
+            return False, 'Translation primitive value must be > 0.'
 
         if (
             not math.isfinite(goal.position_tolerance_m)
@@ -907,6 +357,7 @@ class DarthMaulControlNode(Node):
 
         primitive_limits = (
             ('max_linear_x_mps', goal.max_linear_x_mps),
+            ('max_linear_y_mps', goal.max_linear_y_mps),
             ('max_angular_z_radps', goal.max_angular_z_radps),
         )
         for field_name, value in primitive_limits:
@@ -915,19 +366,8 @@ class DarthMaulControlNode(Node):
 
         return True, ''
 
-    def _goal_frame_matches_odom(self, goal_frame):
-        odom = self._get_current_odom()
-        if odom is None:
-            return False, 'Odometry is unavailable.'
-        odom_frame = odom.header.frame_id.strip()
-        if not odom_frame:
-            return False, 'Odometry frame_id is empty.'
-        if odom_frame != goal_frame:
-            return (
-                False,
-                f'Waypoint frame {goal_frame!r} does not match odometry frame {odom_frame!r}.',
-            )
-        return True, ''
+    def _validate_primitive_goal(self, goal):
+        return self._validate_goal(goal)
 
     def _goal_timeout_sec(self, timeout_msg):
         if timeout_msg.sec == 0 and timeout_msg.nanosec == 0:
@@ -938,38 +378,257 @@ class DarthMaulControlNode(Node):
     def _duration_to_seconds(duration_msg):
         return float(duration_msg.sec) + float(duration_msg.nanosec) * 1e-9
 
-    def _primitive_velocity_limits(self, goal):
-        sanitized = self._limiter.sanitize_goal_limits(
-            goal.max_linear_x_mps,
-            0.0,
-            goal.max_angular_z_radps,
-        )
-        return VelocityLimits(
-            sanitized.max_linear_x_mps,
-            0.0,
-            sanitized.max_angular_z_radps,
+    def _run_translation(
+        self,
+        goal_handle,
+        primitive_type,
+        start_pose,
+        target_pose,
+        target_heading,
+        position_tolerance_m,
+        timeout_sec,
+        limits,
+        status,
+    ):
+        start_time = time.monotonic()
+        period_sec = 1.0 / self.control_rate_hz
+
+        while rclpy.ok():
+            interruption = self._check_interruption(
+                goal_handle,
+                start_time,
+                timeout_sec,
+                start_pose,
+                target_pose=target_pose,
+                target_heading=target_heading,
+            )
+            if interruption is not None:
+                return interruption
+
+            current_pose = self._get_current_pose_stamped()
+            if current_pose is None:
+                return self._finish_with_current_values(
+                    goal_handle,
+                    'abort',
+                    ControlStatus.STATE_FAILED,
+                    ExecuteMotionPrimitive.Result.RESULT_ODOM_UNAVAILABLE,
+                    False,
+                    'Odometry is unavailable.',
+                    start_pose,
+                    target_pose=target_pose,
+                    target_heading=target_heading,
+                )
+
+            remaining_distance = planar_distance(current_pose, target_pose)
+            distance_traveled = planar_distance(start_pose, current_pose)
+            twist, heading_error = self._translation_twist(
+                primitive_type,
+                current_pose,
+                target_pose,
+                target_heading,
+            )
+            self._update_execution_status(
+                primitive_type,
+                remaining_distance,
+                distance_traveled,
+                heading_error,
+                status,
+            )
+            self._publish_feedback(
+                goal_handle,
+                current_pose,
+                distance_traveled,
+                remaining_distance,
+                heading_error,
+                status,
+            )
+
+            if remaining_distance <= position_tolerance_m:
+                break
+
+            self._publish_twist(twist, limits)
+            time.sleep(period_sec)
+
+        return self._finish_successful_translation(
+            goal_handle,
+            start_pose,
+            target_pose,
+            target_heading,
         )
 
-    def _drive_primitive_target_pose(self, primitive_type, start_pose, distance_m):
+    def _run_rotation(
+        self,
+        goal_handle,
+        start_pose,
+        target_heading,
+        heading_tolerance_rad,
+        timeout_sec,
+        limits,
+        status,
+    ):
+        start_time = time.monotonic()
+        period_sec = 1.0 / self.control_rate_hz
+
+        while rclpy.ok():
+            interruption = self._check_interruption(
+                goal_handle,
+                start_time,
+                timeout_sec,
+                start_pose,
+                target_heading=target_heading,
+            )
+            if interruption is not None:
+                return interruption
+
+            current_pose = self._get_current_pose_stamped()
+            if current_pose is None:
+                return self._finish_with_current_values(
+                    goal_handle,
+                    'abort',
+                    ControlStatus.STATE_FAILED,
+                    ExecuteMotionPrimitive.Result.RESULT_ODOM_UNAVAILABLE,
+                    False,
+                    'Odometry is unavailable.',
+                    start_pose,
+                    target_heading=target_heading,
+                )
+
+            current_yaw = yaw_from_quaternion(current_pose.pose.orientation)
+            heading_error = normalize_angle(target_heading - current_yaw)
+            distance_traveled = planar_distance(start_pose, current_pose)
+            self._update_execution_status(
+                ExecuteMotionPrimitive.Goal.ROTATE_RELATIVE,
+                0.0,
+                distance_traveled,
+                heading_error,
+                status,
+            )
+            self._publish_feedback(
+                goal_handle,
+                current_pose,
+                distance_traveled,
+                0.0,
+                heading_error,
+                status,
+            )
+
+            if abs(heading_error) <= heading_tolerance_rad:
+                break
+
+            twist = Twist()
+            twist.angular.z = self.k_heading * heading_error
+            self._publish_twist(twist, limits)
+            time.sleep(period_sec)
+
+        return self._finish_successful_rotation(goal_handle, start_pose, target_heading)
+
+    def _check_interruption(
+        self,
+        goal_handle,
+        start_time,
+        timeout_sec,
+        start_pose,
+        target_pose=None,
+        target_heading=None,
+    ):
+        if goal_handle.is_cancel_requested:
+            return self._finish_with_current_values(
+                goal_handle,
+                'cancel',
+                ControlStatus.STATE_CANCELED,
+                ExecuteMotionPrimitive.Result.RESULT_CANCELED,
+                False,
+                'Action cancel requested.',
+                start_pose,
+                target_pose=target_pose,
+                target_heading=target_heading,
+            )
+
+        with self._state_lock:
+            stop_requested = self._stop_requested
+        if stop_requested:
+            return self._finish_with_current_values(
+                goal_handle,
+                'abort',
+                ControlStatus.STATE_CANCELED,
+                ExecuteMotionPrimitive.Result.RESULT_CANCELED,
+                False,
+                'Stop requested.',
+                start_pose,
+                target_pose=target_pose,
+                target_heading=target_heading,
+            )
+
+        if time.monotonic() - start_time > timeout_sec:
+            return self._finish_with_current_values(
+                goal_handle,
+                'abort',
+                ControlStatus.STATE_FAILED,
+                ExecuteMotionPrimitive.Result.RESULT_TIMEOUT,
+                False,
+                'Motion primitive timed out.',
+                start_pose,
+                target_pose=target_pose,
+                target_heading=target_heading,
+            )
+
+        if not self._is_odom_fresh():
+            return self._finish_with_current_values(
+                goal_handle,
+                'abort',
+                ControlStatus.STATE_FAILED,
+                ExecuteMotionPrimitive.Result.RESULT_ODOM_UNAVAILABLE,
+                False,
+                'Odometry became stale during execution.',
+                start_pose,
+                target_pose=target_pose,
+                target_heading=target_heading,
+            )
+
+        return None
+
+    def _check_primitive_interruption(self, *args, **kwargs):
+        return self._check_interruption(*args, **kwargs)
+
+    @staticmethod
+    def _translation_primitive_types():
+        return (
+            ExecuteMotionPrimitive.Goal.DRIVE_FORWARD,
+            ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD,
+            ExecuteMotionPrimitive.Goal.STRAFE_LEFT,
+            ExecuteMotionPrimitive.Goal.STRAFE_RIGHT,
+        )
+
+    def _translation_target_pose(self, primitive_type, start_pose, distance_m):
         start_yaw = yaw_from_quaternion(start_pose.pose.orientation)
-        signed_distance = distance_m
+        direction_yaw = start_yaw
         if primitive_type == ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD:
-            signed_distance = -distance_m
+            direction_yaw = start_yaw + math.pi
+        elif primitive_type == ExecuteMotionPrimitive.Goal.STRAFE_LEFT:
+            direction_yaw = start_yaw + math.pi / 2.0
+        elif primitive_type == ExecuteMotionPrimitive.Goal.STRAFE_RIGHT:
+            direction_yaw = start_yaw - math.pi / 2.0
 
         target_pose = deepcopy(start_pose)
         target_pose.pose.position.x = (
-            start_pose.pose.position.x + signed_distance * math.cos(start_yaw)
+            start_pose.pose.position.x + distance_m * math.cos(direction_yaw)
         )
         target_pose.pose.position.y = (
-            start_pose.pose.position.y + signed_distance * math.sin(start_yaw)
+            start_pose.pose.position.y + distance_m * math.sin(direction_yaw)
         )
         return target_pose
 
+    def _drive_primitive_target_pose(self, primitive_type, start_pose, distance_m):
+        return self._translation_target_pose(primitive_type, start_pose, distance_m)
+
+    @staticmethod
+    def _rotation_target_heading(current_yaw, value):
+        return normalize_angle(current_yaw + value)
+
     @staticmethod
     def _rotation_primitive_target_heading(primitive_type, current_yaw, value):
-        if primitive_type == ExecuteMotionPrimitive.Goal.ROTATE_RELATIVE:
-            return normalize_angle(current_yaw + value)
-        return normalize_angle(value)
+        del primitive_type
+        return DarthMaulControlNode._rotation_target_heading(current_yaw, value)
 
     @staticmethod
     def _primitive_status_text(primitive_type):
@@ -977,59 +636,117 @@ class DarthMaulControlNode(Node):
             return 'driving forward'
         if primitive_type == ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD:
             return 'driving backward'
+        if primitive_type == ExecuteMotionPrimitive.Goal.STRAFE_LEFT:
+            return 'strafing left'
+        if primitive_type == ExecuteMotionPrimitive.Goal.STRAFE_RIGHT:
+            return 'strafing right'
         if primitive_type == ExecuteMotionPrimitive.Goal.ROTATE_RELATIVE:
             return 'rotating relative'
-        if primitive_type == ExecuteMotionPrimitive.Goal.ROTATE_TO_HEADING:
-            return 'rotating to heading'
         return 'unknown primitive'
 
-    def _compute_position_twist(self, current_pose, waypoint):
-        dx = waypoint.pose.position.x - current_pose.pose.position.x
-        dy = waypoint.pose.position.y - current_pose.pose.position.y
-        vx_world = self.k_position * dx
-        vy_world = self.k_position * dy
+    def _translation_twist(
+        self,
+        primitive_type,
+        current_pose,
+        target_pose,
+        target_heading,
+    ):
+        dx = target_pose.pose.position.x - current_pose.pose.position.x
+        dy = target_pose.pose.position.y - current_pose.pose.position.y
         yaw = yaw_from_quaternion(current_pose.pose.orientation)
+        body_x_error = math.cos(yaw) * dx + math.sin(yaw) * dy
+        body_y_error = -math.sin(yaw) * dx + math.cos(yaw) * dy
 
         twist = Twist()
-        twist.linear.x = math.cos(yaw) * vx_world + math.sin(yaw) * vy_world
-        twist.linear.y = -math.sin(yaw) * vx_world + math.cos(yaw) * vy_world
-        twist.angular.z = 0.0
-        return twist
+        if primitive_type in (
+            ExecuteMotionPrimitive.Goal.DRIVE_FORWARD,
+            ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD,
+        ):
+            twist.linear.x = self.k_position * body_x_error
+        else:
+            twist.linear.y = self.k_position * body_y_error
 
-    def _compute_drive_primitive_twist(self, current_pose, target_pose, target_heading):
-        twist = self._compute_position_twist(current_pose, target_pose)
-        current_yaw = yaw_from_quaternion(current_pose.pose.orientation)
-        heading_error = normalize_angle(target_heading - current_yaw)
+        heading_error = normalize_angle(target_heading - yaw)
         twist.angular.z = self.k_heading * heading_error
         return twist, heading_error
 
-    def _feedback_heading_error(self, goal, current_pose):
-        if goal.use_final_heading:
-            return normalize_angle(
-                goal.final_heading_rad - yaw_from_quaternion(current_pose.pose.orientation)
-            )
-        return 0.0
+    def _compute_drive_primitive_twist(self, current_pose, target_pose, target_heading):
+        return self._translation_twist(
+            ExecuteMotionPrimitive.Goal.DRIVE_FORWARD,
+            current_pose,
+            target_pose,
+            target_heading,
+        )
 
-    def _publish_feedback(
+    def _velocity_limits_for_primitive(self, goal):
+        sanitized = self._limiter.sanitize_goal_limits(
+            goal.max_linear_x_mps,
+            goal.max_linear_y_mps,
+            goal.max_angular_z_radps,
+        )
+
+        if goal.primitive_type in (
+            ExecuteMotionPrimitive.Goal.DRIVE_FORWARD,
+            ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD,
+        ):
+            return VelocityLimits(
+                sanitized.max_linear_x_mps,
+                0.0,
+                sanitized.max_angular_z_radps,
+            )
+        if goal.primitive_type in (
+            ExecuteMotionPrimitive.Goal.STRAFE_LEFT,
+            ExecuteMotionPrimitive.Goal.STRAFE_RIGHT,
+        ):
+            return VelocityLimits(
+                0.0,
+                sanitized.max_linear_y_mps,
+                sanitized.max_angular_z_radps,
+            )
+        return VelocityLimits(0.0, 0.0, sanitized.max_angular_z_radps)
+
+    def _primitive_velocity_limits(self, goal):
+        return self._velocity_limits_for_primitive(goal)
+
+    def _start_execution_status(
         self,
-        goal_handle,
-        active_waypoint_index,
-        waypoint_count,
-        current_pose,
-        distance,
+        primitive_type,
+        status,
+        distance_remaining,
+        distance_traveled,
+        heading_error,
+    ):
+        with self._state_lock:
+            self._state = ControlStatus.STATE_EXECUTING
+            self._status = status
+            self._command_enabled = True
+            self._stop_requested = False
+            self._active_primitive_type = primitive_type
+            self._distance_remaining_m = distance_remaining
+            self._distance_traveled_m = distance_traveled
+            self._heading_error_rad = heading_error
+        self._publish_status()
+
+    def _start_primitive_status(self, status, distance, heading_error):
+        self._start_execution_status(0, status, distance, 0.0, heading_error)
+
+    def _update_execution_status(
+        self,
+        primitive_type,
+        distance_remaining,
+        distance_traveled,
         heading_error,
         status,
     ):
-        feedback = FollowWaypoints.Feedback()
-        feedback.active_waypoint_index = active_waypoint_index
-        feedback.waypoint_count = waypoint_count
-        feedback.current_pose = current_pose
-        feedback.distance_to_active_waypoint_m = distance
-        feedback.heading_error_rad = heading_error
-        feedback.status = status
-        goal_handle.publish_feedback(feedback)
+        with self._state_lock:
+            self._active_primitive_type = primitive_type
+            self._distance_remaining_m = distance_remaining
+            self._distance_traveled_m = distance_traveled
+            self._heading_error_rad = heading_error
+            self._status = status
+        self._publish_status()
 
-    def _publish_primitive_feedback(
+    def _publish_feedback(
         self,
         goal_handle,
         current_pose,
@@ -1046,57 +763,36 @@ class DarthMaulControlNode(Node):
         feedback.status = status
         goal_handle.publish_feedback(feedback)
 
-    def _update_execution_status(
-        self,
-        active_waypoint_index,
-        waypoint_count,
-        distance,
-        heading_error,
-        status,
-    ):
-        with self._state_lock:
-            self._active_waypoint_index = active_waypoint_index
-            self._waypoint_count = waypoint_count
-            self._distance_to_active_waypoint_m = distance
-            self._heading_error_rad = heading_error
-            self._status = status
-        self._publish_status()
+    def _publish_primitive_feedback(self, *args, **kwargs):
+        return self._publish_feedback(*args, **kwargs)
 
-    def _finish_action(
+    def _finish_successful_translation(
         self,
         goal_handle,
-        terminal_transition,
-        state,
-        result_code,
-        success,
-        message,
-        final_position_error,
-        final_heading_error,
+        start_pose,
+        target_pose,
+        target_heading,
     ):
-        self.publish_zero_twist()
-        with self._state_lock:
-            self._state = state
-            self._status = message
-            self._command_enabled = True
-            self._distance_to_active_waypoint_m = final_position_error
-            self._heading_error_rad = final_heading_error
-        self._publish_status()
-
-        if terminal_transition == 'succeed':
-            goal_handle.succeed()
-        elif terminal_transition == 'cancel':
-            goal_handle.canceled()
-        else:
-            goal_handle.abort()
-
-        result = FollowWaypoints.Result()
-        result.success = success
-        result.result_code = result_code
-        result.message = message
-        result.final_pose = self._get_current_pose_stamped() or PoseStamped()
-        result.final_position_error_m = final_position_error
-        result.final_heading_error_rad = final_heading_error
-        return result
+        final_pose, distance_traveled, position_error, heading_error = (
+            self._result_values(
+                start_pose,
+                target_pose=target_pose,
+                target_heading=target_heading,
+            )
+        )
+        return self._finish_action(
+            goal_handle,
+            'succeed',
+            ControlStatus.STATE_SUCCEEDED,
+            ExecuteMotionPrimitive.Result.RESULT_SUCCESS,
+            True,
+            'Motion primitive succeeded.',
+            start_pose,
+            final_pose,
+            distance_traveled,
+            position_error,
+            heading_error,
+        )
 
     def _finish_successful_drive_primitive(
         self,
@@ -1105,19 +801,18 @@ class DarthMaulControlNode(Node):
         target_pose,
         target_heading,
     ):
-        final_pose, distance_traveled, position_error, heading_error = (
-            self._primitive_result_values(
-                start_pose,
-                target_pose=target_pose,
-                target_heading=target_heading,
-            )
+        return self._finish_successful_translation(
+            goal_handle,
+            start_pose,
+            target_pose,
+            target_heading,
         )
-        with self._state_lock:
-            self._active_waypoint_index = 1
-            self._distance_to_active_waypoint_m = position_error
-            self._heading_error_rad = heading_error
 
-        return self._finish_primitive_action(
+    def _finish_successful_rotation(self, goal_handle, start_pose, target_heading):
+        final_pose, distance_traveled, position_error, heading_error = (
+            self._result_values(start_pose, target_heading=target_heading)
+        )
+        return self._finish_action(
             goal_handle,
             'succeed',
             ControlStatus.STATE_SUCCEEDED,
@@ -1137,29 +832,9 @@ class DarthMaulControlNode(Node):
         start_pose,
         target_heading,
     ):
-        final_pose, distance_traveled, position_error, heading_error = (
-            self._primitive_result_values(start_pose, target_heading=target_heading)
-        )
-        with self._state_lock:
-            self._active_waypoint_index = 1
-            self._distance_to_active_waypoint_m = position_error
-            self._heading_error_rad = heading_error
+        return self._finish_successful_rotation(goal_handle, start_pose, target_heading)
 
-        return self._finish_primitive_action(
-            goal_handle,
-            'succeed',
-            ControlStatus.STATE_SUCCEEDED,
-            ExecuteMotionPrimitive.Result.RESULT_SUCCESS,
-            True,
-            'Motion primitive succeeded.',
-            start_pose,
-            final_pose,
-            distance_traveled,
-            position_error,
-            heading_error,
-        )
-
-    def _finish_primitive_with_current_values(
+    def _finish_with_current_values(
         self,
         goal_handle,
         terminal_transition,
@@ -1172,13 +847,13 @@ class DarthMaulControlNode(Node):
         target_heading=None,
     ):
         final_pose, distance_traveled, position_error, heading_error = (
-            self._primitive_result_values(
+            self._result_values(
                 start_pose,
                 target_pose=target_pose,
                 target_heading=target_heading,
             )
         )
-        return self._finish_primitive_action(
+        return self._finish_action(
             goal_handle,
             terminal_transition,
             state,
@@ -1192,15 +867,13 @@ class DarthMaulControlNode(Node):
             heading_error,
         )
 
-    def _primitive_result_values(
-        self,
-        start_pose,
-        target_pose=None,
-        target_heading=None,
-    ):
+    def _finish_primitive_with_current_values(self, *args, **kwargs):
+        return self._finish_with_current_values(*args, **kwargs)
+
+    def _result_values(self, start_pose, target_pose=None, target_heading=None):
         final_pose = self._get_current_pose_stamped()
         if start_pose is None or final_pose is None:
-            distance_traveled = 0.0
+            distance_traveled = self._last_distance_traveled()
         else:
             distance_traveled = planar_distance(start_pose, final_pose)
 
@@ -1209,7 +882,7 @@ class DarthMaulControlNode(Node):
             position_error = (
                 planar_distance(final_pose, target_pose)
                 if final_pose is not None
-                else self._last_distance()
+                else self._last_distance_remaining()
             )
 
         heading_error = 0.0
@@ -1224,7 +897,10 @@ class DarthMaulControlNode(Node):
 
         return final_pose, distance_traveled, position_error, heading_error
 
-    def _finish_primitive_action(
+    def _primitive_result_values(self, *args, **kwargs):
+        return self._result_values(*args, **kwargs)
+
+    def _finish_action(
         self,
         goal_handle,
         terminal_transition,
@@ -1247,7 +923,9 @@ class DarthMaulControlNode(Node):
             self._state = state
             self._status = message
             self._command_enabled = True
-            self._distance_to_active_waypoint_m = final_position_error
+            self._active_primitive_type = 0
+            self._distance_remaining_m = final_position_error
+            self._distance_traveled_m = distance_traveled
             self._heading_error_rad = final_heading_error
         self._publish_status()
 
@@ -1268,6 +946,9 @@ class DarthMaulControlNode(Node):
         result.final_position_error_m = final_position_error
         result.final_heading_error_rad = final_heading_error
         return result
+
+    def _finish_primitive_action(self, *args, **kwargs):
+        return self._finish_action(*args, **kwargs)
 
     def publish_zero_twist(self):
         try:
@@ -1307,9 +988,9 @@ class DarthMaulControlNode(Node):
             state = self._state
             status = self._status
             command_enabled = self._command_enabled
-            active_waypoint_index = self._active_waypoint_index
-            waypoint_count = self._waypoint_count
-            distance = self._distance_to_active_waypoint_m
+            active_primitive_type = self._active_primitive_type
+            distance_remaining = self._distance_remaining_m
+            distance_traveled = self._distance_traveled_m
             heading_error = self._heading_error_rad
 
         msg = ControlStatus()
@@ -1318,9 +999,9 @@ class DarthMaulControlNode(Node):
         msg.status = status
         msg.odom_available = self._is_odom_fresh()
         msg.command_enabled = command_enabled
-        msg.active_waypoint_index = active_waypoint_index
-        msg.waypoint_count = waypoint_count
-        msg.distance_to_active_waypoint_m = distance
+        msg.active_primitive_type = active_primitive_type
+        msg.distance_remaining_m = distance_remaining
+        msg.distance_traveled_m = distance_traveled
         msg.heading_error_rad = heading_error
         self._status_pub.publish(msg)
 
@@ -1345,17 +1026,22 @@ class DarthMaulControlNode(Node):
         pose.pose = odom.pose.pose
         return pose
 
-    def _last_distance(self):
+    def _last_distance_remaining(self):
         with self._state_lock:
-            return self._distance_to_active_waypoint_m
+            return self._distance_remaining_m
+
+    def _last_distance_traveled(self):
+        with self._state_lock:
+            return self._distance_traveled_m
+
+    def _last_distance(self):
+        return self._last_distance_remaining()
 
     def _last_heading_error(self):
         with self._state_lock:
             return self._heading_error_rad
 
     def destroy_node(self):
-        if hasattr(self, '_primitive_action_server'):
-            self._primitive_action_server.destroy()
         if hasattr(self, '_action_server'):
             self._action_server.destroy()
         super().destroy_node()

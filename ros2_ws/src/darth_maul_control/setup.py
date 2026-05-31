@@ -22,7 +22,7 @@ setup(
     zip_safe=True,
     maintainer='dtdav',
     maintainer_email='dtdav@todo.todo',
-    description='Safe waypoint-following motion-control foundation for the DarthMaulPI robot.',
+    description='Primitive motion-control executor for the DarthMaulPI robot.',
     license='MIT',
     tests_require=['pytest'],
     entry_points={

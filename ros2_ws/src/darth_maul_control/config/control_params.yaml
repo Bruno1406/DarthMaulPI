@@ -6,7 +6,7 @@ darth_maul_control:
     status_topic: /darth_maul_control/status
 
     max_linear_x_mps: 0.20
-    max_linear_y_mps: 0.20
+    max_linear_y_mps: 0.10
     max_angular_z_radps: 0.50
 
     k_position: 0.6

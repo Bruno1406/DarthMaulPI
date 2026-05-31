@@ -14,7 +14,6 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "action/ExecuteMotionPrimitive.action"
-  "action/FollowWaypoints.action"
   "msg/ControlStatus.msg"
   DEPENDENCIES builtin_interfaces geometry_msgs
 )

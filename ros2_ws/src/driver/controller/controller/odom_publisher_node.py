@@ -286,8 +286,20 @@ class Controller(Node):
 
                 self.odom.header.stamp = self.clock.now().to_msg()
 
-                delta_x = self.linear_x * self.dt * math.cos(self.pose_yaw)
-                delta_y = self.linear_x * self.dt * math.sin(self.pose_yaw)
+                delta_x = (
+                    (
+                        self.linear_x * math.cos(self.pose_yaw)
+                        - self.linear_y * math.sin(self.pose_yaw)
+                    )
+                    * self.dt
+                )
+                delta_y = (
+                    (
+                        self.linear_x * math.sin(self.pose_yaw)
+                        + self.linear_y * math.cos(self.pose_yaw)
+                    )
+                    * self.dt
+                )
                 delta_yaw = self.angular_z * self.dt
 
                 self.x += delta_x
