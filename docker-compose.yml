@@ -1,0 +1,20 @@
+services:
+  ros2_jazzy_dev:
+    build: .
+    image: mentorpi_jazzy:latest
+    container_name: jazzy_dev
+    network_mode: host       # Crucial for ROS 2 Discovery & local WiFi/cable communication
+    privileged: true         # Allows access to USB cameras plugged into your laptop
+    ipc: host                # Accelerates GUI performance for RViz
+    environment:
+      - DISPLAY=${DISPLAY}   # Pipes your laptop's screen graphics into Docker
+      - QT_X11_NO_MITSHM=1
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      
+      # Maps your entire parent project folder directly into the container root
+      - .:/root/workspace
+      
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
