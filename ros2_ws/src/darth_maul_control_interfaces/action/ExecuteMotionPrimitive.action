@@ -1,62 +1,64 @@
 # Goal
-# Execute one simple odom-based motion primitive.
+# Execute one simple odom/LiDAR-based motion primitive.
 #
-# DRIVE_FORWARD and DRIVE_BACKWARD:
-#   value is distance in meters and must be > 0.
-#
-# STRAFE_LEFT and STRAFE_RIGHT:
-#   value is distance in meters and must be > 0.
-#   linear.y > 0 is left in the robot body frame.
-#
-# ROTATE_RELATIVE:
-#   value is signed angle in radians, positive is counterclockwise.
+# Coordinate convention:
+# - DRIVE_FORWARD: value is meters forward, must be > 0.
+# - DRIVE_BACKWARD: value is meters backward, must be > 0.
+# - ROTATE_RELATIVE: value is signed radians, positive counterclockwise.
+# - STOP: value ignored.
+# - WAIT: value is seconds.
+# - ADVANCE_CELL: value ignored, uses configured cell_length_m.
 
 uint8 DRIVE_FORWARD=1
 uint8 DRIVE_BACKWARD=2
-uint8 STRAFE_LEFT=3
-uint8 STRAFE_RIGHT=4
-uint8 ROTATE_RELATIVE=5
+uint8 ROTATE_RELATIVE=3
+uint8 STOP=4
+uint8 WAIT=5
+uint8 ADVANCE_CELL=6
 
 uint8 primitive_type
-float64 value
+float32 value
 
-# Optional tolerances. Zero means node defaults.
-float64 position_tolerance_m
-float64 heading_tolerance_rad
+# Optional tolerances. <= 0 means use configured defaults.
+float32 position_tolerance_m
+float32 heading_tolerance_rad
 
-# Optional per-goal velocity limits. Zero means package defaults.
-float64 max_linear_x_mps
-float64 max_linear_y_mps
-float64 max_angular_z_radps
+# Optional per-goal velocity caps. <= 0 means use configured defaults.
+float32 max_linear_x_mps
+float32 max_linear_y_mps
+float32 max_angular_z_radps
 
-# Zero duration means node default.
-builtin_interfaces/Duration timeout
+# Optional timeout. <= 0 means compute from distance/speed plus configured margin.
+float32 timeout_s
+
+# If true, forward motion requires fresh LiDAR and stops if front is blocked.
+bool collision_check_enabled
+
 ---
 # Result
+
 bool success
 
-uint8 RESULT_SUCCESS=0
-uint8 RESULT_CANCELED=1
-uint8 RESULT_TIMEOUT=2
-uint8 RESULT_INVALID_GOAL=3
-uint8 RESULT_ODOM_UNAVAILABLE=4
-uint8 RESULT_CONTROL_FAILED=5
+uint8 SUCCESS=0
+uint8 REJECTED_INVALID_GOAL=1
+uint8 TIMEOUT=2
+uint8 OBSTACLE_TOO_CLOSE=3
+uint8 FINAL_ERROR_TOO_LARGE=4
+uint8 CANCELED=5
+uint8 ODOM_UNAVAILABLE=6
+uint8 INTERNAL_ERROR=7
 
 uint8 result_code
 string message
 
-geometry_msgs/PoseStamped start_pose
-geometry_msgs/PoseStamped final_pose
+float32 final_position_error_m
+float32 final_heading_error_rad
 
-float64 distance_traveled_m
-float64 final_position_error_m
-float64 final_heading_error_rad
 ---
 # Feedback
-geometry_msgs/PoseStamped current_pose
 
-float64 distance_traveled_m
-float64 remaining_distance_m
-float64 heading_error_rad
-
-string status
+float32 progress
+float32 distance_remaining_m
+float32 heading_remaining_rad
+float32 front_clearance_m
+string state

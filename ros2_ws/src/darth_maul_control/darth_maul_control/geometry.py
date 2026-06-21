@@ -1,29 +1,33 @@
 import math
 
 
-def yaw_from_quaternion(q):
+def yaw_from_quaternion(q) -> float:
     siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
     cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
     return math.atan2(siny_cosp, cosy_cosp)
 
 
-def normalize_angle(angle_rad):
+def normalize_angle(angle_rad: float) -> float:
     if not math.isfinite(angle_rad):
         return 0.0
+
     normalized = (angle_rad + math.pi) % (2.0 * math.pi) - math.pi
     if normalized <= -math.pi:
         return normalized + 2.0 * math.pi
     return normalized
 
 
-def planar_distance(pose_a, pose_b):
-    return math.hypot(
-        pose_a.pose.position.x - pose_b.pose.position.x,
-        pose_a.pose.position.y - pose_b.pose.position.y,
-    )
+def clamp(value: float, low: float, high: float) -> float:
+    if not math.isfinite(value):
+        return 0.0
+    return max(low, min(high, value))
 
 
-def is_finite_pose_stamped(pose_stamped):
+def sign(value: float) -> float:
+    return 1.0 if value >= 0.0 else -1.0
+
+
+def is_finite_pose_stamped(pose_stamped) -> bool:
     pose = pose_stamped.pose
     values = (
         pose.position.x,

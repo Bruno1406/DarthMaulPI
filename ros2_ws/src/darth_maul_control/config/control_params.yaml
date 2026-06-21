@@ -1,18 +1,85 @@
 darth_maul_control:
   ros__parameters:
-    control_rate_hz: 20.0
-    odom_topic: odom
-    cmd_vel_topic: controller/cmd_vel
-    status_topic: /darth_maul_control/status
+    # Topics
+    odom_topic: "/odom"
+    scan_topic: "/ldlidar_node/scan"
+    cmd_vel_topic: "/controller/cmd_vel"
+    status_topic: "/darth_maul_control/status"
 
-    max_linear_x_mps: 0.20
-    max_linear_y_mps: 0.10
-    max_angular_z_radps: 0.50
+    # Robot/maze constants
+    cell_length_m: 0.254
 
-    k_position: 0.6
-    k_heading: 1.2
+    # Main loop
+    control_rate_hz: 25.0
 
-    default_position_tolerance_m: 0.04
-    default_heading_tolerance_rad: 0.10
-    default_timeout_sec: 30.0
-    odom_timeout_sec: 0.5
+    # Default tolerances
+    default_position_tolerance_m: 0.025
+    default_heading_tolerance_rad: 0.06
+
+    # Conservative speed limits for first real robot tuning
+    default_linear_speed_mps: 0.070
+    default_reverse_speed_mps: 0.050
+    default_angular_speed_radps: 0.280
+
+    max_linear_x_mps: 0.090
+    max_linear_y_mps: 0.035
+    max_angular_z_radps: 0.350
+
+    # Minimum commands to overcome static friction.
+    # These are only used while outside tolerance.
+    min_linear_x_mps: 0.025
+    min_angular_z_radps: 0.080
+
+    # Capped-P gains
+    k_distance: 0.80
+    k_heading: 1.60
+
+    # Acceleration limiting
+    max_linear_accel_mps2: 0.18
+    max_lateral_accel_mps2: 0.12
+    max_angular_accel_radps2: 0.75
+
+    # Sensor freshness
+    odom_timeout_sec: 0.50
+    scan_timeout_sec: 0.50
+
+    # LiDAR front stop
+    require_scan_for_forward: true
+    front_sector_deg: 35.0
+    front_stop_distance_m: 0.13
+
+    # Optional correction must stay disabled for initial robot tests.
+    # Test order: STOP, ROTATE_RELATIVE, DRIVE_FORWARD, ADVANCE_CELL,
+    # then lateral_correction_enabled, then wall centering/lateral wall correction.
+    wall_centering_enabled: false
+    side_sector_center_deg: 90.0
+    side_sector_width_deg: 25.0
+    side_wall_target_distance_m: 0.125
+
+    # Keep angular wall centering off unless lateral wall correction is bad.
+    angular_wall_centering_enabled: false
+    k_wall_centering: 0.60
+    wall_centering_max_correction_radps: 0.08
+
+    # Lateral correction: uses mecanum linear.y for small in-cell centering.
+    # Enable only after basic ADVANCE_CELL works.
+    lateral_correction_enabled: false
+    k_lateral_cross_track: 0.50
+    max_lateral_correction_mps: 0.025
+
+    # Enable only after lateral_correction_enabled works in basic testing.
+    wall_lateral_correction_enabled: false
+    k_lateral_wall: 0.40
+    max_wall_lateral_correction_mps: 0.025
+
+    # Timing
+    timeout_margin_sec: 3.0
+    wait_timeout_margin_sec: 1.0
+
+    # Stop behavior
+    stop_publish_duration_sec: 0.40
+    stop_publish_rate_hz: 25.0
+    settle_time_sec: 0.15
+
+    # Final validation
+    enforce_final_error: true

@@ -11,9 +11,12 @@ uint8 state
 string status
 
 bool odom_available
+bool scan_available
 bool command_enabled
 
 uint8 active_primitive_type
+
 float64 distance_remaining_m
 float64 distance_traveled_m
 float64 heading_error_rad
+float64 front_clearance_m

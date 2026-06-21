@@ -1,152 +1,209 @@
-import rclpy
 import math
-from rclpy.node import Node
-from maze_interface.srv import GetRosMaze
-from maze_solver.maze_utils import build_graph,I_to_ij
-from rclpy.action import ActionClient
+from dataclasses import dataclass
+from typing import List, Optional, Tuple
+
+import rclpy
 from darth_maul_control_interfaces.action import ExecuteMotionPrimitive
+from maze_interface.srv import GetRosMaze
+from rclpy.action import ActionClient
+from rclpy.node import Node
 
-class MazeNode:
-    def __init__(self, parent=None, position=None):
-        self.parent = parent
-        self.position = position
 
-        self.g = 0
-        self.h = 0
-        self.f = 0
+@dataclass
+class SearchNode:
+    position: int
+    parent: Optional['SearchNode'] = None
+    g: float = 0.0
+    h: float = 0.0
 
-    def __eq__(self, other):
-        return self.position == other.position
+    @property
+    def f(self) -> float:
+        return self.g + self.h
+
+
+def normalize_angle(angle: float) -> float:
+    while angle > math.pi:
+        angle -= 2.0 * math.pi
+    while angle < -math.pi:
+        angle += 2.0 * math.pi
+    return angle
+
 
 class MazeSolverNode(Node):
     def __init__(self):
         super().__init__('maze_solver_node')
-        self.client = self.create_client(GetRosMaze, 'get_ros_maze')  
 
+        self.declare_parameter('maze_nr', 1)
+        self.declare_parameter('cell_length_m', 0.254)
+        self.declare_parameter('motion_server_timeout_s', 5.0)
+
+        self.maze_nr = int(self.get_parameter('maze_nr').value)
+        self.cell_length_m = float(self.get_parameter('cell_length_m').value)
+        self.motion_server_timeout_s = float(
+            self.get_parameter('motion_server_timeout_s').value
+        )
+
+        self.maze_client = self.create_client(GetRosMaze, 'get_ros_maze')
         self.motion_client = ActionClient(
             self,
             ExecuteMotionPrimitive,
-            '/darth_maul_control/execute_motion_primitive'
+            '/darth_maul_control/execute_motion_primitive',
         )
 
-        self.command_queue = []
-        self.current_command = None
+        self.command_queue: List[Tuple[str, float]] = []
+        self.current_command: Optional[Tuple[str, float]] = None
 
+        self._request_maze()
 
-        while not self.client.wait_for_service(1.0):
+    def _request_maze(self) -> None:
+        while not self.maze_client.wait_for_service(1.0):
             self.get_logger().info('Waiting for get_ros_maze service...')
 
         request = GetRosMaze.Request()
-        request.maze_nr = 1
+        request.maze_nr = self.maze_nr
 
-        future = self.client.call_async(request)
-        future.add_done_callback(self.handle_maze_response)
+        future = self.maze_client.call_async(request)
+        future.add_done_callback(self._handle_maze_response)
 
-    def handle_maze_response(self,future):
-        response = future.result()
+    def _handle_maze_response(self, future) -> None:
+        try:
+            response = future.result()
+        except Exception as exc:
+            self.get_logger().error(f'get_ros_maze failed: {exc}')
+            return
+
         maze = response.maze
 
-        self.get_logger().info(f'n: {maze.n}')  
+        self.get_logger().info(f'n: {maze.n}')
         self.get_logger().info(f'm: {maze.m}')
         self.get_logger().info(f'start_idx: {maze.start_idx}')
         self.get_logger().info(f'end_idx: {maze.end_idx}')
         self.get_logger().info(f'start_orientation: {maze.start_orientation}')
         self.get_logger().info(f'l length: {len(maze.l)}')
 
-        L = self.ros_maze_to_matrix(maze)  #见下文
-        self.get_logger().info(f'First row of L: {L[0]}')
+        if maze.n == 0 or maze.m == 0 or not maze.l:
+            self.get_logger().error('Received empty maze.')
+            return
 
-        graph = build_graph(L)  #maze_util.py
+        grid = self._ros_maze_to_matrix(maze)
+        graph = self._build_graph(grid)
 
-        path = self.astar_path(graph, maze.start_idx, maze.end_idx, maze.n)
+        path = self._astar_path(graph, int(maze.start_idx), int(maze.end_idx), int(maze.n))
         self.get_logger().info(f'Path: {path}')
 
-        orientations = self.path_to_orientations(path, maze.n)
+        if not path:
+            self.get_logger().error('No path found.')
+            return
+
+        orientations = self._path_to_orientations(path, int(maze.n))
         self.get_logger().info(f'Orientations: {orientations}')
 
-        commands = self.orientations_to_commands(maze.start_orientation, orientations)
+        commands = self._orientations_to_commands(int(maze.start_orientation), orientations)
         self.get_logger().info(f'Commands: {commands}')
 
-        self.execute_commands(commands)
+        self._execute_commands(commands)
 
-    def ros_maze_to_matrix(self,maze):
-        L=[]
-        for i in range(maze.n):
-            row=[]
-            for j in range(maze.m):
-                row.append(maze.l[j*maze.n+i])
-            L.append(row)
-        return L
-    
-    def astar_path(self, graph, start_idx, end_idx, n):
-        start_node = MazeNode(None, start_idx)
-        start_node.g = start_node.h = start_node.f = 0
+    def _ros_maze_to_matrix(self, maze):
+        grid = []
+        for i in range(int(maze.n)):
+            row = []
+            for j in range(int(maze.m)):
+                row.append(int(maze.l[j * int(maze.n) + i]))
+            grid.append(row)
+        return grid
 
-        end_node = MazeNode(None, end_idx)
-        end_node.g = end_node.h = end_node.f = 0
+    def _build_graph(self, grid):
+        # Local implementation to avoid package-layout ambiguity.
+        # Maze wall bits:
+        # 1 = +x wall
+        # 2 = -x wall
+        # 4 = +y wall
+        # 8 = -y wall
+        # 15 = missing/unreachable cell
+        n = len(grid)
+        m = len(grid[0]) if n > 0 else 0
+        graph = {}
 
-        open_list = []
-        closed_list = []
+        def idx(i, j):
+            return j * n + i + 1
 
-        open_list.append(start_node)
-
-        while len(open_list) > 0:
-            current_node = open_list[0]
-            current_index = 0
-
-            for index, item in enumerate(open_list):
-                if item.f < current_node.f:
-                    current_node = item
-                    current_index = index
-
-            open_list.pop(current_index)
-            closed_list.append(current_node)
-
-            if current_node == end_node:
-                path = []
-                current = current_node
-
-                while current is not None:
-                    path.append(current.position)
-                    current = current.parent
-
-                return path[::-1]
-
-            children = []
-            for neighbor_idx in graph.get(current_node.position, []):
-                new_node = MazeNode(current_node, neighbor_idx)
-                children.append(new_node)
-
-            for child in children:
-                if child in closed_list:
+        for i in range(n):
+            for j in range(m):
+                cell = grid[i][j]
+                if cell == 15:
                     continue
 
-                child.g = current_node.g + 1
-                child.h = self.manhattan_distance(child.position, end_node.position, n)
-                child.f = child.g + child.h
+                current = idx(i, j)
+                neighbors = []
 
-                is_in_open = False
-                for open_node in open_list:
-                    if child == open_node:
-                        is_in_open = True
-                        
-                        if child.g < open_node.g:
-                            open_list.remove(open_node)
-                            open_list.append(child)
-                        break      
+                if not (cell & 1) and i + 1 < n and grid[i + 1][j] != 15:
+                    neighbors.append(idx(i + 1, j))
 
-                if not is_in_open:
-                    open_list.append(child)
-  
+                if not (cell & 2) and i - 1 >= 0 and grid[i - 1][j] != 15:
+                    neighbors.append(idx(i - 1, j))
+
+                if not (cell & 4) and j + 1 < m and grid[i][j + 1] != 15:
+                    neighbors.append(idx(i, j + 1))
+
+                if not (cell & 8) and j - 1 >= 0 and grid[i][j - 1] != 15:
+                    neighbors.append(idx(i, j - 1))
+
+                graph[current] = neighbors
+
+        return graph
+
+    def _astar_path(self, graph, start_idx, end_idx, n):
+        start = SearchNode(position=start_idx)
+        open_list = [start]
+        closed = set()
+        best_g = {start_idx: 0.0}
+
+        while open_list:
+            current = min(open_list, key=lambda node: node.f)
+            open_list.remove(current)
+
+            if current.position == end_idx:
+                path = []
+                node = current
+                while node is not None:
+                    path.append(node.position)
+                    node = node.parent
+                return list(reversed(path))
+
+            closed.add(current.position)
+
+            for neighbor in graph.get(current.position, []):
+                if neighbor in closed:
+                    continue
+
+                tentative_g = current.g + 1.0
+                if tentative_g >= best_g.get(neighbor, float('inf')):
+                    continue
+
+                best_g[neighbor] = tentative_g
+                child = SearchNode(
+                    position=neighbor,
+                    parent=current,
+                    g=tentative_g,
+                    h=self._manhattan_distance(neighbor, end_idx, n),
+                )
+                open_list.append(child)
+
         return []
 
-    def manhattan_distance(self, current_idx, target_idx, n):
-        current_i, current_j = I_to_ij(current_idx, n)
-        target_i, target_j = I_to_ij(target_idx, n)
-
+    def _manhattan_distance(self, current_idx, target_idx, n):
+        current_i, current_j = self._I_to_ij(current_idx, n)
+        target_i, target_j = self._I_to_ij(target_idx, n)
         return abs(current_i - target_i) + abs(current_j - target_j)
-    
-    def path_to_orientations(self, path, n):
+
+    @staticmethod
+    def _I_to_ij(index, n):
+        # Returns zero-based i, j.
+        i = (index - 1) % n
+        j = (index - 1) // n
+        return i, j
+
+    def _path_to_orientations(self, path, n):
         orientations = []
 
         for current, nxt in zip(path, path[1:]):
@@ -164,39 +221,38 @@ class MazeSolverNode(Node):
                 raise ValueError(f'{current} and {nxt} are not neighboring cells')
 
         return orientations
-    
-    def orientations_to_commands(self, start_orientation, orientations):
+
+    def _orientations_to_commands(self, start_orientation, orientations):
         commands = []
         current_orientation = start_orientation
 
         for target_orientation in orientations:
-            turn = self.turn_between_orientations(current_orientation,target_orientation)
+            turn = self._turn_between_orientations(current_orientation, target_orientation)
 
-            if turn != 0:
-                commands.append(('ratation',turn))
+            if abs(turn) > 1.0e-6:
+                commands.append(('rotate', turn))
 
-            commands.append(('drive_forward',0.254))
+            commands.append(('advance_cell', self.cell_length_m))
             current_orientation = target_orientation
-        
+
         return commands
-    
-    def turn_between_orientations(self, current, target):
+
+    def _turn_between_orientations(self, current, target):
         angles = {
             1: 0.0,
-            4: math.pi/2.0,
+            4: math.pi / 2.0,
             2: math.pi,
-            8: -math.pi/2.0
+            8: -math.pi / 2.0,
         }
 
-        diff = angles[target]-angles[current]
-        while diff > math.pi:
-            diff = diff-2.0*math.pi
-        while diff < -math.pi:
-            diff = diff+2.0*math.pi
-        
-        return diff
-    
-    def execute_commands(self, commands):
+        if current not in angles:
+            raise ValueError(f'Invalid current orientation: {current}')
+        if target not in angles:
+            raise ValueError(f'Invalid target orientation: {target}')
+
+        return normalize_angle(angles[target] - angles[current])
+
+    def _execute_commands(self, commands):
         self.command_queue = list(commands)
 
         if not self.command_queue:
@@ -204,28 +260,35 @@ class MazeSolverNode(Node):
             return
 
         self.get_logger().info(f'Executing {len(self.command_queue)} motion commands.')
-        self.send_next_command()
 
-    def send_next_command(self):
-        if not self.command_queue:
-            self.get_logger().info('All motion commands finished.')
-            return
-        
-        command, value = self.command_queue.pop(0)
-        self.current_command = (command, value)
-
-        if not self.motion_client.wait_for_server(timeout_sec=2.0):
+        if not self.motion_client.wait_for_server(timeout_sec=self.motion_server_timeout_s):
             self.get_logger().error('Motion action server is not available.')
             return
 
+        self._send_next_command()
+
+    def _send_next_command(self):
+        if not self.command_queue:
+            self.get_logger().info('All motion commands finished.')
+            return
+
+        command, value = self.command_queue.pop(0)
+        self.current_command = (command, value)
+
         goal = ExecuteMotionPrimitive.Goal()
 
-        if command == 'drive_forward':
+        if command == 'advance_cell':
+            goal.primitive_type = ExecuteMotionPrimitive.Goal.ADVANCE_CELL
+            goal.value = 0.0
+            goal.collision_check_enabled = True
+        elif command == 'drive_forward':
             goal.primitive_type = ExecuteMotionPrimitive.Goal.DRIVE_FORWARD
             goal.value = float(value)
-        elif command == 'rotation':
+            goal.collision_check_enabled = True
+        elif command == 'rotate':
             goal.primitive_type = ExecuteMotionPrimitive.Goal.ROTATE_RELATIVE
             goal.value = float(value)
+            goal.collision_check_enabled = False
         else:
             self.get_logger().error(f'Unknown motion command: {command}')
             return
@@ -235,13 +298,39 @@ class MazeSolverNode(Node):
         goal.max_linear_x_mps = 0.0
         goal.max_linear_y_mps = 0.0
         goal.max_angular_z_radps = 0.0
+        goal.timeout_s = 0.0
 
         self.get_logger().info(f'Sending motion command: {command}, {value}')
-        future = self.motion_client.send_goal_async(goal)
-        future.add_done_callback(self.handle_motion_goal_response)
+        future = self.motion_client.send_goal_async(
+            goal,
+            feedback_callback=self._handle_motion_feedback,
+        )
+        future.add_done_callback(self._handle_motion_goal_response)
 
-    def handle_motion_goal_response(self, future):
-        goal_handle = future.result()
+    def _handle_motion_feedback(self, feedback_msg):
+        feedback = feedback_msg.feedback
+        self.get_logger().debug(
+            f'Motion feedback: state={feedback.state}, '
+            f'progress={feedback.progress:.2f}, '
+            f'remaining={feedback.distance_remaining_m:.3f}, '
+            f'heading={feedback.heading_remaining_rad:.3f}, '
+            f'front={feedback.front_clearance_m:.3f}'
+        )
+
+    def _handle_motion_goal_response(self, future):
+        try:
+            goal_handle = future.result()
+        except Exception as exc:
+            self.get_logger().error(
+                f'Motion goal request failed for {self.current_command}: {exc}'
+            )
+            return
+
+        if goal_handle is None:
+            self.get_logger().error(
+                f'Motion goal request returned no goal handle for {self.current_command}'
+            )
+            return
 
         if not goal_handle.accepted:
             self.get_logger().error(f'Motion goal rejected: {self.current_command}')
@@ -249,32 +338,43 @@ class MazeSolverNode(Node):
 
         self.get_logger().info(f'Motion goal accepted: {self.current_command}')
         result_future = goal_handle.get_result_async()
-        result_future.add_done_callback(self.handle_motion_result)
+        result_future.add_done_callback(self._handle_motion_result)
 
-    def handle_motion_result(self, future):
-        result = future.result().result
+    def _handle_motion_result(self, future):
+        try:
+            wrapped_result = future.result()
+            result = wrapped_result.result
+        except Exception as exc:
+            self.get_logger().error(
+                f'Motion result failed for {self.current_command}: {exc}'
+            )
+            return
 
         self.get_logger().info(
             f'Motion result for {self.current_command}: '
             f'success={result.success}, '
             f'code={result.result_code}, '
-            f'message={result.message}'
+            f'message={result.message}, '
+            f'pos_error={result.final_position_error_m:.3f}, '
+            f'heading_error={result.final_heading_error_rad:.3f}'
         )
 
         if not result.success:
             self.get_logger().error('Stopping command queue because motion failed.')
             return
 
-        self.send_next_command()
+        self._send_next_command()
 
 
-    
 def main(args=None):
     rclpy.init(args=args)
     node = MazeSolverNode()
-    rclpy.spin(node)
-    node.destroy_node()
-    rclpy.shutdown()
+    try:
+        rclpy.spin(node)
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()
