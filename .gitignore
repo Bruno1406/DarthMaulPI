@@ -9,3 +9,4 @@ ros2_ws/install/
 ros2_ws/log/
 ros2_ws/src/darth_maul_control/test/
 merge.py
+.venv/
