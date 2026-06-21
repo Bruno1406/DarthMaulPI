@@ -1,0 +1,63 @@
+# Goal
+
+uint8 DRIVE_FORWARD=1
+uint8 DRIVE_BACKWARD=2
+uint8 ROTATE_RELATIVE=3
+uint8 STOP=4
+uint8 WAIT=5
+uint8 ADVANCE_CELL=6
+
+uint8 primitive_type
+
+# Meaning:
+# DRIVE_FORWARD: meters forward
+# DRIVE_BACKWARD: meters backward
+# ROTATE_RELATIVE: radians, positive counterclockwise
+# STOP: ignored
+# WAIT: seconds
+# ADVANCE_CELL: ignored, uses configured cell_length_m
+float32 value
+
+# If <= 0.0, the server uses configured defaults.
+float32 position_tolerance_m
+float32 heading_tolerance_rad
+float32 max_linear_x_mps
+float32 max_linear_y_mps
+float32 max_angular_z_radps
+
+# If <= 0.0, the server computes timeout from distance/speed plus margin.
+float32 timeout_s
+
+# If true, forward motion requires fresh LiDAR and stops if front is blocked.
+bool collision_check_enabled
+
+---
+# Result
+
+bool success
+
+uint8 SUCCESS=0
+uint8 REJECTED_INVALID_GOAL=1
+uint8 NAV2_SERVER_UNAVAILABLE=2
+uint8 NAV2_GOAL_REJECTED=3
+uint8 NAV2_FAILED=4
+uint8 TIMEOUT=5
+uint8 OBSTACLE_TOO_CLOSE=6
+uint8 FINAL_ERROR_TOO_LARGE=7
+uint8 CANCELED=8
+uint8 INTERNAL_ERROR=9
+
+uint8 result_code
+string message
+
+float32 final_position_error_m
+float32 final_heading_error_rad
+
+---
+# Feedback
+
+float32 progress
+float32 distance_remaining_m
+float32 heading_remaining_rad
+float32 front_clearance_m
+string state
