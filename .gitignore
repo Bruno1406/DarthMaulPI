@@ -6,4 +6,3 @@ ros2_ws/log/
 .venv/
 *.pyc
 merge.py
-*.txt
