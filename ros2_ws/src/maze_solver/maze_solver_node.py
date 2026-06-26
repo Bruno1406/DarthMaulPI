@@ -94,6 +94,7 @@ class MazeSolverNode(Node):
         self.declare_parameter('maze_nr', 1)
         self.declare_parameter('cell_length_m', 0.254)
         self.declare_parameter('max_cells_per_drive', 2)
+        self.declare_parameter('max_commands_to_execute', 0)
         self.declare_parameter('execute_motions', True)
         self.declare_parameter('motion_server_timeout_s', 5.0)
 
@@ -102,6 +103,10 @@ class MazeSolverNode(Node):
         self.max_cells_per_drive = max(
             1,
             int(self.get_parameter('max_cells_per_drive').value),
+        )
+        self.max_commands_to_execute = max(
+            0,
+            int(self.get_parameter('max_commands_to_execute').value),
         )
         self.execute_motions = bool(self.get_parameter('execute_motions').value)
         self.motion_server_timeout_s = float(
@@ -112,6 +117,7 @@ class MazeSolverNode(Node):
             f'maze_nr={self.maze_nr}, '
             f'cell_length_m={self.cell_length_m:.3f}, '
             f'max_cells_per_drive={self.max_cells_per_drive}, '
+            f'max_commands_to_execute={self.max_commands_to_execute}, '
             f'execute_motions={self.execute_motions}'
         )
 
@@ -171,6 +177,15 @@ class MazeSolverNode(Node):
         self.get_logger().info(f'Orientations: {orientations}')
 
         commands = self._orientations_to_commands(int(maze.start_orientation), orientations)
+        if self.max_commands_to_execute > 0:
+            original_count = len(commands)
+            commands = commands[:self.max_commands_to_execute]
+            self.get_logger().warn(
+                f'max_commands_to_execute={self.max_commands_to_execute}; '
+                f'truncated command list from {original_count} to '
+                f'{len(commands)} commands.'
+            )
+
         self.get_logger().info(f'Commands: {commands}')
         self.get_logger().info(f'Path cells: {len(path)}')
         self.get_logger().info(f'Path edges: {len(orientations)}')
@@ -431,9 +446,19 @@ def main(args=None):
     node = MazeSolverNode()
     try:
         rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
     finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        if node is not None:
+            try:
+                node.destroy_node()
+            except KeyboardInterrupt:
+                pass
+        if rclpy.ok():
+            try:
+                rclpy.shutdown()
+            except KeyboardInterrupt:
+                pass
 
 
 if __name__ == '__main__':
