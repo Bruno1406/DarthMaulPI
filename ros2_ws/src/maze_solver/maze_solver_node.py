@@ -29,18 +29,90 @@ def normalize_angle(angle: float) -> float:
     return angle
 
 
+def orientation_angle(orientation: int) -> float:
+    angles = {
+        1: 0.0,
+        4: math.pi / 2.0,
+        2: math.pi,
+        8: -math.pi / 2.0,
+    }
+    if orientation not in angles:
+        raise ValueError(f'Invalid orientation: {orientation}')
+    return angles[orientation]
+
+
+def turn_between_orientations(current: int, target: int) -> float:
+    return normalize_angle(orientation_angle(target) - orientation_angle(current))
+
+
+def build_motion_commands(
+    start_orientation: int,
+    orientations: List[int],
+    cell_length_m: float,
+    max_cells_per_drive: int,
+) -> List[Tuple[str, float]]:
+    max_cells_per_drive = max(1, int(max_cells_per_drive))
+    commands: List[Tuple[str, float]] = []
+
+    if not orientations:
+        return commands
+
+    current_orientation = int(start_orientation)
+    i = 0
+
+    while i < len(orientations):
+        run_orientation = int(orientations[i])
+        run_length = 1
+
+        while (
+            i + run_length < len(orientations)
+            and int(orientations[i + run_length]) == run_orientation
+        ):
+            run_length += 1
+
+        turn = turn_between_orientations(current_orientation, run_orientation)
+        if abs(turn) > 1.0e-6:
+            commands.append(('rotate', turn))
+
+        remaining_cells = run_length
+        while remaining_cells > 0:
+            cells_this_command = min(remaining_cells, max_cells_per_drive)
+            distance_m = float(cells_this_command) * float(cell_length_m)
+            commands.append(('drive_forward', distance_m))
+            remaining_cells -= cells_this_command
+
+        current_orientation = run_orientation
+        i += run_length
+
+    return commands
+
+
 class MazeSolverNode(Node):
     def __init__(self):
         super().__init__('maze_solver_node')
 
         self.declare_parameter('maze_nr', 1)
         self.declare_parameter('cell_length_m', 0.254)
+        self.declare_parameter('max_cells_per_drive', 2)
+        self.declare_parameter('execute_motions', True)
         self.declare_parameter('motion_server_timeout_s', 5.0)
 
         self.maze_nr = int(self.get_parameter('maze_nr').value)
         self.cell_length_m = float(self.get_parameter('cell_length_m').value)
+        self.max_cells_per_drive = max(
+            1,
+            int(self.get_parameter('max_cells_per_drive').value),
+        )
+        self.execute_motions = bool(self.get_parameter('execute_motions').value)
         self.motion_server_timeout_s = float(
             self.get_parameter('motion_server_timeout_s').value
+        )
+
+        self.get_logger().info(
+            f'maze_nr={self.maze_nr}, '
+            f'cell_length_m={self.cell_length_m:.3f}, '
+            f'max_cells_per_drive={self.max_cells_per_drive}, '
+            f'execute_motions={self.execute_motions}'
         )
 
         self.maze_client = self.create_client(GetRosMaze, 'get_ros_maze')
@@ -100,6 +172,17 @@ class MazeSolverNode(Node):
 
         commands = self._orientations_to_commands(int(maze.start_orientation), orientations)
         self.get_logger().info(f'Commands: {commands}')
+        self.get_logger().info(f'Path cells: {len(path)}')
+        self.get_logger().info(f'Path edges: {len(orientations)}')
+        self.get_logger().info(f'Motion commands after compression: {len(commands)}')
+        for idx, command in enumerate(commands, start=1):
+            self.get_logger().info(f'Command {idx}/{len(commands)}: {command}')
+
+        if not self.execute_motions:
+            self.get_logger().warn(
+                'execute_motions is false; command list generated but not executed.'
+            )
+            return
 
         self._execute_commands(commands)
 
@@ -223,34 +306,15 @@ class MazeSolverNode(Node):
         return orientations
 
     def _orientations_to_commands(self, start_orientation, orientations):
-        commands = []
-        current_orientation = start_orientation
-
-        for target_orientation in orientations:
-            turn = self._turn_between_orientations(current_orientation, target_orientation)
-
-            if abs(turn) > 1.0e-6:
-                commands.append(('rotate', turn))
-
-            commands.append(('advance_cell', self.cell_length_m))
-            current_orientation = target_orientation
-
-        return commands
+        return build_motion_commands(
+            int(start_orientation),
+            list(orientations),
+            self.cell_length_m,
+            self.max_cells_per_drive,
+        )
 
     def _turn_between_orientations(self, current, target):
-        angles = {
-            1: 0.0,
-            4: math.pi / 2.0,
-            2: math.pi,
-            8: -math.pi / 2.0,
-        }
-
-        if current not in angles:
-            raise ValueError(f'Invalid current orientation: {current}')
-        if target not in angles:
-            raise ValueError(f'Invalid target orientation: {target}')
-
-        return normalize_angle(angles[target] - angles[current])
+        return turn_between_orientations(int(current), int(target))
 
     def _execute_commands(self, commands):
         self.command_queue = list(commands)
@@ -277,11 +341,7 @@ class MazeSolverNode(Node):
 
         goal = ExecuteMotionPrimitive.Goal()
 
-        if command == 'advance_cell':
-            goal.primitive_type = ExecuteMotionPrimitive.Goal.ADVANCE_CELL
-            goal.value = 0.0
-            goal.collision_check_enabled = True
-        elif command == 'drive_forward':
+        if command == 'drive_forward':
             goal.primitive_type = ExecuteMotionPrimitive.Goal.DRIVE_FORWARD
             goal.value = float(value)
             goal.collision_check_enabled = True
