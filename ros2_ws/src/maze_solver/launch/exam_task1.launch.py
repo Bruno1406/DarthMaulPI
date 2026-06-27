@@ -1,6 +1,5 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -11,23 +10,17 @@ def generate_launch_description():
     max_cells_per_drive = LaunchConfiguration('max_cells_per_drive')
     max_commands_to_execute = LaunchConfiguration('max_commands_to_execute')
     execute_motions = LaunchConfiguration('execute_motions')
-    start_maze_server = LaunchConfiguration('start_maze_server')
+    maze_service_timeout_s = LaunchConfiguration('maze_service_timeout_s')
+    shutdown_on_fatal_error = LaunchConfiguration('shutdown_on_fatal_error')
 
     return LaunchDescription([
         DeclareLaunchArgument('maze_nr', default_value='1'),
         DeclareLaunchArgument('cell_length_m', default_value='0.254'),
         DeclareLaunchArgument('max_cells_per_drive', default_value='2'),
         DeclareLaunchArgument('max_commands_to_execute', default_value='0'),
-        DeclareLaunchArgument('execute_motions', default_value='true'),
-        DeclareLaunchArgument('start_maze_server', default_value='true'),
-
-        Node(
-            package='maze_publisher_node',
-            executable='maze_server',
-            name='maze_publisher_server',
-            output='screen',
-            condition=IfCondition(start_maze_server),
-        ),
+        DeclareLaunchArgument('execute_motions', default_value='false'),
+        DeclareLaunchArgument('maze_service_timeout_s', default_value='15.0'),
+        DeclareLaunchArgument('shutdown_on_fatal_error', default_value='true'),
 
         Node(
             package='maze_solver',
@@ -40,6 +33,9 @@ def generate_launch_description():
                 'max_cells_per_drive': max_cells_per_drive,
                 'max_commands_to_execute': max_commands_to_execute,
                 'execute_motions': execute_motions,
+                'maze_service_name': '/get_ros_maze',
+                'maze_service_timeout_s': maze_service_timeout_s,
+                'shutdown_on_fatal_error': shutdown_on_fatal_error,
             }],
         ),
     ])

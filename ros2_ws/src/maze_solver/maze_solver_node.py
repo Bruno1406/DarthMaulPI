@@ -1,6 +1,7 @@
 import math
+import time
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 import rclpy
 from darth_maul_control_interfaces.action import ExecuteMotionPrimitive
@@ -19,6 +20,143 @@ class SearchNode:
     @property
     def f(self) -> float:
         return self.g + self.h
+
+
+VALID_ORIENTATIONS = {1, 2, 4, 8}
+
+
+def parse_bool_parameter(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, (int, float)):
+        return bool(value)
+
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {'true', '1', 'yes', 'y', 'on'}:
+            return True
+        if normalized in {'false', '0', 'no', 'n', 'off'}:
+            return False
+
+    raise ValueError(f'Cannot parse boolean parameter value: {value!r}')
+
+
+def validate_maze_fields(
+    n: int,
+    m: int,
+    start_idx: int,
+    end_idx: int,
+    start_orientation: int,
+    flattened_l: Sequence[int],
+) -> Optional[str]:
+    if n <= 0 or m <= 0:
+        return f'invalid maze dimensions: n={n}, m={m}'
+
+    expected_len = n * m
+    if len(flattened_l) != expected_len:
+        return (
+            f'invalid maze length: len(l)={len(flattened_l)}, '
+            f'expected n*m={expected_len}'
+        )
+
+    if start_idx < 1 or start_idx > expected_len:
+        return (
+            f'invalid start_idx={start_idx}; expected value in '
+            f'[1, {expected_len}]'
+        )
+
+    if end_idx < 1 or end_idx > expected_len:
+        return (
+            f'invalid end_idx={end_idx}; expected value in '
+            f'[1, {expected_len}]'
+        )
+
+    if start_orientation not in VALID_ORIENTATIONS:
+        return (
+            f'invalid start_orientation={start_orientation}; expected one of '
+            f'{sorted(VALID_ORIENTATIONS)}'
+        )
+
+    for idx, value in enumerate(flattened_l, start=1):
+        if value < 0 or value > 15:
+            return f'invalid maze cell value at I={idx}: {value}; expected 0..15'
+
+    if int(flattened_l[start_idx - 1]) == 15:
+        return f'start_idx={start_idx} refers to a missing/unreachable cell'
+
+    if int(flattened_l[end_idx - 1]) == 15:
+        return f'end_idx={end_idx} refers to a missing/unreachable cell'
+
+    return None
+
+
+def validate_ros_maze(maze) -> Optional[str]:
+    return validate_maze_fields(
+        int(maze.n),
+        int(maze.m),
+        int(maze.start_idx),
+        int(maze.end_idx),
+        int(maze.start_orientation),
+        [int(value) for value in maze.l],
+    )
+
+
+def validate_solver_parameters(
+    maze_nr: int,
+    cell_length_m: float,
+    max_cells_per_drive: int,
+    max_commands_to_execute: int,
+    motion_server_timeout_s: float,
+    maze_service_timeout_s: float,
+    maze_service_name: str,
+) -> Optional[str]:
+    if maze_nr < -128 or maze_nr > 127:
+        return f'maze_nr={maze_nr} is outside int8 range [-128, 127]'
+
+    if not math.isfinite(cell_length_m) or cell_length_m <= 0.0:
+        return (
+            f'cell_length_m={cell_length_m!r} is invalid; '
+            'expected a finite value > 0.0'
+        )
+
+    if max_cells_per_drive <= 0:
+        return (
+            f'max_cells_per_drive={max_cells_per_drive} is invalid; '
+            'expected an integer >= 1'
+        )
+
+    if max_commands_to_execute < 0:
+        return (
+            f'max_commands_to_execute={max_commands_to_execute} is invalid; '
+            'expected an integer >= 0'
+        )
+
+    if (
+        not math.isfinite(motion_server_timeout_s)
+        or motion_server_timeout_s <= 0.0
+    ):
+        return (
+            f'motion_server_timeout_s={motion_server_timeout_s!r} is invalid; '
+            'expected a finite value > 0.0'
+        )
+
+    if not math.isfinite(maze_service_timeout_s):
+        return (
+            f'maze_service_timeout_s={maze_service_timeout_s!r} is invalid; '
+            'expected a finite value'
+        )
+
+    if not maze_service_name.strip():
+        return 'maze_service_name must not be empty'
+
+    if not maze_service_name.startswith('/'):
+        return (
+            f'maze_service_name={maze_service_name!r} is invalid for exam use; '
+            'expected an absolute service name such as /get_ros_maze'
+        )
+
+    return None
 
 
 def normalize_angle(angle: float) -> float:
@@ -90,6 +228,8 @@ def build_motion_commands(
 class MazeSolverNode(Node):
     def __init__(self):
         super().__init__('maze_solver_node')
+        self.shutdown_requested = False
+        self.exit_code = 0
 
         self.declare_parameter('maze_nr', 1)
         self.declare_parameter('cell_length_m', 0.254)
@@ -97,31 +237,59 @@ class MazeSolverNode(Node):
         self.declare_parameter('max_commands_to_execute', 0)
         self.declare_parameter('execute_motions', True)
         self.declare_parameter('motion_server_timeout_s', 5.0)
+        self.declare_parameter('maze_service_name', '/get_ros_maze')
+        self.declare_parameter('maze_service_timeout_s', 15.0)
+        self.declare_parameter('shutdown_on_fatal_error', True)
 
         self.maze_nr = int(self.get_parameter('maze_nr').value)
         self.cell_length_m = float(self.get_parameter('cell_length_m').value)
-        self.max_cells_per_drive = max(
-            1,
-            int(self.get_parameter('max_cells_per_drive').value),
+        self.max_cells_per_drive = int(
+            self.get_parameter('max_cells_per_drive').value
         )
-        self.max_commands_to_execute = max(
-            0,
-            int(self.get_parameter('max_commands_to_execute').value),
+        self.max_commands_to_execute = int(
+            self.get_parameter('max_commands_to_execute').value
         )
-        self.execute_motions = bool(self.get_parameter('execute_motions').value)
+        self.execute_motions = parse_bool_parameter(
+            self.get_parameter('execute_motions').value
+        )
         self.motion_server_timeout_s = float(
             self.get_parameter('motion_server_timeout_s').value
         )
+        self.maze_service_name = str(
+            self.get_parameter('maze_service_name').value
+        ).strip()
+
+        self.maze_service_timeout_s = float(
+            self.get_parameter('maze_service_timeout_s').value
+        )
+        self.shutdown_on_fatal_error = parse_bool_parameter(
+            self.get_parameter('shutdown_on_fatal_error').value
+        )
+
+        parameter_error = validate_solver_parameters(
+            maze_nr=self.maze_nr,
+            cell_length_m=self.cell_length_m,
+            max_cells_per_drive=self.max_cells_per_drive,
+            max_commands_to_execute=self.max_commands_to_execute,
+            motion_server_timeout_s=self.motion_server_timeout_s,
+            maze_service_timeout_s=self.maze_service_timeout_s,
+            maze_service_name=self.maze_service_name,
+        )
+        if parameter_error is not None:
+            raise ValueError(parameter_error)
 
         self.get_logger().info(
             f'maze_nr={self.maze_nr}, '
             f'cell_length_m={self.cell_length_m:.3f}, '
             f'max_cells_per_drive={self.max_cells_per_drive}, '
             f'max_commands_to_execute={self.max_commands_to_execute}, '
-            f'execute_motions={self.execute_motions}'
+            f'execute_motions={self.execute_motions}, '
+            f'maze_service_name={self.maze_service_name}, '
+            f'maze_service_timeout_s={self.maze_service_timeout_s:.1f}, '
+            f'shutdown_on_fatal_error={self.shutdown_on_fatal_error}'
         )
 
-        self.maze_client = self.create_client(GetRosMaze, 'get_ros_maze')
+        self.maze_client = self.create_client(GetRosMaze, self.maze_service_name)
         self.motion_client = ActionClient(
             self,
             ExecuteMotionPrimitive,
@@ -133,12 +301,44 @@ class MazeSolverNode(Node):
 
         self._request_maze()
 
+    def _fatal(self, message: str) -> None:
+        self.get_logger().error(message)
+
+        if self.shutdown_on_fatal_error:
+            self.exit_code = 1
+            self.shutdown_requested = True
+
+    def _finish_successfully(self, message: str) -> None:
+        self.get_logger().info(message)
+        self.exit_code = 0
+        self.shutdown_requested = True
+
     def _request_maze(self) -> None:
-        while not self.maze_client.wait_for_service(1.0):
-            self.get_logger().info('Waiting for get_ros_maze service...')
+        deadline = None
+        if self.maze_service_timeout_s > 0.0:
+            deadline = time.monotonic() + self.maze_service_timeout_s
+
+        while not self.maze_client.wait_for_service(0.5):
+            if deadline is not None and time.monotonic() >= deadline:
+                self._fatal(
+                    f'Maze service {self.maze_service_name!r} was not available '
+                    f'within {self.maze_service_timeout_s:.1f} s. '
+                    'Check that the teacher-provided maze server is running, '
+                    'that ROS_DOMAIN_ID matches, and that this node is not '
+                    'namespaced away from /get_ros_maze.'
+                )
+                return
+
+            self.get_logger().info(
+                f'Waiting for maze service {self.maze_service_name!r}...'
+            )
 
         request = GetRosMaze.Request()
         request.maze_nr = self.maze_nr
+
+        self.get_logger().info(
+            f'Requesting maze_nr={self.maze_nr} from {self.maze_service_name!r}'
+        )
 
         future = self.maze_client.call_async(request)
         future.add_done_callback(self._handle_maze_response)
@@ -147,7 +347,7 @@ class MazeSolverNode(Node):
         try:
             response = future.result()
         except Exception as exc:
-            self.get_logger().error(f'get_ros_maze failed: {exc}')
+            self._fatal(f'Failed to call {self.maze_service_name!r}: {exc}')
             return
 
         maze = response.maze
@@ -159,9 +359,15 @@ class MazeSolverNode(Node):
         self.get_logger().info(f'start_orientation: {maze.start_orientation}')
         self.get_logger().info(f'l length: {len(maze.l)}')
 
-        if maze.n == 0 or maze.m == 0 or not maze.l:
-            self.get_logger().error('Received empty maze.')
+        validation_error = validate_ros_maze(maze)
+        if validation_error is not None:
+            self._fatal(
+                f'Received invalid maze from {self.maze_service_name!r}: '
+                f'{validation_error}'
+            )
             return
+
+        self.get_logger().info('Received valid maze.')
 
         grid = self._ros_maze_to_matrix(maze)
         graph = self._build_graph(grid)
@@ -170,13 +376,28 @@ class MazeSolverNode(Node):
         self.get_logger().info(f'Path: {path}')
 
         if not path:
-            self.get_logger().error('No path found.')
+            self._fatal(
+                f'No path found from {maze.start_idx} to {maze.end_idx}.'
+            )
             return
 
-        orientations = self._path_to_orientations(path, int(maze.n))
+        try:
+            orientations = self._path_to_orientations(path, int(maze.n))
+        except ValueError as exc:
+            self._fatal(str(exc))
+            return
+
         self.get_logger().info(f'Orientations: {orientations}')
 
-        commands = self._orientations_to_commands(int(maze.start_orientation), orientations)
+        try:
+            commands = self._orientations_to_commands(
+                int(maze.start_orientation),
+                orientations,
+            )
+        except ValueError as exc:
+            self._fatal(str(exc))
+            return
+
         if self.max_commands_to_execute > 0:
             original_count = len(commands)
             commands = commands[:self.max_commands_to_execute]
@@ -194,9 +415,7 @@ class MazeSolverNode(Node):
             self.get_logger().info(f'Command {idx}/{len(commands)}: {command}')
 
         if not self.execute_motions:
-            self.get_logger().warn(
-                'execute_motions is false; command list generated but not executed.'
-            )
+            self._finish_successfully('execute_motions=false; dry run complete.')
             return
 
         self._execute_commands(commands)
@@ -335,20 +554,23 @@ class MazeSolverNode(Node):
         self.command_queue = list(commands)
 
         if not self.command_queue:
-            self.get_logger().info('No motion commands to execute.')
+            self._finish_successfully('No motion commands to execute.')
             return
 
         self.get_logger().info(f'Executing {len(self.command_queue)} motion commands.')
 
         if not self.motion_client.wait_for_server(timeout_sec=self.motion_server_timeout_s):
-            self.get_logger().error('Motion action server is not available.')
+            self._fatal(
+                'Motion action server /darth_maul_control/execute_motion_primitive '
+                f'was not available within {self.motion_server_timeout_s:.1f} s.'
+            )
             return
 
         self._send_next_command()
 
     def _send_next_command(self):
         if not self.command_queue:
-            self.get_logger().info('All motion commands finished.')
+            self._finish_successfully('All motion commands finished.')
             return
 
         command, value = self.command_queue.pop(0)
@@ -365,7 +587,7 @@ class MazeSolverNode(Node):
             goal.value = float(value)
             goal.collision_check_enabled = False
         else:
-            self.get_logger().error(f'Unknown motion command: {command}')
+            self._fatal(f'Unknown motion command: {command}')
             return
 
         goal.position_tolerance_m = 0.0
@@ -396,19 +618,19 @@ class MazeSolverNode(Node):
         try:
             goal_handle = future.result()
         except Exception as exc:
-            self.get_logger().error(
+            self._fatal(
                 f'Motion goal request failed for {self.current_command}: {exc}'
             )
             return
 
         if goal_handle is None:
-            self.get_logger().error(
+            self._fatal(
                 f'Motion goal request returned no goal handle for {self.current_command}'
             )
             return
 
         if not goal_handle.accepted:
-            self.get_logger().error(f'Motion goal rejected: {self.current_command}')
+            self._fatal(f'Motion goal rejected: {self.current_command}')
             return
 
         self.get_logger().info(f'Motion goal accepted: {self.current_command}')
@@ -420,7 +642,7 @@ class MazeSolverNode(Node):
             wrapped_result = future.result()
             result = wrapped_result.result
         except Exception as exc:
-            self.get_logger().error(
+            self._fatal(
                 f'Motion result failed for {self.current_command}: {exc}'
             )
             return
@@ -435,7 +657,7 @@ class MazeSolverNode(Node):
         )
 
         if not result.success:
-            self.get_logger().error('Stopping command queue because motion failed.')
+            self._fatal('Stopping command queue because motion failed.')
             return
 
         self._send_next_command()
@@ -443,22 +665,33 @@ class MazeSolverNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = MazeSolverNode()
+    node = None
+    exit_code = 0
+
     try:
-        rclpy.spin(node)
+        node = MazeSolverNode()
+
+        while rclpy.ok() and not node.shutdown_requested:
+            rclpy.spin_once(node, timeout_sec=0.1)
+
+        exit_code = node.exit_code
     except KeyboardInterrupt:
-        pass
+        exit_code = 130
     finally:
         if node is not None:
             try:
                 node.destroy_node()
             except KeyboardInterrupt:
-                pass
+                exit_code = 130
+
         if rclpy.ok():
             try:
                 rclpy.shutdown()
             except KeyboardInterrupt:
-                pass
+                exit_code = 130
+
+    if exit_code:
+        raise SystemExit(exit_code)
 
 
 if __name__ == '__main__':
