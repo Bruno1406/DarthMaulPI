@@ -23,8 +23,9 @@ setup(
         ],
     },
     entry_points={
-        'console_scripts': [
-            'astar_solver = maze_navigation.astar_solver:main'
-        ],
-    },
+    'console_scripts': [
+        'astar_solver = maze_navigation.astar_solver:main',
+        'frontier_explorer = maze_navigation.frontier_explorer:main',
+    ],
+},
 )
