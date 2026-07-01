@@ -284,13 +284,10 @@ class DarthMaulControlNode(Node):
             'lidar_diagnostic_sector_width_deg',
             10.0,
         )
-        self.lidar_diagnostic_min_samples = int(
-            self._positive_float_param(
-                'lidar_diagnostic_min_samples',
-                3.0,
-            )
+        self.lidar_diagnostic_min_samples = self._positive_int_param(
+            'lidar_diagnostic_min_samples',
+            3,
         )
-        self.lidar_diagnostic_min_samples = max(1, self.lidar_diagnostic_min_samples)
 
         self.wall_centering_enabled = self._bool_param(
             'wall_centering_enabled',
@@ -391,6 +388,16 @@ class DarthMaulControlNode(Node):
         if not math.isfinite(value) or value <= 0.0:
             self.get_logger().warn(f'Parameter {name} invalid; using {default}')
             return default
+        return value
+
+    def _positive_int_param(self, name: str, default: int) -> int:
+        value = self.declare_parameter(name, int(default)).value
+        try:
+            value = int(value)
+        except (TypeError, ValueError):
+            raise ValueError(f'Parameter {name} must be an integer')
+        if value <= 0:
+            raise ValueError(f'Parameter {name} must be positive, got {value}')
         return value
 
     def _nonnegative_float_param(self, name: str, default: float) -> float:
