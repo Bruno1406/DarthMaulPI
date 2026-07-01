@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 from statistics import median
-from typing import Dict, List
+from typing import Dict, List, Sequence, Tuple
 
 from darth_maul_control.geometry import normalize_angle
 
@@ -36,6 +36,291 @@ class TranslationProgressSelection:
     progress_m: float
     source: str
     reason: str
+
+
+@dataclass(frozen=True)
+class WallLineEstimate:
+    valid: bool
+    side: str
+    offset_m: float
+    yaw_error_rad: float
+    slope: float
+    intercept_m: float
+    support_count: int
+    span_x_m: float
+    rms_error_m: float
+    reason: str
+
+
+@dataclass(frozen=True)
+class GridAlignmentEstimate:
+    valid: bool
+    yaw_valid: bool
+    yaw_error_rad: float
+    lateral_valid: bool
+    lateral_error_m: float
+    source: str
+    confidence: float
+    left: WallLineEstimate
+    right: WallLineEstimate
+    reason: str
+
+
+def invalid_wall_line(side: str, reason: str) -> WallLineEstimate:
+    return WallLineEstimate(
+        valid=False,
+        side=side,
+        offset_m=0.0,
+        yaw_error_rad=0.0,
+        slope=0.0,
+        intercept_m=0.0,
+        support_count=0,
+        span_x_m=0.0,
+        rms_error_m=0.0,
+        reason=reason,
+    )
+
+
+def invalid_grid_alignment(reason: str) -> GridAlignmentEstimate:
+    left = invalid_wall_line('left', 'not evaluated')
+    right = invalid_wall_line('right', 'not evaluated')
+    return GridAlignmentEstimate(
+        valid=False,
+        yaw_valid=False,
+        yaw_error_rad=0.0,
+        lateral_valid=False,
+        lateral_error_m=0.0,
+        source='none',
+        confidence=0.0,
+        left=left,
+        right=right,
+        reason=reason,
+    )
+
+
+def valid_scan_points_xy(scan) -> List[Tuple[float, float]]:
+    if scan is None:
+        return []
+
+    points: List[Tuple[float, float]] = []
+    angle = float(scan.angle_min)
+
+    for raw in scan.ranges:
+        value = float(raw)
+        if math.isfinite(value) and scan.range_min <= value <= scan.range_max:
+            points.append((value * math.cos(angle), value * math.sin(angle)))
+        angle += float(scan.angle_increment)
+
+    return points
+
+
+def side_wall_candidate_points(
+    scan,
+    side: str,
+    min_x_m: float,
+    max_x_m: float,
+    min_side_distance_m: float,
+    max_side_distance_m: float,
+) -> List[Tuple[float, float]]:
+    if side not in ('left', 'right'):
+        raise ValueError(f'Unsupported side {side!r}')
+
+    sign = 1.0 if side == 'left' else -1.0
+    points = []
+
+    for x, y in valid_scan_points_xy(scan):
+        side_distance = sign * y
+        if (
+            min_x_m <= x <= max_x_m
+            and min_side_distance_m <= side_distance <= max_side_distance_m
+        ):
+            points.append((x, y))
+
+    return points
+
+
+def fit_side_wall_line(
+    scan,
+    side: str,
+    min_x_m: float,
+    max_x_m: float,
+    min_side_distance_m: float,
+    max_side_distance_m: float,
+    min_points: int,
+    min_span_x_m: float,
+    max_rms_error_m: float,
+    max_abs_yaw_error_rad: float,
+) -> WallLineEstimate:
+    points: Sequence[Tuple[float, float]] = side_wall_candidate_points(
+        scan,
+        side=side,
+        min_x_m=float(min_x_m),
+        max_x_m=float(max_x_m),
+        min_side_distance_m=float(min_side_distance_m),
+        max_side_distance_m=float(max_side_distance_m),
+    )
+
+    if len(points) < int(min_points):
+        return invalid_wall_line(
+            side,
+            f'not enough candidate points: {len(points)} < {int(min_points)}',
+        )
+
+    xs = [p[0] for p in points]
+    ys = [p[1] for p in points]
+
+    span_x = max(xs) - min(xs)
+    if span_x < float(min_span_x_m):
+        return invalid_wall_line(
+            side,
+            f'x-span too small: {span_x:.3f} m < {float(min_span_x_m):.3f} m',
+        )
+
+    mean_x = sum(xs) / len(xs)
+    mean_y = sum(ys) / len(ys)
+
+    denom = sum((x - mean_x) ** 2 for x in xs)
+    if denom <= 1e-9:
+        return invalid_wall_line(side, 'degenerate line fit')
+
+    slope = sum((x - mean_x) * (y - mean_y) for x, y in points) / denom
+    intercept = mean_y - slope * mean_x
+
+    residuals = [(y - (slope * x + intercept)) for x, y in points]
+    rms = math.sqrt(sum(r * r for r in residuals) / len(residuals))
+    yaw_error = math.atan(slope)
+
+    if rms > float(max_rms_error_m):
+        return invalid_wall_line(
+            side,
+            f'line rms too high: {rms:.3f} m > {float(max_rms_error_m):.3f} m',
+        )
+
+    if abs(yaw_error) > float(max_abs_yaw_error_rad):
+        return invalid_wall_line(
+            side,
+            (
+                f'wall yaw too large: {yaw_error:.3f} rad '
+                f'> {float(max_abs_yaw_error_rad):.3f} rad'
+            ),
+        )
+
+    if side == 'left' and intercept <= 0.0:
+        return invalid_wall_line(side, f'left wall intercept not positive: {intercept:.3f}')
+    if side == 'right' and intercept >= 0.0:
+        return invalid_wall_line(side, f'right wall intercept not negative: {intercept:.3f}')
+
+    return WallLineEstimate(
+        valid=True,
+        side=side,
+        offset_m=float(intercept),
+        yaw_error_rad=float(yaw_error),
+        slope=float(slope),
+        intercept_m=float(intercept),
+        support_count=len(points),
+        span_x_m=float(span_x),
+        rms_error_m=float(rms),
+        reason='valid side wall line',
+    )
+
+
+def estimate_grid_alignment(
+    scan,
+    expected_half_width_m: float,
+    min_x_m: float,
+    max_x_m: float,
+    min_side_distance_m: float,
+    max_side_distance_m: float,
+    min_points: int,
+    min_span_x_m: float,
+    max_rms_error_m: float,
+    max_abs_yaw_error_rad: float,
+    max_reported_error_m: float,
+    max_reported_yaw_rad: float,
+) -> GridAlignmentEstimate:
+    if scan is None:
+        return invalid_grid_alignment('no scan')
+
+    left = fit_side_wall_line(
+        scan,
+        side='left',
+        min_x_m=min_x_m,
+        max_x_m=max_x_m,
+        min_side_distance_m=min_side_distance_m,
+        max_side_distance_m=max_side_distance_m,
+        min_points=min_points,
+        min_span_x_m=min_span_x_m,
+        max_rms_error_m=max_rms_error_m,
+        max_abs_yaw_error_rad=max_abs_yaw_error_rad,
+    )
+    right = fit_side_wall_line(
+        scan,
+        side='right',
+        min_x_m=min_x_m,
+        max_x_m=max_x_m,
+        min_side_distance_m=min_side_distance_m,
+        max_side_distance_m=max_side_distance_m,
+        min_points=min_points,
+        min_span_x_m=min_span_x_m,
+        max_rms_error_m=max_rms_error_m,
+        max_abs_yaw_error_rad=max_abs_yaw_error_rad,
+    )
+
+    valid_walls = [wall for wall in (left, right) if wall.valid]
+    if not valid_walls:
+        return GridAlignmentEstimate(
+            valid=False,
+            yaw_valid=False,
+            yaw_error_rad=0.0,
+            lateral_valid=False,
+            lateral_error_m=0.0,
+            source='none',
+            confidence=0.0,
+            left=left,
+            right=right,
+            reason=f'no valid wall lines: left={left.reason}; right={right.reason}',
+        )
+
+    if left.valid and right.valid:
+        yaw_error = (left.yaw_error_rad + right.yaw_error_rad) / 2.0
+        lateral_error = (left.offset_m + right.offset_m) / 2.0
+        source = 'left_right'
+        confidence = 1.0
+        reason = 'left and right wall lines valid'
+    elif left.valid:
+        yaw_error = left.yaw_error_rad
+        lateral_error = left.offset_m - float(expected_half_width_m)
+        source = 'left'
+        confidence = 0.6
+        reason = 'left wall line valid'
+    else:
+        yaw_error = right.yaw_error_rad
+        lateral_error = right.offset_m + float(expected_half_width_m)
+        source = 'right'
+        confidence = 0.6
+        reason = 'right wall line valid'
+
+    yaw_error = max(
+        -float(max_reported_yaw_rad),
+        min(float(max_reported_yaw_rad), float(yaw_error)),
+    )
+    lateral_error = max(
+        -float(max_reported_error_m),
+        min(float(max_reported_error_m), float(lateral_error)),
+    )
+
+    return GridAlignmentEstimate(
+        valid=True,
+        yaw_valid=True,
+        yaw_error_rad=float(yaw_error),
+        lateral_valid=True,
+        lateral_error_m=float(lateral_error),
+        source=source,
+        confidence=float(confidence),
+        left=left,
+        right=right,
+        reason=reason,
+    )
 
 
 def valid_ranges_in_sector(scan, center_angle_rad: float, width_deg: float) -> List[float]:

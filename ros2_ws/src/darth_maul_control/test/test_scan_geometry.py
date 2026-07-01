@@ -7,7 +7,11 @@ from darth_maul_control.scan_geometry import (
     cardinal_sector_ranges,
     choose_lidar_progress,
     choose_translation_progress,
+    estimate_grid_alignment,
+    fit_side_wall_line,
     sector_range,
+    side_wall_candidate_points,
+    valid_scan_points_xy,
     valid_ranges_in_sector,
 )
 
@@ -21,6 +25,49 @@ def make_scan(ranges, angle_min=-math.pi, angle_increment=None):
         range_min=0.05,
         range_max=12.0,
         ranges=ranges,
+    )
+
+
+def make_line_scan(
+    lines,
+    num_samples=720,
+    angle_min=-math.pi,
+    angle_max=math.pi,
+    range_min=0.05,
+    range_max=12.0,
+):
+    """Create a synthetic 2D scan from lines y = slope*x + intercept.
+
+    lines: sequence of (slope, intercept, x_min, x_max)
+    """
+    angle_increment = (angle_max - angle_min) / num_samples
+    ranges = [float('inf')] * num_samples
+
+    for i in range(num_samples):
+        theta = angle_min + i * angle_increment
+        c = math.cos(theta)
+        s = math.sin(theta)
+
+        best = float('inf')
+        for slope, intercept, x_min, x_max in lines:
+            denom = s - slope * c
+            if abs(denom) < 1e-9:
+                continue
+
+            r = intercept / denom
+            if not math.isfinite(r) or r < range_min or r > range_max:
+                continue
+
+            x = r * c
+            if x_min <= x <= x_max:
+                best = min(best, r)
+
+        ranges[i] = best
+
+    return make_scan(
+        ranges,
+        angle_min=angle_min,
+        angle_increment=angle_increment,
     )
 
 
@@ -265,3 +312,178 @@ def test_choose_translation_progress_odom_only_ignores_valid_lidar():
     assert selection.valid
     assert selection.source == 'odom'
     assert selection.progress_m == pytest.approx(0.249)
+
+
+def test_valid_scan_points_xy_and_side_candidates_use_robot_frame():
+    scan = make_line_scan([(0.0, 0.20, -0.20, 0.45)])
+
+    points = valid_scan_points_xy(scan)
+    left_candidates = side_wall_candidate_points(
+        scan,
+        side='left',
+        min_x_m=-0.18,
+        max_x_m=0.45,
+        min_side_distance_m=0.06,
+        max_side_distance_m=0.45,
+    )
+
+    assert points
+    assert len(left_candidates) >= 8
+    assert all(y > 0.0 for _, y in left_candidates)
+
+
+def test_fit_side_wall_line_left_parallel_wall():
+    scan = make_line_scan([(0.0, 0.20, -0.20, 0.45)])
+
+    estimate = fit_side_wall_line(
+        scan,
+        side='left',
+        min_x_m=-0.18,
+        max_x_m=0.45,
+        min_side_distance_m=0.06,
+        max_side_distance_m=0.45,
+        min_points=8,
+        min_span_x_m=0.12,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+    )
+
+    assert estimate.valid
+    assert estimate.offset_m == pytest.approx(0.20, abs=0.01)
+    assert estimate.yaw_error_rad == pytest.approx(0.0, abs=0.02)
+    assert estimate.support_count >= 8
+
+
+def test_fit_side_wall_line_right_parallel_wall():
+    scan = make_line_scan([(0.0, -0.18, -0.20, 0.45)])
+
+    estimate = fit_side_wall_line(
+        scan,
+        side='right',
+        min_x_m=-0.18,
+        max_x_m=0.45,
+        min_side_distance_m=0.06,
+        max_side_distance_m=0.45,
+        min_points=8,
+        min_span_x_m=0.12,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+    )
+
+    assert estimate.valid
+    assert estimate.offset_m == pytest.approx(-0.18, abs=0.01)
+    assert estimate.yaw_error_rad == pytest.approx(0.0, abs=0.02)
+
+
+def test_fit_side_wall_line_rejects_far_wall_seen_through_opening():
+    scan = make_line_scan([(0.0, 1.20, -0.20, 0.45)])
+
+    estimate = fit_side_wall_line(
+        scan,
+        side='left',
+        min_x_m=-0.18,
+        max_x_m=0.45,
+        min_side_distance_m=0.06,
+        max_side_distance_m=0.45,
+        min_points=8,
+        min_span_x_m=0.12,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+    )
+
+    assert not estimate.valid
+
+
+def test_estimate_grid_alignment_both_walls_centered():
+    scan = make_line_scan([
+        (0.0, 0.20, -0.20, 0.45),
+        (0.0, -0.20, -0.20, 0.45),
+    ])
+
+    estimate = estimate_grid_alignment(
+        scan,
+        expected_half_width_m=0.20,
+        min_x_m=-0.18,
+        max_x_m=0.45,
+        min_side_distance_m=0.06,
+        max_side_distance_m=0.45,
+        min_points=8,
+        min_span_x_m=0.12,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+        max_reported_error_m=0.30,
+        max_reported_yaw_rad=0.50,
+    )
+
+    assert estimate.valid
+    assert estimate.source == 'left_right'
+    assert estimate.yaw_error_rad == pytest.approx(0.0, abs=0.02)
+    assert estimate.lateral_error_m == pytest.approx(0.0, abs=0.02)
+
+
+def test_estimate_grid_alignment_left_only_reports_centerline_left():
+    scan = make_line_scan([(0.0, 0.25, -0.20, 0.45)])
+
+    estimate = estimate_grid_alignment(
+        scan,
+        expected_half_width_m=0.20,
+        min_x_m=-0.18,
+        max_x_m=0.45,
+        min_side_distance_m=0.06,
+        max_side_distance_m=0.45,
+        min_points=8,
+        min_span_x_m=0.12,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+        max_reported_error_m=0.30,
+        max_reported_yaw_rad=0.50,
+    )
+
+    assert estimate.valid
+    assert estimate.source == 'left'
+    assert estimate.lateral_error_m == pytest.approx(0.05, abs=0.02)
+
+
+def test_estimate_grid_alignment_right_only_reports_centerline_right():
+    scan = make_line_scan([(0.0, -0.25, -0.20, 0.45)])
+
+    estimate = estimate_grid_alignment(
+        scan,
+        expected_half_width_m=0.20,
+        min_x_m=-0.18,
+        max_x_m=0.45,
+        min_side_distance_m=0.06,
+        max_side_distance_m=0.45,
+        min_points=8,
+        min_span_x_m=0.12,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+        max_reported_error_m=0.30,
+        max_reported_yaw_rad=0.50,
+    )
+
+    assert estimate.valid
+    assert estimate.source == 'right'
+    assert estimate.lateral_error_m == pytest.approx(-0.05, abs=0.02)
+
+
+def test_estimate_grid_alignment_reports_wall_yaw():
+    scan = make_line_scan([(0.10, 0.20, -0.20, 0.45)])
+
+    estimate = estimate_grid_alignment(
+        scan,
+        expected_half_width_m=0.20,
+        min_x_m=-0.18,
+        max_x_m=0.45,
+        min_side_distance_m=0.06,
+        max_side_distance_m=0.45,
+        min_points=8,
+        min_span_x_m=0.12,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+        max_reported_error_m=0.30,
+        max_reported_yaw_rad=0.50,
+    )
+
+    assert estimate.valid
+    assert estimate.yaw_error_rad == pytest.approx(math.atan(0.10), abs=0.03)

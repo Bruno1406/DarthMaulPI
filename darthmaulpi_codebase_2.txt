@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 257
-Skipped files: 12120
+Skipped files: 12150
 
 # Included File Index
 
@@ -269,7 +269,7 @@ Skipped files: 12120
 - binary, media, generated, or not useful as text: 57
 - not UTF-8 text: 1
 - previous merged output: 1
-- skipped directory: 12061
+- skipped directory: 12091
 
 # File Contents
 
@@ -3180,29 +3180,43 @@ darth_maul_control:
     # Diagnostic warning threshold for odom/LiDAR disagreement.
     lidar_odom_warning_threshold_m: 0.020
 
-    # Optional correction must stay disabled for initial robot tests.
-    # Test order: STOP, ROTATE_RELATIVE, DRIVE_FORWARD, ADVANCE_CELL,
-    # then lateral_correction_enabled, then wall centering/lateral wall correction.
-    wall_centering_enabled: false
-    side_sector_center_deg: 90.0
-    side_sector_width_deg: 25.0
-    side_wall_target_distance_m: 0.125
+    # LiDAR grid-alignment diagnostics.
+    # Diagnostics only for now. Do not use these values for control until signs
+    # have been verified on the robot.
+    grid_alignment_diagnostics_enabled: true
 
-    # Keep angular wall centering off unless lateral wall correction is bad.
-    angular_wall_centering_enabled: false
-    k_wall_centering: 0.60
-    wall_centering_max_correction_radps: 0.08
+    # Expected distance from robot centerline to one side wall when centered.
+    # This is used only for one-wall lateral error diagnostics.
+    grid_alignment_expected_half_width_m: 0.125
+
+    # Side wall candidate filter in robot base frame.
+    # x is forward, y is left. A useful side wall must have enough points
+    # beside the robot over a longitudinal span.
+    grid_alignment_min_x_m: -0.18
+    grid_alignment_max_x_m: 0.45
+
+    # Reject walls too close to be reliable and far walls seen through openings.
+    # This is intentionally conservative to avoid chasing distant cross-walls.
+    grid_alignment_min_side_distance_m: 0.06
+    grid_alignment_max_side_distance_m: 0.45
+
+    # Minimum support for line fitting.
+    grid_alignment_min_points: 8
+    grid_alignment_min_span_x_m: 0.12
+
+    # Reject noisy/curved/corner-like clusters.
+    grid_alignment_max_rms_error_m: 0.025
+    grid_alignment_max_abs_yaw_error_rad: 0.35
+
+    # Clamp reported diagnostics so invalid estimates never explode logs.
+    grid_alignment_max_reported_error_m: 0.30
+    grid_alignment_max_reported_yaw_rad: 0.50
 
     # Lateral correction: uses mecanum linear.y for small in-cell centering.
     # Enable only after basic ADVANCE_CELL works.
     lateral_correction_enabled: false
     k_lateral_cross_track: 0.50
     max_lateral_correction_mps: 0.025
-
-    # Enable only after lateral_correction_enabled works in basic testing.
-    wall_lateral_correction_enabled: false
-    k_lateral_wall: 0.40
-    max_wall_lateral_correction_mps: 0.025
 
     # Timing
     timeout_margin_sec: 3.0
@@ -3241,12 +3255,16 @@ from darth_maul_control.geometry import (
     yaw_from_quaternion,
 )
 from darth_maul_control.scan_geometry import (
+    GridAlignmentEstimate,
     LidarProgressEstimate,
     SectorRange,
+    WallLineEstimate,
     cardinal_sector_ranges,
     choose_lidar_progress,
     choose_translation_progress,
+    estimate_grid_alignment,
     finite_median_or_nan,
+    invalid_grid_alignment,
 )
 from darth_maul_control.velocity_limiter import VelocityLimiter, VelocityLimits
 from darth_maul_control_interfaces.action import ExecuteMotionPrimitive
@@ -3369,6 +3387,7 @@ class DarthMaulControlNode(Node):
         self._rear_range_m = float('nan')
         self._left_range_m = float('nan')
         self._right_range_m = float('nan')
+        self._grid_alignment = invalid_grid_alignment('not initialized')
 
         self._active_goal = False
         self._stop_requested = False
@@ -3560,34 +3579,70 @@ class DarthMaulControlNode(Node):
             0.020,
         )
 
-        self.wall_centering_enabled = self._bool_param(
-            'wall_centering_enabled',
-            False,
+        self.grid_alignment_diagnostics_enabled = self._bool_param(
+            'grid_alignment_diagnostics_enabled',
+            True,
         )
-        self.side_sector_center_deg = self._positive_float_param(
-            'side_sector_center_deg',
-            90.0,
-        )
-        self.side_sector_width_deg = self._positive_float_param(
-            'side_sector_width_deg',
-            25.0,
-        )
-        self.side_wall_target_distance_m = self._positive_float_param(
-            'side_wall_target_distance_m',
+        self.grid_alignment_expected_half_width_m = self._positive_float_param(
+            'grid_alignment_expected_half_width_m',
             0.125,
         )
+        self.grid_alignment_min_x_m = self._float_param(
+            'grid_alignment_min_x_m',
+            -0.18,
+        )
+        self.grid_alignment_max_x_m = self._float_param(
+            'grid_alignment_max_x_m',
+            0.45,
+        )
+        if self.grid_alignment_max_x_m <= self.grid_alignment_min_x_m:
+            self.get_logger().warning(
+                'Invalid grid alignment x-window; using [-0.18, 0.45]'
+            )
+            self.grid_alignment_min_x_m = -0.18
+            self.grid_alignment_max_x_m = 0.45
 
-        self.angular_wall_centering_enabled = self._bool_param(
-            'angular_wall_centering_enabled',
-            False,
+        self.grid_alignment_min_side_distance_m = self._positive_float_param(
+            'grid_alignment_min_side_distance_m',
+            0.06,
         )
-        self.k_wall_centering = self._nonnegative_float_param(
-            'k_wall_centering',
-            0.60,
+        self.grid_alignment_max_side_distance_m = self._positive_float_param(
+            'grid_alignment_max_side_distance_m',
+            0.45,
         )
-        self.wall_centering_max_correction_radps = self._nonnegative_float_param(
-            'wall_centering_max_correction_radps',
-            0.08,
+        if (
+            self.grid_alignment_max_side_distance_m
+            <= self.grid_alignment_min_side_distance_m
+        ):
+            self.get_logger().warning(
+                'Invalid grid alignment side-distance window; using [0.06, 0.45]'
+            )
+            self.grid_alignment_min_side_distance_m = 0.06
+            self.grid_alignment_max_side_distance_m = 0.45
+
+        self.grid_alignment_min_points = self._positive_int_param(
+            'grid_alignment_min_points',
+            8,
+        )
+        self.grid_alignment_min_span_x_m = self._positive_float_param(
+            'grid_alignment_min_span_x_m',
+            0.12,
+        )
+        self.grid_alignment_max_rms_error_m = self._positive_float_param(
+            'grid_alignment_max_rms_error_m',
+            0.025,
+        )
+        self.grid_alignment_max_abs_yaw_error_rad = self._positive_float_param(
+            'grid_alignment_max_abs_yaw_error_rad',
+            0.35,
+        )
+        self.grid_alignment_max_reported_error_m = self._positive_float_param(
+            'grid_alignment_max_reported_error_m',
+            0.30,
+        )
+        self.grid_alignment_max_reported_yaw_rad = self._positive_float_param(
+            'grid_alignment_max_reported_yaw_rad',
+            0.50,
         )
 
         self.lateral_correction_enabled = self._bool_param(
@@ -3600,19 +3655,6 @@ class DarthMaulControlNode(Node):
         )
         self.max_lateral_correction_mps = self._nonnegative_float_param(
             'max_lateral_correction_mps',
-            0.025,
-        )
-
-        self.wall_lateral_correction_enabled = self._bool_param(
-            'wall_lateral_correction_enabled',
-            False,
-        )
-        self.k_lateral_wall = self._nonnegative_float_param(
-            'k_lateral_wall',
-            0.40,
-        )
-        self.max_wall_lateral_correction_mps = self._nonnegative_float_param(
-            'max_wall_lateral_correction_mps',
             0.025,
         )
 
@@ -3704,6 +3746,7 @@ class DarthMaulControlNode(Node):
             self.lidar_diagnostic_sector_width_deg,
             self.lidar_diagnostic_min_samples,
         )
+        grid_alignment = self._grid_alignment_from_scan(msg)
 
         with self._scan_lock:
             self._latest_scan = msg
@@ -3715,6 +3758,7 @@ class DarthMaulControlNode(Node):
             self._rear_range_m = finite_median_or_nan(cardinal['rear'])
             self._left_range_m = finite_median_or_nan(cardinal['left'])
             self._right_range_m = finite_median_or_nan(cardinal['right'])
+            self._grid_alignment = grid_alignment
 
     def _goal_callback(self, goal_request) -> GoalResponse:
         primitive = int(goal_request.primitive_type)
@@ -3947,9 +3991,22 @@ class DarthMaulControlNode(Node):
 
         start = start_snapshot.pose
         start_ranges = self._cardinal_range_snapshot()
+        start_alignment = self._grid_alignment_snapshot()
         start_time = time.monotonic()
 
-        self._set_state(ControlStatus.STATE_EXECUTING, f'{name} executing', primitive_type=primitive)
+        self.get_logger().info(
+            f'{name} start grid diagnostics: '
+            f'valid={start_alignment.valid}, '
+            f'yaw={start_alignment.yaw_error_rad:.3f} rad, '
+            f'lateral={start_alignment.lateral_error_m:.3f} m, '
+            f'source={start_alignment.source}'
+        )
+
+        self._set_state(
+            ControlStatus.STATE_EXECUTING,
+            f'{name} executing',
+            primitive_type=primitive,
+        )
 
         result_success = False
         result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
@@ -3985,6 +4042,7 @@ class DarthMaulControlNode(Node):
             final_odom_progress = odom_progress
 
             current_ranges = self._cardinal_range_snapshot()
+            current_alignment = self._grid_alignment_snapshot()
             current_diagnostics = self._translation_diagnostics(
                 direction=direction,
                 odom_progress_m=odom_progress,
@@ -4130,9 +4188,6 @@ class DarthMaulControlNode(Node):
                     self.max_lateral_correction_mps,
                 )
 
-            if direction > 0.0:
-                lateral_correction += self._wall_lateral_correction()
-
             cmd.linear.y = clamp(
                 lateral_correction,
                 -self.max_linear_y_mps,
@@ -4140,9 +4195,6 @@ class DarthMaulControlNode(Node):
             )
 
             cmd.angular.z = heading_correction
-
-            if direction > 0.0:
-                cmd.angular.z += self._wall_angular_correction()
 
             cmd = self._limiter.clamp(cmd, limits)
             cmd = self._apply_acceleration_limits(cmd)
@@ -4157,6 +4209,10 @@ class DarthMaulControlNode(Node):
                     f'progress_source={progress_selection.source}, '
                     f'odom_progress={odom_progress:.3f} m, '
                     f'control_progress={control_progress:.3f} m, '
+                    f'grid_valid={current_alignment.valid}, '
+                    f'grid_yaw={current_alignment.yaw_error_rad:.3f} rad, '
+                    f'grid_lat={current_alignment.lateral_error_m:.3f} m, '
+                    f'grid_source={current_alignment.source}, '
                     f'heading_error={heading_error:.3f} rad, '
                     f'linear_y={cmd.linear.y:.3f} m/s'
                 ),
@@ -4197,9 +4253,15 @@ class DarthMaulControlNode(Node):
             control_progress_reason=final_control_progress_reason,
         )
 
+        final_alignment = self._grid_alignment_snapshot()
+
         result_message = self._append_translation_diagnostics(
             result_message,
             translation_diagnostics,
+        )
+        result_message = self._append_grid_alignment_diagnostics(
+            result_message,
+            final_alignment,
         )
 
         if (
@@ -4238,6 +4300,7 @@ class DarthMaulControlNode(Node):
             final_position_error,
             final_heading_error,
             translation_diagnostics=translation_diagnostics,
+            grid_alignment=final_alignment,
         )
 
     def _execute_rotate(self, goal_handle):
@@ -4261,7 +4324,15 @@ class DarthMaulControlNode(Node):
 
         start = start_snapshot.pose
         target_yaw = normalize_angle(start.yaw + target_angle)
+        start_alignment = self._grid_alignment_snapshot()
         start_time = time.monotonic()
+
+        self.get_logger().info(
+            'ROTATE_RELATIVE start grid diagnostics: '
+            f'valid={start_alignment.valid}, '
+            f'yaw={start_alignment.yaw_error_rad:.3f} rad, '
+            f'source={start_alignment.source}'
+        )
 
         self._set_state(
             ControlStatus.STATE_EXECUTING,
@@ -4291,6 +4362,7 @@ class DarthMaulControlNode(Node):
                 break
 
             current = snapshot.pose
+            current_alignment = self._grid_alignment_snapshot()
             remaining = normalize_angle(target_yaw - current.yaw)
             final_heading_error = abs(remaining)
 
@@ -4338,7 +4410,12 @@ class DarthMaulControlNode(Node):
                 distance_remaining=0.0,
                 distance_traveled=0.0,
                 heading_error=remaining,
-                status=f'ROTATE_RELATIVE: remaining={remaining:.3f} rad',
+                status=(
+                    f'ROTATE_RELATIVE: remaining={remaining:.3f} rad, '
+                    f'grid_valid={current_alignment.valid}, '
+                    f'grid_yaw={current_alignment.yaw_error_rad:.3f} rad, '
+                    f'grid_source={current_alignment.source}'
+                ),
             )
 
             self._publish_feedback(
@@ -4351,6 +4428,12 @@ class DarthMaulControlNode(Node):
 
             time.sleep(1.0 / self.control_rate_hz)
 
+        final_alignment = self._grid_alignment_snapshot()
+        result_message = self._append_grid_alignment_diagnostics(
+            result_message,
+            final_alignment,
+        )
+
         return self._finish_motion_result(
             goal_handle,
             result_success,
@@ -4358,6 +4441,7 @@ class DarthMaulControlNode(Node):
             result_message,
             0.0,
             final_heading_error,
+            grid_alignment=final_alignment,
         )
 
     def _translation_errors(self, start: Pose2D, current: Pose2D, direction: float):
@@ -4375,73 +4459,6 @@ class DarthMaulControlNode(Node):
 
         commanded_progress = direction * forward_progress
         return commanded_progress, cross_track
-
-    def _side_wall_error(self) -> Optional[float]:
-        scan = self._fresh_scan_copy()
-        if scan is None:
-            return None
-
-        left = self._min_range_in_sector(
-            scan,
-            math.radians(self.side_sector_center_deg),
-            self.side_sector_width_deg,
-        )
-        right = self._min_range_in_sector(
-            scan,
-            -math.radians(self.side_sector_center_deg),
-            self.side_sector_width_deg,
-        )
-
-        left_ok = math.isfinite(left)
-        right_ok = math.isfinite(right)
-
-        if left_ok and right_ok:
-            # Positive means robot is closer to left wall than right wall,
-            # so it should move right in body frame if y-left is positive.
-            return right - left
-
-        if left_ok:
-            # Positive if too close to left wall.
-            return self.side_wall_target_distance_m - left
-
-        if right_ok:
-            # Negative if too close to right wall.
-            return right - self.side_wall_target_distance_m
-
-        return None
-
-    def _wall_angular_correction(self) -> float:
-        if not self.wall_centering_enabled or not self.angular_wall_centering_enabled:
-            return 0.0
-
-        error = self._side_wall_error()
-        if error is None:
-            return 0.0
-
-        correction = self.k_wall_centering * error
-        return clamp(
-            correction,
-            -self.wall_centering_max_correction_radps,
-            self.wall_centering_max_correction_radps,
-        )
-
-    def _wall_lateral_correction(self) -> float:
-        if not self.wall_centering_enabled or not self.wall_lateral_correction_enabled:
-            return 0.0
-
-        error = self._side_wall_error()
-        if error is None:
-            return 0.0
-
-        # ROS body-frame convention: +linear.y is left.
-        # Positive error means too close to left or left side needs correction,
-        # so command negative y to move right.
-        correction = -self.k_lateral_wall * error
-        return clamp(
-            correction,
-            -self.max_wall_lateral_correction_mps,
-            self.max_wall_lateral_correction_mps,
-        )
 
     def _min_range_in_sector(
         self,
@@ -4496,6 +4513,34 @@ class DarthMaulControlNode(Node):
             left=measurements['left'],
             right=measurements['right'],
         )
+
+    def _grid_alignment_from_scan(
+        self,
+        scan: Optional[LaserScan],
+    ) -> GridAlignmentEstimate:
+        if not self.grid_alignment_diagnostics_enabled:
+            return invalid_grid_alignment('grid alignment diagnostics disabled')
+        if scan is None:
+            return invalid_grid_alignment('no scan')
+
+        return estimate_grid_alignment(
+            scan,
+            expected_half_width_m=self.grid_alignment_expected_half_width_m,
+            min_x_m=self.grid_alignment_min_x_m,
+            max_x_m=self.grid_alignment_max_x_m,
+            min_side_distance_m=self.grid_alignment_min_side_distance_m,
+            max_side_distance_m=self.grid_alignment_max_side_distance_m,
+            min_points=self.grid_alignment_min_points,
+            min_span_x_m=self.grid_alignment_min_span_x_m,
+            max_rms_error_m=self.grid_alignment_max_rms_error_m,
+            max_abs_yaw_error_rad=self.grid_alignment_max_abs_yaw_error_rad,
+            max_reported_error_m=self.grid_alignment_max_reported_error_m,
+            max_reported_yaw_rad=self.grid_alignment_max_reported_yaw_rad,
+        )
+
+    def _grid_alignment_snapshot(self) -> GridAlignmentEstimate:
+        scan = self._fresh_scan_copy()
+        return self._grid_alignment_from_scan(scan)
 
     @staticmethod
     def _range_value(measurement: SectorRange) -> float:
@@ -4624,6 +4669,41 @@ class DarthMaulControlNode(Node):
             f'lidar_reason={diagnostics.lidar_progress_reason}; '
             f'control_reason={diagnostics.control_progress_reason}'
         )
+
+    @staticmethod
+    def _append_grid_alignment_diagnostics(
+        message: str,
+        alignment: GridAlignmentEstimate,
+    ) -> str:
+        return (
+            f'{message}; '
+            f'grid_valid={alignment.valid}; '
+            f'grid_yaw_valid={alignment.yaw_valid}; '
+            f'grid_yaw_error={alignment.yaw_error_rad:.3f} rad; '
+            f'grid_lateral_valid={alignment.lateral_valid}; '
+            f'grid_lateral_error={alignment.lateral_error_m:.3f} m; '
+            f'grid_source={alignment.source}; '
+            f'grid_confidence={alignment.confidence:.2f}; '
+            f'grid_reason={alignment.reason}; '
+            f'left_wall_valid={alignment.left.valid}; '
+            f'left_wall_offset={alignment.left.offset_m:.3f} m; '
+            f'left_wall_yaw={alignment.left.yaw_error_rad:.3f} rad; '
+            f'left_wall_rms={alignment.left.rms_error_m:.3f} m; '
+            f'left_wall_span={alignment.left.span_x_m:.3f} m; '
+            f'left_wall_count={alignment.left.support_count}; '
+            f'left_wall_reason={alignment.left.reason}; '
+            f'right_wall_valid={alignment.right.valid}; '
+            f'right_wall_offset={alignment.right.offset_m:.3f} m; '
+            f'right_wall_yaw={alignment.right.yaw_error_rad:.3f} rad; '
+            f'right_wall_rms={alignment.right.rms_error_m:.3f} m; '
+            f'right_wall_span={alignment.right.span_x_m:.3f} m; '
+            f'right_wall_count={alignment.right.support_count}; '
+            f'right_wall_reason={alignment.right.reason}'
+        )
+
+    @staticmethod
+    def _wall_support_count(estimate: WallLineEstimate) -> int:
+        return int(max(0, min(65535, estimate.support_count)))
 
     def _fresh_scan_copy(self) -> Optional[LaserScan]:
         with self._scan_lock:
@@ -4776,6 +4856,7 @@ class DarthMaulControlNode(Node):
         final_position_error: float,
         final_heading_error: float,
         translation_diagnostics: Optional[TranslationDiagnostics] = None,
+        grid_alignment: Optional[GridAlignmentEstimate] = None,
     ):
         self._publish_zero_for_duration()
 
@@ -4793,6 +4874,7 @@ class DarthMaulControlNode(Node):
             final_position_error=final_position_error,
             final_heading_error=final_heading_error,
             translation_diagnostics=translation_diagnostics,
+            grid_alignment=grid_alignment,
         )
 
     def _make_result(
@@ -4803,6 +4885,7 @@ class DarthMaulControlNode(Node):
         final_position_error: float = 0.0,
         final_heading_error: float = 0.0,
         translation_diagnostics: Optional[TranslationDiagnostics] = None,
+        grid_alignment: Optional[GridAlignmentEstimate] = None,
     ):
         result = ExecuteMotionPrimitive.Result()
         result.success = bool(success)
@@ -4843,6 +4926,33 @@ class DarthMaulControlNode(Node):
         )
         result.lidar_progress_reason = str(diagnostics.lidar_progress_reason)
         result.control_progress_reason = str(diagnostics.control_progress_reason)
+
+        alignment = grid_alignment or invalid_grid_alignment('not available')
+
+        result.grid_alignment_valid = bool(alignment.valid)
+        result.grid_yaw_valid = bool(alignment.yaw_valid)
+        result.grid_yaw_error_rad = float(alignment.yaw_error_rad)
+        result.grid_lateral_valid = bool(alignment.lateral_valid)
+        result.grid_lateral_error_m = float(alignment.lateral_error_m)
+        result.grid_alignment_source = str(alignment.source)
+        result.grid_alignment_confidence = float(alignment.confidence)
+        result.grid_alignment_reason = str(alignment.reason)
+
+        result.left_wall_line_valid = bool(alignment.left.valid)
+        result.left_wall_offset_m = float(alignment.left.offset_m)
+        result.left_wall_yaw_error_rad = float(alignment.left.yaw_error_rad)
+        result.left_wall_rms_error_m = float(alignment.left.rms_error_m)
+        result.left_wall_span_x_m = float(alignment.left.span_x_m)
+        result.left_wall_support_count = self._wall_support_count(alignment.left)
+        result.left_wall_reason = str(alignment.left.reason)
+
+        result.right_wall_line_valid = bool(alignment.right.valid)
+        result.right_wall_offset_m = float(alignment.right.offset_m)
+        result.right_wall_yaw_error_rad = float(alignment.right.yaw_error_rad)
+        result.right_wall_rms_error_m = float(alignment.right.rms_error_m)
+        result.right_wall_span_x_m = float(alignment.right.span_x_m)
+        result.right_wall_support_count = self._wall_support_count(alignment.right)
+        result.right_wall_reason = str(alignment.right.reason)
         return result
 
     def _publish_feedback(
@@ -4928,6 +5038,7 @@ class DarthMaulControlNode(Node):
             rear_range = self._rear_range_m
             left_range = self._left_range_m
             right_range = self._right_range_m
+            grid_alignment = self._grid_alignment
 
         msg = ControlStatus()
         msg.stamp = self.get_clock().now().to_msg()
@@ -4945,6 +5056,27 @@ class DarthMaulControlNode(Node):
         msg.rear_range_m = rear_range
         msg.left_range_m = left_range
         msg.right_range_m = right_range
+        msg.grid_alignment_valid = bool(grid_alignment.valid)
+        msg.grid_yaw_valid = bool(grid_alignment.yaw_valid)
+        msg.grid_yaw_error_rad = float(grid_alignment.yaw_error_rad)
+        msg.grid_lateral_valid = bool(grid_alignment.lateral_valid)
+        msg.grid_lateral_error_m = float(grid_alignment.lateral_error_m)
+        msg.grid_alignment_source = str(grid_alignment.source)
+        msg.grid_alignment_confidence = float(grid_alignment.confidence)
+
+        msg.left_wall_line_valid = bool(grid_alignment.left.valid)
+        msg.left_wall_offset_m = float(grid_alignment.left.offset_m)
+        msg.left_wall_yaw_error_rad = float(grid_alignment.left.yaw_error_rad)
+        msg.left_wall_rms_error_m = float(grid_alignment.left.rms_error_m)
+        msg.left_wall_span_x_m = float(grid_alignment.left.span_x_m)
+        msg.left_wall_support_count = self._wall_support_count(grid_alignment.left)
+
+        msg.right_wall_line_valid = bool(grid_alignment.right.valid)
+        msg.right_wall_offset_m = float(grid_alignment.right.offset_m)
+        msg.right_wall_yaw_error_rad = float(grid_alignment.right.yaw_error_rad)
+        msg.right_wall_rms_error_m = float(grid_alignment.right.rms_error_m)
+        msg.right_wall_span_x_m = float(grid_alignment.right.span_x_m)
+        msg.right_wall_support_count = self._wall_support_count(grid_alignment.right)
         self._status_pub.publish(msg)
 
     def destroy_node(self):
@@ -5030,7 +5162,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 from statistics import median
-from typing import Dict, List
+from typing import Dict, List, Sequence, Tuple
 
 from darth_maul_control.geometry import normalize_angle
 
@@ -5063,6 +5195,291 @@ class TranslationProgressSelection:
     progress_m: float
     source: str
     reason: str
+
+
+@dataclass(frozen=True)
+class WallLineEstimate:
+    valid: bool
+    side: str
+    offset_m: float
+    yaw_error_rad: float
+    slope: float
+    intercept_m: float
+    support_count: int
+    span_x_m: float
+    rms_error_m: float
+    reason: str
+
+
+@dataclass(frozen=True)
+class GridAlignmentEstimate:
+    valid: bool
+    yaw_valid: bool
+    yaw_error_rad: float
+    lateral_valid: bool
+    lateral_error_m: float
+    source: str
+    confidence: float
+    left: WallLineEstimate
+    right: WallLineEstimate
+    reason: str
+
+
+def invalid_wall_line(side: str, reason: str) -> WallLineEstimate:
+    return WallLineEstimate(
+        valid=False,
+        side=side,
+        offset_m=0.0,
+        yaw_error_rad=0.0,
+        slope=0.0,
+        intercept_m=0.0,
+        support_count=0,
+        span_x_m=0.0,
+        rms_error_m=0.0,
+        reason=reason,
+    )
+
+
+def invalid_grid_alignment(reason: str) -> GridAlignmentEstimate:
+    left = invalid_wall_line('left', 'not evaluated')
+    right = invalid_wall_line('right', 'not evaluated')
+    return GridAlignmentEstimate(
+        valid=False,
+        yaw_valid=False,
+        yaw_error_rad=0.0,
+        lateral_valid=False,
+        lateral_error_m=0.0,
+        source='none',
+        confidence=0.0,
+        left=left,
+        right=right,
+        reason=reason,
+    )
+
+
+def valid_scan_points_xy(scan) -> List[Tuple[float, float]]:
+    if scan is None:
+        return []
+
+    points: List[Tuple[float, float]] = []
+    angle = float(scan.angle_min)
+
+    for raw in scan.ranges:
+        value = float(raw)
+        if math.isfinite(value) and scan.range_min <= value <= scan.range_max:
+            points.append((value * math.cos(angle), value * math.sin(angle)))
+        angle += float(scan.angle_increment)
+
+    return points
+
+
+def side_wall_candidate_points(
+    scan,
+    side: str,
+    min_x_m: float,
+    max_x_m: float,
+    min_side_distance_m: float,
+    max_side_distance_m: float,
+) -> List[Tuple[float, float]]:
+    if side not in ('left', 'right'):
+        raise ValueError(f'Unsupported side {side!r}')
+
+    sign = 1.0 if side == 'left' else -1.0
+    points = []
+
+    for x, y in valid_scan_points_xy(scan):
+        side_distance = sign * y
+        if (
+            min_x_m <= x <= max_x_m
+            and min_side_distance_m <= side_distance <= max_side_distance_m
+        ):
+            points.append((x, y))
+
+    return points
+
+
+def fit_side_wall_line(
+    scan,
+    side: str,
+    min_x_m: float,
+    max_x_m: float,
+    min_side_distance_m: float,
+    max_side_distance_m: float,
+    min_points: int,
+    min_span_x_m: float,
+    max_rms_error_m: float,
+    max_abs_yaw_error_rad: float,
+) -> WallLineEstimate:
+    points: Sequence[Tuple[float, float]] = side_wall_candidate_points(
+        scan,
+        side=side,
+        min_x_m=float(min_x_m),
+        max_x_m=float(max_x_m),
+        min_side_distance_m=float(min_side_distance_m),
+        max_side_distance_m=float(max_side_distance_m),
+    )
+
+    if len(points) < int(min_points):
+        return invalid_wall_line(
+            side,
+            f'not enough candidate points: {len(points)} < {int(min_points)}',
+        )
+
+    xs = [p[0] for p in points]
+    ys = [p[1] for p in points]
+
+    span_x = max(xs) - min(xs)
+    if span_x < float(min_span_x_m):
+        return invalid_wall_line(
+            side,
+            f'x-span too small: {span_x:.3f} m < {float(min_span_x_m):.3f} m',
+        )
+
+    mean_x = sum(xs) / len(xs)
+    mean_y = sum(ys) / len(ys)
+
+    denom = sum((x - mean_x) ** 2 for x in xs)
+    if denom <= 1e-9:
+        return invalid_wall_line(side, 'degenerate line fit')
+
+    slope = sum((x - mean_x) * (y - mean_y) for x, y in points) / denom
+    intercept = mean_y - slope * mean_x
+
+    residuals = [(y - (slope * x + intercept)) for x, y in points]
+    rms = math.sqrt(sum(r * r for r in residuals) / len(residuals))
+    yaw_error = math.atan(slope)
+
+    if rms > float(max_rms_error_m):
+        return invalid_wall_line(
+            side,
+            f'line rms too high: {rms:.3f} m > {float(max_rms_error_m):.3f} m',
+        )
+
+    if abs(yaw_error) > float(max_abs_yaw_error_rad):
+        return invalid_wall_line(
+            side,
+            (
+                f'wall yaw too large: {yaw_error:.3f} rad '
+                f'> {float(max_abs_yaw_error_rad):.3f} rad'
+            ),
+        )
+
+    if side == 'left' and intercept <= 0.0:
+        return invalid_wall_line(side, f'left wall intercept not positive: {intercept:.3f}')
+    if side == 'right' and intercept >= 0.0:
+        return invalid_wall_line(side, f'right wall intercept not negative: {intercept:.3f}')
+
+    return WallLineEstimate(
+        valid=True,
+        side=side,
+        offset_m=float(intercept),
+        yaw_error_rad=float(yaw_error),
+        slope=float(slope),
+        intercept_m=float(intercept),
+        support_count=len(points),
+        span_x_m=float(span_x),
+        rms_error_m=float(rms),
+        reason='valid side wall line',
+    )
+
+
+def estimate_grid_alignment(
+    scan,
+    expected_half_width_m: float,
+    min_x_m: float,
+    max_x_m: float,
+    min_side_distance_m: float,
+    max_side_distance_m: float,
+    min_points: int,
+    min_span_x_m: float,
+    max_rms_error_m: float,
+    max_abs_yaw_error_rad: float,
+    max_reported_error_m: float,
+    max_reported_yaw_rad: float,
+) -> GridAlignmentEstimate:
+    if scan is None:
+        return invalid_grid_alignment('no scan')
+
+    left = fit_side_wall_line(
+        scan,
+        side='left',
+        min_x_m=min_x_m,
+        max_x_m=max_x_m,
+        min_side_distance_m=min_side_distance_m,
+        max_side_distance_m=max_side_distance_m,
+        min_points=min_points,
+        min_span_x_m=min_span_x_m,
+        max_rms_error_m=max_rms_error_m,
+        max_abs_yaw_error_rad=max_abs_yaw_error_rad,
+    )
+    right = fit_side_wall_line(
+        scan,
+        side='right',
+        min_x_m=min_x_m,
+        max_x_m=max_x_m,
+        min_side_distance_m=min_side_distance_m,
+        max_side_distance_m=max_side_distance_m,
+        min_points=min_points,
+        min_span_x_m=min_span_x_m,
+        max_rms_error_m=max_rms_error_m,
+        max_abs_yaw_error_rad=max_abs_yaw_error_rad,
+    )
+
+    valid_walls = [wall for wall in (left, right) if wall.valid]
+    if not valid_walls:
+        return GridAlignmentEstimate(
+            valid=False,
+            yaw_valid=False,
+            yaw_error_rad=0.0,
+            lateral_valid=False,
+            lateral_error_m=0.0,
+            source='none',
+            confidence=0.0,
+            left=left,
+            right=right,
+            reason=f'no valid wall lines: left={left.reason}; right={right.reason}',
+        )
+
+    if left.valid and right.valid:
+        yaw_error = (left.yaw_error_rad + right.yaw_error_rad) / 2.0
+        lateral_error = (left.offset_m + right.offset_m) / 2.0
+        source = 'left_right'
+        confidence = 1.0
+        reason = 'left and right wall lines valid'
+    elif left.valid:
+        yaw_error = left.yaw_error_rad
+        lateral_error = left.offset_m - float(expected_half_width_m)
+        source = 'left'
+        confidence = 0.6
+        reason = 'left wall line valid'
+    else:
+        yaw_error = right.yaw_error_rad
+        lateral_error = right.offset_m + float(expected_half_width_m)
+        source = 'right'
+        confidence = 0.6
+        reason = 'right wall line valid'
+
+    yaw_error = max(
+        -float(max_reported_yaw_rad),
+        min(float(max_reported_yaw_rad), float(yaw_error)),
+    )
+    lateral_error = max(
+        -float(max_reported_error_m),
+        min(float(max_reported_error_m), float(lateral_error)),
+    )
+
+    return GridAlignmentEstimate(
+        valid=True,
+        yaw_valid=True,
+        yaw_error_rad=float(yaw_error),
+        lateral_valid=True,
+        lateral_error_m=float(lateral_error),
+        source=source,
+        confidence=float(confidence),
+        left=left,
+        right=right,
+        reason=reason,
+    )
 
 
 def valid_ranges_in_sector(scan, center_angle_rad: float, width_deg: float) -> List[float]:
@@ -5406,7 +5823,11 @@ from darth_maul_control.scan_geometry import (
     cardinal_sector_ranges,
     choose_lidar_progress,
     choose_translation_progress,
+    estimate_grid_alignment,
+    fit_side_wall_line,
     sector_range,
+    side_wall_candidate_points,
+    valid_scan_points_xy,
     valid_ranges_in_sector,
 )
 
@@ -5420,6 +5841,49 @@ def make_scan(ranges, angle_min=-math.pi, angle_increment=None):
         range_min=0.05,
         range_max=12.0,
         ranges=ranges,
+    )
+
+
+def make_line_scan(
+    lines,
+    num_samples=720,
+    angle_min=-math.pi,
+    angle_max=math.pi,
+    range_min=0.05,
+    range_max=12.0,
+):
+    """Create a synthetic 2D scan from lines y = slope*x + intercept.
+
+    lines: sequence of (slope, intercept, x_min, x_max)
+    """
+    angle_increment = (angle_max - angle_min) / num_samples
+    ranges = [float('inf')] * num_samples
+
+    for i in range(num_samples):
+        theta = angle_min + i * angle_increment
+        c = math.cos(theta)
+        s = math.sin(theta)
+
+        best = float('inf')
+        for slope, intercept, x_min, x_max in lines:
+            denom = s - slope * c
+            if abs(denom) < 1e-9:
+                continue
+
+            r = intercept / denom
+            if not math.isfinite(r) or r < range_min or r > range_max:
+                continue
+
+            x = r * c
+            if x_min <= x <= x_max:
+                best = min(best, r)
+
+        ranges[i] = best
+
+    return make_scan(
+        ranges,
+        angle_min=angle_min,
+        angle_increment=angle_increment,
     )
 
 
@@ -5666,6 +6130,181 @@ def test_choose_translation_progress_odom_only_ignores_valid_lidar():
     assert selection.progress_m == pytest.approx(0.249)
 
 
+def test_valid_scan_points_xy_and_side_candidates_use_robot_frame():
+    scan = make_line_scan([(0.0, 0.20, -0.20, 0.45)])
+
+    points = valid_scan_points_xy(scan)
+    left_candidates = side_wall_candidate_points(
+        scan,
+        side='left',
+        min_x_m=-0.18,
+        max_x_m=0.45,
+        min_side_distance_m=0.06,
+        max_side_distance_m=0.45,
+    )
+
+    assert points
+    assert len(left_candidates) >= 8
+    assert all(y > 0.0 for _, y in left_candidates)
+
+
+def test_fit_side_wall_line_left_parallel_wall():
+    scan = make_line_scan([(0.0, 0.20, -0.20, 0.45)])
+
+    estimate = fit_side_wall_line(
+        scan,
+        side='left',
+        min_x_m=-0.18,
+        max_x_m=0.45,
+        min_side_distance_m=0.06,
+        max_side_distance_m=0.45,
+        min_points=8,
+        min_span_x_m=0.12,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+    )
+
+    assert estimate.valid
+    assert estimate.offset_m == pytest.approx(0.20, abs=0.01)
+    assert estimate.yaw_error_rad == pytest.approx(0.0, abs=0.02)
+    assert estimate.support_count >= 8
+
+
+def test_fit_side_wall_line_right_parallel_wall():
+    scan = make_line_scan([(0.0, -0.18, -0.20, 0.45)])
+
+    estimate = fit_side_wall_line(
+        scan,
+        side='right',
+        min_x_m=-0.18,
+        max_x_m=0.45,
+        min_side_distance_m=0.06,
+        max_side_distance_m=0.45,
+        min_points=8,
+        min_span_x_m=0.12,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+    )
+
+    assert estimate.valid
+    assert estimate.offset_m == pytest.approx(-0.18, abs=0.01)
+    assert estimate.yaw_error_rad == pytest.approx(0.0, abs=0.02)
+
+
+def test_fit_side_wall_line_rejects_far_wall_seen_through_opening():
+    scan = make_line_scan([(0.0, 1.20, -0.20, 0.45)])
+
+    estimate = fit_side_wall_line(
+        scan,
+        side='left',
+        min_x_m=-0.18,
+        max_x_m=0.45,
+        min_side_distance_m=0.06,
+        max_side_distance_m=0.45,
+        min_points=8,
+        min_span_x_m=0.12,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+    )
+
+    assert not estimate.valid
+
+
+def test_estimate_grid_alignment_both_walls_centered():
+    scan = make_line_scan([
+        (0.0, 0.20, -0.20, 0.45),
+        (0.0, -0.20, -0.20, 0.45),
+    ])
+
+    estimate = estimate_grid_alignment(
+        scan,
+        expected_half_width_m=0.20,
+        min_x_m=-0.18,
+        max_x_m=0.45,
+        min_side_distance_m=0.06,
+        max_side_distance_m=0.45,
+        min_points=8,
+        min_span_x_m=0.12,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+        max_reported_error_m=0.30,
+        max_reported_yaw_rad=0.50,
+    )
+
+    assert estimate.valid
+    assert estimate.source == 'left_right'
+    assert estimate.yaw_error_rad == pytest.approx(0.0, abs=0.02)
+    assert estimate.lateral_error_m == pytest.approx(0.0, abs=0.02)
+
+
+def test_estimate_grid_alignment_left_only_reports_centerline_left():
+    scan = make_line_scan([(0.0, 0.25, -0.20, 0.45)])
+
+    estimate = estimate_grid_alignment(
+        scan,
+        expected_half_width_m=0.20,
+        min_x_m=-0.18,
+        max_x_m=0.45,
+        min_side_distance_m=0.06,
+        max_side_distance_m=0.45,
+        min_points=8,
+        min_span_x_m=0.12,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+        max_reported_error_m=0.30,
+        max_reported_yaw_rad=0.50,
+    )
+
+    assert estimate.valid
+    assert estimate.source == 'left'
+    assert estimate.lateral_error_m == pytest.approx(0.05, abs=0.02)
+
+
+def test_estimate_grid_alignment_right_only_reports_centerline_right():
+    scan = make_line_scan([(0.0, -0.25, -0.20, 0.45)])
+
+    estimate = estimate_grid_alignment(
+        scan,
+        expected_half_width_m=0.20,
+        min_x_m=-0.18,
+        max_x_m=0.45,
+        min_side_distance_m=0.06,
+        max_side_distance_m=0.45,
+        min_points=8,
+        min_span_x_m=0.12,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+        max_reported_error_m=0.30,
+        max_reported_yaw_rad=0.50,
+    )
+
+    assert estimate.valid
+    assert estimate.source == 'right'
+    assert estimate.lateral_error_m == pytest.approx(-0.05, abs=0.02)
+
+
+def test_estimate_grid_alignment_reports_wall_yaw():
+    scan = make_line_scan([(0.10, 0.20, -0.20, 0.45)])
+
+    estimate = estimate_grid_alignment(
+        scan,
+        expected_half_width_m=0.20,
+        min_x_m=-0.18,
+        max_x_m=0.45,
+        min_side_distance_m=0.06,
+        max_side_distance_m=0.45,
+        min_points=8,
+        min_span_x_m=0.12,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+        max_reported_error_m=0.30,
+        max_reported_yaw_rad=0.50,
+    )
+
+    assert estimate.valid
+    assert estimate.yaw_error_rad == pytest.approx(math.atan(0.10), abs=0.03)
+
+
 # ================== FILE 52: ros2_ws/src/darth_maul_control_interfaces/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.8)
@@ -5821,6 +6460,32 @@ float32 lidar_progress_disagreement_m
 string lidar_progress_reason
 string control_progress_reason
 
+# LiDAR grid-alignment diagnostics. Diagnostics only for now.
+bool grid_alignment_valid
+bool grid_yaw_valid
+float32 grid_yaw_error_rad
+bool grid_lateral_valid
+float32 grid_lateral_error_m
+string grid_alignment_source
+float32 grid_alignment_confidence
+string grid_alignment_reason
+
+bool left_wall_line_valid
+float32 left_wall_offset_m
+float32 left_wall_yaw_error_rad
+float32 left_wall_rms_error_m
+float32 left_wall_span_x_m
+uint16 left_wall_support_count
+string left_wall_reason
+
+bool right_wall_line_valid
+float32 right_wall_offset_m
+float32 right_wall_yaw_error_rad
+float32 right_wall_rms_error_m
+float32 right_wall_span_x_m
+uint16 right_wall_support_count
+string right_wall_reason
+
 ---
 # Feedback
 
@@ -5862,6 +6527,29 @@ float64 front_range_m
 float64 rear_range_m
 float64 left_range_m
 float64 right_range_m
+
+# LiDAR grid-alignment diagnostics. NaN/false when unavailable.
+bool grid_alignment_valid
+bool grid_yaw_valid
+float64 grid_yaw_error_rad
+bool grid_lateral_valid
+float64 grid_lateral_error_m
+string grid_alignment_source
+float64 grid_alignment_confidence
+
+bool left_wall_line_valid
+float64 left_wall_offset_m
+float64 left_wall_yaw_error_rad
+float64 left_wall_rms_error_m
+float64 left_wall_span_x_m
+uint16 left_wall_support_count
+
+bool right_wall_line_valid
+float64 right_wall_offset_m
+float64 right_wall_yaw_error_rad
+float64 right_wall_rms_error_m
+float64 right_wall_span_x_m
+uint16 right_wall_support_count
 
 
 # ================== FILE 56: ros2_ws/src/driver/controller/package.xml ==================

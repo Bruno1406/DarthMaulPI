@@ -82,29 +82,43 @@ darth_maul_control:
     # Diagnostic warning threshold for odom/LiDAR disagreement.
     lidar_odom_warning_threshold_m: 0.020
 
-    # Optional correction must stay disabled for initial robot tests.
-    # Test order: STOP, ROTATE_RELATIVE, DRIVE_FORWARD, ADVANCE_CELL,
-    # then lateral_correction_enabled, then wall centering/lateral wall correction.
-    wall_centering_enabled: false
-    side_sector_center_deg: 90.0
-    side_sector_width_deg: 25.0
-    side_wall_target_distance_m: 0.125
+    # LiDAR grid-alignment diagnostics.
+    # Diagnostics only for now. Do not use these values for control until signs
+    # have been verified on the robot.
+    grid_alignment_diagnostics_enabled: true
 
-    # Keep angular wall centering off unless lateral wall correction is bad.
-    angular_wall_centering_enabled: false
-    k_wall_centering: 0.60
-    wall_centering_max_correction_radps: 0.08
+    # Expected distance from robot centerline to one side wall when centered.
+    # This is used only for one-wall lateral error diagnostics.
+    grid_alignment_expected_half_width_m: 0.125
+
+    # Side wall candidate filter in robot base frame.
+    # x is forward, y is left. A useful side wall must have enough points
+    # beside the robot over a longitudinal span.
+    grid_alignment_min_x_m: -0.18
+    grid_alignment_max_x_m: 0.45
+
+    # Reject walls too close to be reliable and far walls seen through openings.
+    # This is intentionally conservative to avoid chasing distant cross-walls.
+    grid_alignment_min_side_distance_m: 0.06
+    grid_alignment_max_side_distance_m: 0.45
+
+    # Minimum support for line fitting.
+    grid_alignment_min_points: 8
+    grid_alignment_min_span_x_m: 0.12
+
+    # Reject noisy/curved/corner-like clusters.
+    grid_alignment_max_rms_error_m: 0.025
+    grid_alignment_max_abs_yaw_error_rad: 0.35
+
+    # Clamp reported diagnostics so invalid estimates never explode logs.
+    grid_alignment_max_reported_error_m: 0.30
+    grid_alignment_max_reported_yaw_rad: 0.50
 
     # Lateral correction: uses mecanum linear.y for small in-cell centering.
     # Enable only after basic ADVANCE_CELL works.
     lateral_correction_enabled: false
     k_lateral_cross_track: 0.50
     max_lateral_correction_mps: 0.025
-
-    # Enable only after lateral_correction_enabled works in basic testing.
-    wall_lateral_correction_enabled: false
-    k_lateral_wall: 0.40
-    max_wall_lateral_correction_mps: 0.025
 
     # Timing
     timeout_margin_sec: 3.0

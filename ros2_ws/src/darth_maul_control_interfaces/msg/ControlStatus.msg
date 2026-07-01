@@ -27,3 +27,26 @@ float64 front_range_m
 float64 rear_range_m
 float64 left_range_m
 float64 right_range_m
+
+# LiDAR grid-alignment diagnostics. NaN/false when unavailable.
+bool grid_alignment_valid
+bool grid_yaw_valid
+float64 grid_yaw_error_rad
+bool grid_lateral_valid
+float64 grid_lateral_error_m
+string grid_alignment_source
+float64 grid_alignment_confidence
+
+bool left_wall_line_valid
+float64 left_wall_offset_m
+float64 left_wall_yaw_error_rad
+float64 left_wall_rms_error_m
+float64 left_wall_span_x_m
+uint16 left_wall_support_count
+
+bool right_wall_line_valid
+float64 right_wall_offset_m
+float64 right_wall_yaw_error_rad
+float64 right_wall_rms_error_m
+float64 right_wall_span_x_m
+uint16 right_wall_support_count

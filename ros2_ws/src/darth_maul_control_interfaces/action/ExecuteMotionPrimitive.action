@@ -92,6 +92,32 @@ float32 lidar_progress_disagreement_m
 string lidar_progress_reason
 string control_progress_reason
 
+# LiDAR grid-alignment diagnostics. Diagnostics only for now.
+bool grid_alignment_valid
+bool grid_yaw_valid
+float32 grid_yaw_error_rad
+bool grid_lateral_valid
+float32 grid_lateral_error_m
+string grid_alignment_source
+float32 grid_alignment_confidence
+string grid_alignment_reason
+
+bool left_wall_line_valid
+float32 left_wall_offset_m
+float32 left_wall_yaw_error_rad
+float32 left_wall_rms_error_m
+float32 left_wall_span_x_m
+uint16 left_wall_support_count
+string left_wall_reason
+
+bool right_wall_line_valid
+float32 right_wall_offset_m
+float32 right_wall_yaw_error_rad
+float32 right_wall_rms_error_m
+float32 right_wall_span_x_m
+uint16 right_wall_support_count
+string right_wall_reason
+
 ---
 # Feedback
 
