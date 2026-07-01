@@ -48,6 +48,12 @@ darth_maul_control:
     front_sector_deg: 35.0
     front_stop_distance_m: 0.13
 
+    # LiDAR cardinal-sector diagnostics.
+    # These are diagnostic-only for now. They do not control stopping.
+    lidar_diagnostics_enabled: true
+    lidar_diagnostic_sector_width_deg: 10.0
+    lidar_diagnostic_min_samples: 3
+
     # Optional correction must stay disabled for initial robot tests.
     # Test order: STOP, ROTATE_RELATIVE, DRIVE_FORWARD, ADVANCE_CELL,
     # then lateral_correction_enabled, then wall centering/lateral wall correction.

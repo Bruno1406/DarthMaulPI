@@ -209,30 +209,7 @@ class Controller(Node):
         if msg.angular.z < -0.5:
             msg.angular.z = -0.5
         self.cmd_vel_callback(msg)
-    # def cmd_vel_callback(self, msg):
-    #     if self.machine_type == 'MentorPi_Mecanum':
-    #         self.linear_x = msg.linear.x
-    #         self.linear_y = msg.linear.y
-    #         self.angular_z = msg.angular.z
-    #         speeds = self.mecanum.set_velocity(self.linear_x, self.linear_y, self.angular_z)
-    #         self.motor_pub.publish(speeds)
-    #     elif self.machine_type == 'MentorPi_Acker':
-    #         self.linear_x = msg.linear.x
-    #         if msg.angular.z != 0:
-    #             r = self.linear_x / msg.angular.z
-    #             self.angular_z = msg.angular.z
-    #         else:
-    #             self.angular_z = 0.0
-    #         speeds = self.ackermann.set_velocity(self.linear_x, self.angular_z)
-    #         self.motor_pub.publish(speeds[1])
-    #         if speeds[0] is not None:
-    #             servo_state = PWMServoState()
-    #             servo_state.id = [3]
-    #             servo_state.position = [int(speeds[0])]
-    #             data = SetPWMServoState()
-    #             data.state = [servo_state]
-    #             data.duration = 0.02
-    #             self.servo_state_pub.publish(data)
+
     def cmd_vel_callback(self, msg):
         if self.machine_type == 'MentorPi_Mecanum':
             with self.odom_lock:

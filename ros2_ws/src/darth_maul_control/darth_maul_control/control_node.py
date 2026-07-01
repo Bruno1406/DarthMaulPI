@@ -14,6 +14,12 @@ from darth_maul_control.geometry import (
     sign,
     yaw_from_quaternion,
 )
+from darth_maul_control.scan_geometry import (
+    SectorRange,
+    cardinal_sector_ranges,
+    combine_lidar_progress_candidates,
+    finite_median_or_nan,
+)
 from darth_maul_control.velocity_limiter import VelocityLimiter, VelocityLimits
 from darth_maul_control_interfaces.action import ExecuteMotionPrimitive
 from darth_maul_control_interfaces.msg import ControlStatus
@@ -40,6 +46,41 @@ class Pose2D:
 class MotionSnapshot:
     pose: Pose2D
     pose_msg: PoseStamped
+
+
+@dataclass(frozen=True)
+class LidarRangeSnapshot:
+    front: SectorRange
+    rear: SectorRange
+    left: SectorRange
+    right: SectorRange
+
+
+@dataclass(frozen=True)
+class TranslationDiagnostics:
+    odom_progress_m: float = 0.0
+
+    front_range_valid: bool = False
+    front_range_start_m: float = 0.0
+    front_range_end_m: float = 0.0
+    front_progress_m: float = 0.0
+
+    rear_range_valid: bool = False
+    rear_range_start_m: float = 0.0
+    rear_range_end_m: float = 0.0
+    rear_progress_m: float = 0.0
+
+    left_range_valid: bool = False
+    left_range_start_m: float = 0.0
+    left_range_end_m: float = 0.0
+
+    right_range_valid: bool = False
+    right_range_start_m: float = 0.0
+    right_range_end_m: float = 0.0
+
+    lidar_progress_valid: bool = False
+    lidar_progress_m: float = 0.0
+    lidar_minus_odom_m: float = 0.0
 
 
 SUPPORTED_PRIMITIVES = {
@@ -88,6 +129,10 @@ class DarthMaulControlNode(Node):
         self._distance_traveled_m = 0.0
         self._heading_error_rad = 0.0
         self._front_clearance_m = float('inf')
+        self._front_range_m = float('nan')
+        self._rear_range_m = float('nan')
+        self._left_range_m = float('nan')
+        self._right_range_m = float('nan')
 
         self._active_goal = False
         self._stop_requested = False
@@ -231,6 +276,21 @@ class DarthMaulControlNode(Node):
             'front_stop_distance_m',
             0.13,
         )
+        self.lidar_diagnostics_enabled = self._bool_param(
+            'lidar_diagnostics_enabled',
+            True,
+        )
+        self.lidar_diagnostic_sector_width_deg = self._positive_float_param(
+            'lidar_diagnostic_sector_width_deg',
+            10.0,
+        )
+        self.lidar_diagnostic_min_samples = int(
+            self._positive_float_param(
+                'lidar_diagnostic_min_samples',
+                3.0,
+            )
+        )
+        self.lidar_diagnostic_min_samples = max(1, self.lidar_diagnostic_min_samples)
 
         self.wall_centering_enabled = self._bool_param(
             'wall_centering_enabled',
@@ -351,12 +411,22 @@ class DarthMaulControlNode(Node):
 
     def _scan_callback(self, msg: LaserScan) -> None:
         front_clearance = self._min_range_in_sector(msg, 0.0, self.front_sector_deg)
+        cardinal = cardinal_sector_ranges(
+            msg,
+            self.lidar_diagnostic_sector_width_deg,
+            self.lidar_diagnostic_min_samples,
+        )
+
         with self._scan_lock:
             self._latest_scan = msg
             self._last_scan_monotonic = time.monotonic()
 
         with self._state_lock:
             self._front_clearance_m = front_clearance
+            self._front_range_m = finite_median_or_nan(cardinal['front'])
+            self._rear_range_m = finite_median_or_nan(cardinal['rear'])
+            self._left_range_m = finite_median_or_nan(cardinal['left'])
+            self._right_range_m = finite_median_or_nan(cardinal['right'])
 
     def _goal_callback(self, goal_request) -> GoalResponse:
         primitive = int(goal_request.primitive_type)
@@ -588,6 +658,7 @@ class DarthMaulControlNode(Node):
             return self._odom_unavailable_result(goal_handle)
 
         start = start_snapshot.pose
+        start_ranges = self._cardinal_range_snapshot()
         start_time = time.monotonic()
 
         self._set_state(ControlStatus.STATE_EXECUTING, f'{name} executing', primitive_type=primitive)
@@ -597,6 +668,8 @@ class DarthMaulControlNode(Node):
         result_message = 'unknown translation result'
         final_position_error = target_distance
         final_heading_error = 0.0
+        final_odom_progress = 0.0
+        translation_diagnostics = TranslationDiagnostics()
 
         while True:
             if self._cancel_or_stop_requested(goal_handle):
@@ -617,6 +690,7 @@ class DarthMaulControlNode(Node):
             current = snapshot.pose
 
             progress_signed, cross_track = self._translation_errors(start, current, direction)
+            final_odom_progress = max(0.0, progress_signed)
             remaining = target_distance - progress_signed
             heading_error = normalize_angle(start.yaw - current.yaw)
 
@@ -655,6 +729,7 @@ class DarthMaulControlNode(Node):
                     heading_error = normalize_angle(start.yaw - final_snapshot.pose.yaw)
                     final_position_error = abs(remaining)
                     final_heading_error = abs(heading_error)
+                    final_odom_progress = max(0.0, progress_signed)
 
                 if (
                     self.enforce_final_error
@@ -738,6 +813,31 @@ class DarthMaulControlNode(Node):
 
             time.sleep(1.0 / self.control_rate_hz)
 
+        end_ranges = self._cardinal_range_snapshot()
+        translation_diagnostics = self._translation_diagnostics(
+            direction=direction,
+            odom_progress_m=final_odom_progress,
+            start_ranges=start_ranges,
+            end_ranges=end_ranges,
+        )
+
+        result_message = self._append_translation_diagnostics(
+            result_message,
+            translation_diagnostics,
+        )
+
+        self.get_logger().info(
+            f'{name} diagnostics: '
+            f'odom_progress={translation_diagnostics.odom_progress_m:.3f} m, '
+            f'front_valid={translation_diagnostics.front_range_valid}, '
+            f'front_progress={translation_diagnostics.front_progress_m:.3f} m, '
+            f'rear_valid={translation_diagnostics.rear_range_valid}, '
+            f'rear_progress={translation_diagnostics.rear_progress_m:.3f} m, '
+            f'lidar_valid={translation_diagnostics.lidar_progress_valid}, '
+            f'lidar_progress={translation_diagnostics.lidar_progress_m:.3f} m, '
+            f'lidar_minus_odom={translation_diagnostics.lidar_minus_odom_m:.3f} m'
+        )
+
         return self._finish_motion_result(
             goal_handle,
             result_success,
@@ -745,6 +845,7 @@ class DarthMaulControlNode(Node):
             result_message,
             final_position_error,
             final_heading_error,
+            translation_diagnostics=translation_diagnostics,
         )
 
     def _execute_rotate(self, goal_handle):
@@ -983,6 +1084,120 @@ class DarthMaulControlNode(Node):
             return float('inf')
         return self._min_range_in_sector(scan, 0.0, self.front_sector_deg)
 
+    def _cardinal_range_snapshot(self) -> Optional[LidarRangeSnapshot]:
+        if not self.lidar_diagnostics_enabled:
+            return None
+
+        scan = self._fresh_scan_copy()
+        if scan is None:
+            return None
+
+        measurements = cardinal_sector_ranges(
+            scan,
+            self.lidar_diagnostic_sector_width_deg,
+            self.lidar_diagnostic_min_samples,
+        )
+
+        return LidarRangeSnapshot(
+            front=measurements['front'],
+            rear=measurements['rear'],
+            left=measurements['left'],
+            right=measurements['right'],
+        )
+
+    @staticmethod
+    def _range_value(measurement: SectorRange) -> float:
+        return float(measurement.median_m) if measurement.valid else 0.0
+
+    def _translation_diagnostics(
+        self,
+        direction: float,
+        odom_progress_m: float,
+        start_ranges: Optional[LidarRangeSnapshot],
+        end_ranges: Optional[LidarRangeSnapshot],
+    ) -> TranslationDiagnostics:
+        if start_ranges is None or end_ranges is None:
+            return TranslationDiagnostics(odom_progress_m=float(max(0.0, odom_progress_m)))
+
+        front_valid = start_ranges.front.valid and end_ranges.front.valid
+        rear_valid = start_ranges.rear.valid and end_ranges.rear.valid
+        left_valid = start_ranges.left.valid and end_ranges.left.valid
+        right_valid = start_ranges.right.valid and end_ranges.right.valid
+
+        front_start = self._range_value(start_ranges.front)
+        front_end = self._range_value(end_ranges.front)
+        rear_start = self._range_value(start_ranges.rear)
+        rear_end = self._range_value(end_ranges.rear)
+        left_start = self._range_value(start_ranges.left)
+        left_end = self._range_value(end_ranges.left)
+        right_start = self._range_value(start_ranges.right)
+        right_end = self._range_value(end_ranges.right)
+
+        if direction >= 0.0:
+            front_progress = front_start - front_end if front_valid else 0.0
+            rear_progress = rear_end - rear_start if rear_valid else 0.0
+        else:
+            front_progress = front_end - front_start if front_valid else 0.0
+            rear_progress = rear_start - rear_end if rear_valid else 0.0
+
+        lidar_progress_valid, lidar_progress = combine_lidar_progress_candidates(
+            front_valid,
+            front_progress,
+            rear_valid,
+            rear_progress,
+        )
+
+        odom_progress = float(max(0.0, odom_progress_m))
+        lidar_minus_odom = lidar_progress - odom_progress if lidar_progress_valid else 0.0
+
+        return TranslationDiagnostics(
+            odom_progress_m=odom_progress,
+            front_range_valid=front_valid,
+            front_range_start_m=front_start,
+            front_range_end_m=front_end,
+            front_progress_m=front_progress,
+            rear_range_valid=rear_valid,
+            rear_range_start_m=rear_start,
+            rear_range_end_m=rear_end,
+            rear_progress_m=rear_progress,
+            left_range_valid=left_valid,
+            left_range_start_m=left_start,
+            left_range_end_m=left_end,
+            right_range_valid=right_valid,
+            right_range_start_m=right_start,
+            right_range_end_m=right_end,
+            lidar_progress_valid=lidar_progress_valid,
+            lidar_progress_m=lidar_progress,
+            lidar_minus_odom_m=lidar_minus_odom,
+        )
+
+    @staticmethod
+    def _append_translation_diagnostics(
+        message: str,
+        diagnostics: TranslationDiagnostics,
+    ) -> str:
+        return (
+            f'{message}; '
+            f'odom_progress={diagnostics.odom_progress_m:.3f} m; '
+            f'front_valid={diagnostics.front_range_valid}; '
+            f'front_start={diagnostics.front_range_start_m:.3f} m; '
+            f'front_end={diagnostics.front_range_end_m:.3f} m; '
+            f'front_progress={diagnostics.front_progress_m:.3f} m; '
+            f'rear_valid={diagnostics.rear_range_valid}; '
+            f'rear_start={diagnostics.rear_range_start_m:.3f} m; '
+            f'rear_end={diagnostics.rear_range_end_m:.3f} m; '
+            f'rear_progress={diagnostics.rear_progress_m:.3f} m; '
+            f'left_valid={diagnostics.left_range_valid}; '
+            f'left_start={diagnostics.left_range_start_m:.3f} m; '
+            f'left_end={diagnostics.left_range_end_m:.3f} m; '
+            f'right_valid={diagnostics.right_range_valid}; '
+            f'right_start={diagnostics.right_range_start_m:.3f} m; '
+            f'right_end={diagnostics.right_range_end_m:.3f} m; '
+            f'lidar_valid={diagnostics.lidar_progress_valid}; '
+            f'lidar_progress={diagnostics.lidar_progress_m:.3f} m; '
+            f'lidar_minus_odom={diagnostics.lidar_minus_odom_m:.3f} m'
+        )
+
     def _fresh_scan_copy(self) -> Optional[LaserScan]:
         with self._scan_lock:
             if self._latest_scan is None or self._last_scan_monotonic is None:
@@ -1133,6 +1348,7 @@ class DarthMaulControlNode(Node):
         message: str,
         final_position_error: float,
         final_heading_error: float,
+        translation_diagnostics: Optional[TranslationDiagnostics] = None,
     ):
         self._publish_zero_for_duration()
 
@@ -1149,6 +1365,7 @@ class DarthMaulControlNode(Node):
             message,
             final_position_error=final_position_error,
             final_heading_error=final_heading_error,
+            translation_diagnostics=translation_diagnostics,
         )
 
     def _make_result(
@@ -1158,6 +1375,7 @@ class DarthMaulControlNode(Node):
         message: str,
         final_position_error: float = 0.0,
         final_heading_error: float = 0.0,
+        translation_diagnostics: Optional[TranslationDiagnostics] = None,
     ):
         result = ExecuteMotionPrimitive.Result()
         result.success = bool(success)
@@ -1165,6 +1383,31 @@ class DarthMaulControlNode(Node):
         result.message = str(message)
         result.final_position_error_m = float(final_position_error)
         result.final_heading_error_rad = float(final_heading_error)
+        diagnostics = translation_diagnostics or TranslationDiagnostics()
+
+        result.final_odom_progress_m = float(diagnostics.odom_progress_m)
+
+        result.front_range_valid = bool(diagnostics.front_range_valid)
+        result.front_range_start_m = float(diagnostics.front_range_start_m)
+        result.front_range_end_m = float(diagnostics.front_range_end_m)
+        result.front_progress_m = float(diagnostics.front_progress_m)
+
+        result.rear_range_valid = bool(diagnostics.rear_range_valid)
+        result.rear_range_start_m = float(diagnostics.rear_range_start_m)
+        result.rear_range_end_m = float(diagnostics.rear_range_end_m)
+        result.rear_progress_m = float(diagnostics.rear_progress_m)
+
+        result.left_range_valid = bool(diagnostics.left_range_valid)
+        result.left_range_start_m = float(diagnostics.left_range_start_m)
+        result.left_range_end_m = float(diagnostics.left_range_end_m)
+
+        result.right_range_valid = bool(diagnostics.right_range_valid)
+        result.right_range_start_m = float(diagnostics.right_range_start_m)
+        result.right_range_end_m = float(diagnostics.right_range_end_m)
+
+        result.lidar_progress_valid = bool(diagnostics.lidar_progress_valid)
+        result.lidar_progress_m = float(diagnostics.lidar_progress_m)
+        result.lidar_minus_odom_m = float(diagnostics.lidar_minus_odom_m)
         return result
 
     def _publish_feedback(
@@ -1246,6 +1489,10 @@ class DarthMaulControlNode(Node):
             distance_traveled = self._distance_traveled_m
             heading_error = self._heading_error_rad
             front_clearance = self._front_clearance_m
+            front_range = self._front_range_m
+            rear_range = self._rear_range_m
+            left_range = self._left_range_m
+            right_range = self._right_range_m
 
         msg = ControlStatus()
         msg.stamp = self.get_clock().now().to_msg()
@@ -1259,6 +1506,10 @@ class DarthMaulControlNode(Node):
         msg.distance_traveled_m = distance_traveled
         msg.heading_error_rad = heading_error
         msg.front_clearance_m = front_clearance
+        msg.front_range_m = front_range
+        msg.rear_range_m = rear_range
+        msg.left_range_m = left_range
+        msg.right_range_m = right_range
         self._status_pub.publish(msg)
 
     def destroy_node(self):

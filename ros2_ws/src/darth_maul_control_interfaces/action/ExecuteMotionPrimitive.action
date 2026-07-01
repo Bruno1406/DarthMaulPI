@@ -54,6 +54,33 @@ string message
 float32 final_position_error_m
 float32 final_heading_error_rad
 
+# Translation diagnostics. These are populated for DRIVE_FORWARD,
+# DRIVE_BACKWARD, and ADVANCE_CELL. For non-translation primitives,
+# valid flags are false and numeric fields are zero.
+float32 final_odom_progress_m
+
+bool front_range_valid
+float32 front_range_start_m
+float32 front_range_end_m
+float32 front_progress_m
+
+bool rear_range_valid
+float32 rear_range_start_m
+float32 rear_range_end_m
+float32 rear_progress_m
+
+bool left_range_valid
+float32 left_range_start_m
+float32 left_range_end_m
+
+bool right_range_valid
+float32 right_range_start_m
+float32 right_range_end_m
+
+bool lidar_progress_valid
+float32 lidar_progress_m
+float32 lidar_minus_odom_m
+
 ---
 # Feedback
 

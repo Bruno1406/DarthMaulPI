@@ -20,3 +20,10 @@ float64 distance_remaining_m
 float64 distance_traveled_m
 float64 heading_error_rad
 float64 front_clearance_m
+
+# Median cardinal LiDAR sector ranges. Validity is represented by NaN
+# if a sector does not have enough valid samples.
+float64 front_range_m
+float64 rear_range_m
+float64 left_range_m
+float64 right_range_m
