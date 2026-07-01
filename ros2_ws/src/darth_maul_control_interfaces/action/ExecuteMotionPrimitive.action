@@ -81,6 +81,17 @@ bool lidar_progress_valid
 float32 lidar_progress_m
 float32 lidar_minus_odom_m
 
+# Progress source actually used for translation stopping.
+# For non-translation primitives these remain default/empty.
+float32 final_control_progress_m
+string progress_source_used
+
+# LiDAR progress selection details.
+string lidar_progress_source
+float32 lidar_progress_disagreement_m
+string lidar_progress_reason
+string control_progress_reason
+
 ---
 # Feedback
 

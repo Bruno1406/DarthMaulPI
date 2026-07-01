@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import math
 import threading
 import time
@@ -15,9 +15,11 @@ from darth_maul_control.geometry import (
     yaw_from_quaternion,
 )
 from darth_maul_control.scan_geometry import (
+    LidarProgressEstimate,
     SectorRange,
     cardinal_sector_ranges,
-    combine_lidar_progress_candidates,
+    choose_lidar_progress,
+    choose_translation_progress,
     finite_median_or_nan,
 )
 from darth_maul_control.velocity_limiter import VelocityLimiter, VelocityLimits
@@ -81,6 +83,14 @@ class TranslationDiagnostics:
     lidar_progress_valid: bool = False
     lidar_progress_m: float = 0.0
     lidar_minus_odom_m: float = 0.0
+
+    final_control_progress_m: float = 0.0
+    progress_source_used: str = 'odom'
+
+    lidar_progress_source: str = 'none'
+    lidar_progress_disagreement_m: float = 0.0
+    lidar_progress_reason: str = ''
+    control_progress_reason: str = ''
 
 
 SUPPORTED_PRIMITIVES = {
@@ -288,6 +298,41 @@ class DarthMaulControlNode(Node):
             'lidar_diagnostic_min_samples',
             3,
         )
+        self.translation_progress_source = self._string_param(
+            'translation_progress_source',
+            'lidar_when_consistent',
+        )
+        if self.translation_progress_source not in (
+            'odom_only',
+            'lidar_when_consistent',
+            'lidar_required',
+        ):
+            self.get_logger().warning(
+                f'Invalid translation_progress_source={self.translation_progress_source!r}; '
+                'falling back to odom_only'
+            )
+            self.translation_progress_source = 'odom_only'
+
+        self.lidar_progress_max_disagreement_m = self._positive_float_param(
+            'lidar_progress_max_disagreement_m',
+            0.025,
+        )
+        self.lidar_progress_min_m = self._float_param(
+            'lidar_progress_min_m',
+            -0.010,
+        )
+        self.lidar_progress_allow_single_source = self._bool_param(
+            'lidar_progress_allow_single_source',
+            True,
+        )
+        self.lidar_progress_max_ahead_of_odom_m = self._positive_float_param(
+            'lidar_progress_max_ahead_of_odom_m',
+            0.060,
+        )
+        self.lidar_odom_warning_threshold_m = self._positive_float_param(
+            'lidar_odom_warning_threshold_m',
+            0.020,
+        )
 
         self.wall_centering_enabled = self._bool_param(
             'wall_centering_enabled',
@@ -388,6 +433,16 @@ class DarthMaulControlNode(Node):
         if not math.isfinite(value) or value <= 0.0:
             self.get_logger().warn(f'Parameter {name} invalid; using {default}')
             return default
+        return value
+
+    def _float_param(self, name: str, default: float) -> float:
+        self.declare_parameter(name, default)
+        value = float(self.get_parameter(name).value)
+        if not math.isfinite(value):
+            self.get_logger().warning(
+                f'Invalid parameter {name}={value}; using {default}'
+            )
+            return float(default)
         return value
 
     def _positive_int_param(self, name: str, default: int) -> int:
@@ -676,6 +731,9 @@ class DarthMaulControlNode(Node):
         final_position_error = target_distance
         final_heading_error = 0.0
         final_odom_progress = 0.0
+        final_control_progress = 0.0
+        final_progress_source_used = 'odom'
+        final_control_progress_reason = ''
         translation_diagnostics = TranslationDiagnostics()
 
         while True:
@@ -697,8 +755,41 @@ class DarthMaulControlNode(Node):
             current = snapshot.pose
 
             progress_signed, cross_track = self._translation_errors(start, current, direction)
-            final_odom_progress = max(0.0, progress_signed)
-            remaining = target_distance - progress_signed
+            odom_progress = max(0.0, progress_signed)
+            final_odom_progress = odom_progress
+
+            current_ranges = self._cardinal_range_snapshot()
+            current_diagnostics = self._translation_diagnostics(
+                direction=direction,
+                odom_progress_m=odom_progress,
+                start_ranges=start_ranges,
+                end_ranges=current_ranges,
+            )
+            progress_selection = self._select_translation_progress(
+                odom_progress_m=odom_progress,
+                diagnostics=current_diagnostics,
+            )
+
+            if not progress_selection.valid:
+                result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
+                result_message = (
+                    f'{name} aborted: invalid translation progress source: '
+                    f'{progress_selection.reason}'
+                )
+                translation_diagnostics = replace(
+                    current_diagnostics,
+                    final_control_progress_m=progress_selection.progress_m,
+                    progress_source_used=progress_selection.source,
+                    control_progress_reason=progress_selection.reason,
+                )
+                break
+
+            control_progress = max(0.0, progress_selection.progress_m)
+            final_control_progress = control_progress
+            final_progress_source_used = progress_selection.source
+            final_control_progress_reason = progress_selection.reason
+
+            remaining = target_distance - control_progress
             heading_error = normalize_angle(start.yaw - current.yaw)
 
             final_position_error = abs(remaining)
@@ -732,11 +823,43 @@ class DarthMaulControlNode(Node):
                         final_snapshot.pose,
                         direction,
                     )
-                    remaining = target_distance - progress_signed
+                    odom_progress = max(0.0, progress_signed)
+                    final_odom_progress = odom_progress
+
+                    final_ranges = self._cardinal_range_snapshot()
+                    final_diagnostics = self._translation_diagnostics(
+                        direction=direction,
+                        odom_progress_m=odom_progress,
+                        start_ranges=start_ranges,
+                        end_ranges=final_ranges,
+                    )
+                    final_selection = self._select_translation_progress(
+                        odom_progress_m=odom_progress,
+                        diagnostics=final_diagnostics,
+                    )
+
+                    if not final_selection.valid:
+                        result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
+                        result_message = (
+                            f'{name} final progress invalid: '
+                            f'{final_selection.reason}'
+                        )
+                        translation_diagnostics = replace(
+                            final_diagnostics,
+                            final_control_progress_m=final_selection.progress_m,
+                            progress_source_used=final_selection.source,
+                            control_progress_reason=final_selection.reason,
+                        )
+                        break
+
+                    final_control_progress = max(0.0, final_selection.progress_m)
+                    final_progress_source_used = final_selection.source
+                    final_control_progress_reason = final_selection.reason
+
+                    remaining = target_distance - final_control_progress
                     heading_error = normalize_angle(start.yaw - final_snapshot.pose.yaw)
                     final_position_error = abs(remaining)
                     final_heading_error = abs(heading_error)
-                    final_odom_progress = max(0.0, progress_signed)
 
                 if (
                     self.enforce_final_error
@@ -801,10 +924,13 @@ class DarthMaulControlNode(Node):
 
             self._update_motion_state(
                 distance_remaining=max(0.0, remaining),
-                distance_traveled=max(0.0, progress_signed),
+                distance_traveled=max(0.0, control_progress),
                 heading_error=heading_error,
                 status=(
                     f'{name}: remaining={remaining:.3f} m, '
+                    f'progress_source={progress_selection.source}, '
+                    f'odom_progress={odom_progress:.3f} m, '
+                    f'control_progress={control_progress:.3f} m, '
                     f'heading_error={heading_error:.3f} rad, '
                     f'linear_y={cmd.linear.y:.3f} m/s'
                 ),
@@ -812,7 +938,7 @@ class DarthMaulControlNode(Node):
 
             self._publish_feedback(
                 goal_handle,
-                progress=clamp(progress_signed / max(target_distance, 1e-6), 0.0, 1.0),
+                progress=clamp(control_progress / max(target_distance, 1e-6), 0.0, 1.0),
                 distance_remaining=max(0.0, remaining),
                 heading_remaining=heading_error,
                 state=name,
@@ -828,10 +954,39 @@ class DarthMaulControlNode(Node):
             end_ranges=end_ranges,
         )
 
+        final_selection = self._select_translation_progress(
+            odom_progress_m=final_odom_progress,
+            diagnostics=translation_diagnostics,
+        )
+
+        if final_selection.valid:
+            final_control_progress = max(0.0, final_selection.progress_m)
+            final_progress_source_used = final_selection.source
+            final_control_progress_reason = final_selection.reason
+
+        translation_diagnostics = replace(
+            translation_diagnostics,
+            final_control_progress_m=final_control_progress,
+            progress_source_used=final_progress_source_used,
+            control_progress_reason=final_control_progress_reason,
+        )
+
         result_message = self._append_translation_diagnostics(
             result_message,
             translation_diagnostics,
         )
+
+        if (
+            translation_diagnostics.lidar_progress_valid
+            and abs(translation_diagnostics.lidar_minus_odom_m)
+            > self.lidar_odom_warning_threshold_m
+        ):
+            self.get_logger().warning(
+                f'{name}: odom/LiDAR progress mismatch: '
+                f'odom={translation_diagnostics.odom_progress_m:.3f} m, '
+                f'lidar={translation_diagnostics.lidar_progress_m:.3f} m, '
+                f'delta={translation_diagnostics.lidar_minus_odom_m:.3f} m'
+            )
 
         self.get_logger().info(
             f'{name} diagnostics: '
@@ -842,7 +997,11 @@ class DarthMaulControlNode(Node):
             f'rear_progress={translation_diagnostics.rear_progress_m:.3f} m, '
             f'lidar_valid={translation_diagnostics.lidar_progress_valid}, '
             f'lidar_progress={translation_diagnostics.lidar_progress_m:.3f} m, '
-            f'lidar_minus_odom={translation_diagnostics.lidar_minus_odom_m:.3f} m'
+            f'lidar_minus_odom={translation_diagnostics.lidar_minus_odom_m:.3f} m, '
+            f'control_progress={translation_diagnostics.final_control_progress_m:.3f} m, '
+            f'progress_source={translation_diagnostics.progress_source_used}, '
+            f'lidar_source={translation_diagnostics.lidar_progress_source}, '
+            f'lidar_disagreement={translation_diagnostics.lidar_progress_disagreement_m:.3f} m'
         )
 
         return self._finish_motion_result(
@@ -1147,12 +1306,18 @@ class DarthMaulControlNode(Node):
             front_progress = front_end - front_start if front_valid else 0.0
             rear_progress = rear_start - rear_end if rear_valid else 0.0
 
-        lidar_progress_valid, lidar_progress = combine_lidar_progress_candidates(
-            front_valid,
-            front_progress,
-            rear_valid,
-            rear_progress,
+        lidar_estimate = choose_lidar_progress(
+            front_valid=front_valid,
+            front_progress_m=front_progress,
+            rear_valid=rear_valid,
+            rear_progress_m=rear_progress,
+            max_disagreement_m=self.lidar_progress_max_disagreement_m,
+            min_progress_m=self.lidar_progress_min_m,
+            allow_single_source=self.lidar_progress_allow_single_source,
         )
+
+        lidar_progress_valid = lidar_estimate.valid
+        lidar_progress = lidar_estimate.progress_m
 
         odom_progress = float(max(0.0, odom_progress_m))
         lidar_minus_odom = lidar_progress - odom_progress if lidar_progress_valid else 0.0
@@ -1176,6 +1341,29 @@ class DarthMaulControlNode(Node):
             lidar_progress_valid=lidar_progress_valid,
             lidar_progress_m=lidar_progress,
             lidar_minus_odom_m=lidar_minus_odom,
+            lidar_progress_source=lidar_estimate.source,
+            lidar_progress_disagreement_m=lidar_estimate.disagreement_m,
+            lidar_progress_reason=lidar_estimate.reason,
+        )
+
+    def _select_translation_progress(
+        self,
+        odom_progress_m: float,
+        diagnostics: TranslationDiagnostics,
+    ):
+        lidar_estimate = LidarProgressEstimate(
+            valid=diagnostics.lidar_progress_valid,
+            progress_m=diagnostics.lidar_progress_m,
+            source=diagnostics.lidar_progress_source,
+            disagreement_m=diagnostics.lidar_progress_disagreement_m,
+            reason=diagnostics.lidar_progress_reason,
+        )
+
+        return choose_translation_progress(
+            odom_progress_m=odom_progress_m,
+            lidar_estimate=lidar_estimate,
+            mode=self.translation_progress_source,
+            max_lidar_ahead_of_odom_m=self.lidar_progress_max_ahead_of_odom_m,
         )
 
     @staticmethod
@@ -1202,7 +1390,13 @@ class DarthMaulControlNode(Node):
             f'right_end={diagnostics.right_range_end_m:.3f} m; '
             f'lidar_valid={diagnostics.lidar_progress_valid}; '
             f'lidar_progress={diagnostics.lidar_progress_m:.3f} m; '
-            f'lidar_minus_odom={diagnostics.lidar_minus_odom_m:.3f} m'
+            f'lidar_minus_odom={diagnostics.lidar_minus_odom_m:.3f} m; '
+            f'control_progress={diagnostics.final_control_progress_m:.3f} m; '
+            f'progress_source={diagnostics.progress_source_used}; '
+            f'lidar_source={diagnostics.lidar_progress_source}; '
+            f'lidar_disagreement={diagnostics.lidar_progress_disagreement_m:.3f} m; '
+            f'lidar_reason={diagnostics.lidar_progress_reason}; '
+            f'control_reason={diagnostics.control_progress_reason}'
         )
 
     def _fresh_scan_copy(self) -> Optional[LaserScan]:
@@ -1415,6 +1609,14 @@ class DarthMaulControlNode(Node):
         result.lidar_progress_valid = bool(diagnostics.lidar_progress_valid)
         result.lidar_progress_m = float(diagnostics.lidar_progress_m)
         result.lidar_minus_odom_m = float(diagnostics.lidar_minus_odom_m)
+        result.final_control_progress_m = float(diagnostics.final_control_progress_m)
+        result.progress_source_used = str(diagnostics.progress_source_used)
+        result.lidar_progress_source = str(diagnostics.lidar_progress_source)
+        result.lidar_progress_disagreement_m = float(
+            diagnostics.lidar_progress_disagreement_m
+        )
+        result.lidar_progress_reason = str(diagnostics.lidar_progress_reason)
+        result.control_progress_reason = str(diagnostics.control_progress_reason)
         return result
 
     def _publish_feedback(

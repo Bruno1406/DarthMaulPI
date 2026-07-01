@@ -49,10 +49,38 @@ darth_maul_control:
     front_stop_distance_m: 0.13
 
     # LiDAR cardinal-sector diagnostics.
-    # These are diagnostic-only for now. They do not control stopping.
     lidar_diagnostics_enabled: true
     lidar_diagnostic_sector_width_deg: 10.0
     lidar_diagnostic_min_samples: 3
+
+    # Translation progress source for DRIVE_FORWARD, DRIVE_BACKWARD, and ADVANCE_CELL.
+    #   odom_only:
+    #     old behavior; use odom progress for stopping.
+    #   lidar_when_consistent:
+    #     use LiDAR front/rear progress when valid and consistent;
+    #     fall back to odom otherwise.
+    #   lidar_required:
+    #     require valid and consistent LiDAR progress; abort translation if unavailable.
+    translation_progress_source: lidar_when_consistent
+
+    # Maximum allowed disagreement between front and rear LiDAR progress.
+    # If both are valid and disagree more than this, reject LiDAR progress.
+    lidar_progress_max_disagreement_m: 0.025
+
+    # Reject negative LiDAR progress below this threshold.
+    # Small negative values can happen from noise; larger negative values mean bad geometry.
+    lidar_progress_min_m: -0.010
+
+    # Allow one valid source, front-only or rear-only, when the other side is invalid.
+    # Needed for long maze corridors where only the rear or front reference is visible.
+    lidar_progress_allow_single_source: true
+
+    # Reject LiDAR progress if it is implausibly ahead of odom.
+    # Odom is not trusted as truth, but it is still useful as a sanity bound.
+    lidar_progress_max_ahead_of_odom_m: 0.060
+
+    # Diagnostic warning threshold for odom/LiDAR disagreement.
+    lidar_odom_warning_threshold_m: 0.020
 
     # Optional correction must stay disabled for initial robot tests.
     # Test order: STOP, ROTATE_RELATIVE, DRIVE_FORWARD, ADVANCE_CELL,
