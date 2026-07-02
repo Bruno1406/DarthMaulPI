@@ -6,6 +6,7 @@ from darth_maul_control.scan_geometry import (
     choose_lidar_progress,
     choose_translation_progress,
     compose_angular_command,
+    grid_yaw_control_evidence_decision,
     grid_yaw_pre_align_complete,
     grid_lateral_drift,
     grid_yaw_correction_radps,
@@ -216,6 +217,114 @@ def test_compose_angular_command_uses_heading_hold_when_grid_inactive():
         grid_yaw_active=False,
         grid_yaw_active_heading_hold_scale=0.0,
     ) == pytest.approx(0.04)
+
+
+def test_grid_yaw_control_rejects_default_single_right_wall_confidence_060():
+    strong, reason = grid_yaw_control_evidence_decision(
+        source='right',
+        valid=True,
+        yaw_valid=True,
+        confidence=0.60,
+        yaw_error_rad=0.08,
+        wall_valid=True,
+        wall_rms_error_m=0.010,
+        wall_span_x_m=0.400,
+        wall_support_count=160,
+        require_strong_evidence=True,
+        allow_single_wall=False,
+        min_confidence_for_left_right=0.60,
+        single_wall_min_confidence=0.90,
+        single_wall_max_abs_yaw_error_rad=0.050,
+        single_wall_max_rms_error_m=0.012,
+        single_wall_min_span_x_m=0.300,
+        single_wall_min_support_count=120,
+    )
+
+    assert not strong
+    assert 'single-wall active control disabled' in reason
+
+
+def test_grid_yaw_control_accepts_left_right_evidence():
+    strong, reason = grid_yaw_control_evidence_decision(
+        source='left_right',
+        valid=True,
+        yaw_valid=True,
+        confidence=0.95,
+        yaw_error_rad=0.02,
+        wall_valid=False,
+        wall_rms_error_m=0.0,
+        wall_span_x_m=0.0,
+        wall_support_count=0,
+        require_strong_evidence=True,
+        allow_single_wall=False,
+        min_confidence_for_left_right=0.60,
+        single_wall_min_confidence=0.90,
+        single_wall_max_abs_yaw_error_rad=0.050,
+        single_wall_max_rms_error_m=0.012,
+        single_wall_min_span_x_m=0.300,
+        single_wall_min_support_count=120,
+    )
+
+    assert strong
+    assert 'left_right' in reason
+
+
+def test_grid_yaw_control_can_accept_strict_single_wall_when_enabled():
+    strong, reason = grid_yaw_control_evidence_decision(
+        source='right',
+        valid=True,
+        yaw_valid=True,
+        confidence=0.95,
+        yaw_error_rad=0.02,
+        wall_valid=True,
+        wall_rms_error_m=0.008,
+        wall_span_x_m=0.400,
+        wall_support_count=160,
+        require_strong_evidence=True,
+        allow_single_wall=True,
+        min_confidence_for_left_right=0.60,
+        single_wall_min_confidence=0.90,
+        single_wall_max_abs_yaw_error_rad=0.050,
+        single_wall_max_rms_error_m=0.012,
+        single_wall_min_span_x_m=0.300,
+        single_wall_min_support_count=120,
+    )
+
+    assert strong
+    assert 'single-wall evidence accepted' in reason
+
+
+def test_compose_angular_command_uses_heading_hold_when_grid_rejected():
+    angular = compose_angular_command(
+        heading_correction_radps=0.04,
+        grid_yaw_correction_radps=0.0,
+        grid_yaw_active=False,
+        grid_yaw_active_heading_hold_scale=0.0,
+    )
+
+    assert angular == pytest.approx(0.04)
+
+
+def test_parallelity_inactive_keeps_heading_hold_even_with_heading_hold_scale_zero():
+    angular = compose_angular_command(
+        heading_correction_radps=0.04,
+        grid_yaw_correction_radps=0.0,
+        grid_yaw_active=False,
+        grid_yaw_active_heading_hold_scale=0.0,
+    )
+
+    assert angular == pytest.approx(0.04)
+
+
+def test_parallelity_active_adds_trim_to_heading_hold():
+    angular = compose_angular_command(
+        heading_correction_radps=0.04,
+        grid_yaw_correction_radps=-0.02,
+        grid_yaw_active=True,
+        grid_yaw_active_heading_hold_scale=1.0,
+    )
+
+    assert angular == pytest.approx(0.02)
 
 
 def test_compose_angular_command_grid_active_disables_heading_hold_by_default():

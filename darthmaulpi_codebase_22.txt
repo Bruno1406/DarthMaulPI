@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 260
-Skipped files: 12675
+Skipped files: 12721
 
 # Included File Index
 
@@ -272,7 +272,7 @@ Skipped files: 12675
 - binary, media, generated, or not useful as text: 57
 - not UTF-8 text: 1
 - previous merged output: 1
-- skipped directory: 12616
+- skipped directory: 12662
 
 # File Contents
 
@@ -3260,6 +3260,9 @@ darth_maul_control:
     # It does not command lateral strafe and it does not replace front/rear LiDAR distance stopping.
     grid_alignment_control_enabled: true
     grid_yaw_correction_enabled: true
+    # Legacy direct one-frame grid-yaw correction parameters.
+    # These remain for diagnostics/backward compatibility, but DRIVE_FORWARD
+    # should use the LiDAR local corridor observer below for active yaw trim.
     # Lab-tuned on 2026-07-02:
     # k=0.70 corrected weakly; k=1.20 visibly corrected more strongly without observed snaking.
     k_grid_yaw: 1.20
@@ -3271,6 +3274,78 @@ darth_maul_control:
     # not fight the LiDAR grid-yaw correction. 0.0 means grid yaw fully owns
     # angular correction while valid; odom/IMU heading hold is fallback only.
     grid_yaw_active_heading_hold_scale: 0.0
+
+    # Active grid-yaw control evidence gate.
+    #
+    # These thresholds remain for the legacy direct controller and diagnostics.
+    # Active DRIVE_FORWARD yaw control is handled by the LiDAR local corridor
+    # observer below.
+    grid_yaw_control_require_strong_evidence: true
+
+    # Single adjacent walls may be reported as usable evidence, but the active
+    # forward controller still requires temporal continuity before applying trim.
+    grid_yaw_control_allow_single_wall: true
+
+    grid_yaw_control_single_wall_min_confidence: 0.60
+    grid_yaw_control_single_wall_max_abs_yaw_error_rad: 0.100
+    grid_yaw_control_single_wall_max_rms_error_m: 0.020
+    grid_yaw_control_single_wall_min_span_x_m: 0.220
+    grid_yaw_control_single_wall_min_support_count: 80
+
+    # LiDAR local corridor observer for DRIVE_FORWARD.
+    #
+    # This replaces one-frame wall-yaw control. A single adjacent wall may be
+    # used, but only after it is tracked consistently over forward motion.
+    # The controller keeps odom/IMU heading hold as the base and adds a small
+    # LiDAR parallelity trim only when the side wall is stable.
+    lidar_parallelity_control_enabled: true
+
+    # Keep odom/IMU heading hold active while applying LiDAR trim.
+    # 1.0 means full heading hold plus LiDAR trim.
+    lidar_parallelity_heading_hold_scale: 1.0
+
+    # Minimum accepted LiDAR forward progress before side-wall drift can control.
+    # Prevents correction from one scan before real motion is observed.
+    lidar_parallelity_min_progress_for_control_m: 0.040
+
+    # Stable samples of the same adjacent side wall before active trim.
+    lidar_parallelity_min_stable_samples: 3
+
+    # Side-wall continuity gates.
+    lidar_parallelity_max_yaw_jump_rad: 0.025
+    lidar_parallelity_max_offset_jump_m: 0.035
+    lidar_parallelity_max_abs_yaw_error_rad: 0.100
+
+    # Wall-line quality gates for tracked single-wall correction.
+    lidar_parallelity_min_confidence: 0.60
+    lidar_parallelity_max_rms_error_m: 0.020
+    lidar_parallelity_min_span_x_m: 0.220
+    lidar_parallelity_min_support_count: 80
+
+    # Drift validation. Drift is measured from side wall offset change over
+    # forward LiDAR progress. A real parallel wall should have small drift.
+    lidar_parallelity_drift_validation_enabled: true
+    lidar_parallelity_max_drift_per_m: 0.35
+
+    # Correction gains. The yaw component uses the same sign convention as
+    # the existing grid_yaw_correction_radps helper, which already worked in
+    # strong-evidence forward-drive tests. Drift is used primarily as a
+    # consistency check and second weak estimate.
+    k_lidar_parallelity_yaw: 0.80
+    k_lidar_parallelity_drift: 0.20
+    max_lidar_parallelity_correction_radps: 0.040
+
+    # If yaw and drift disagree strongly, do not apply LiDAR trim.
+    lidar_parallelity_require_yaw_drift_consistency: true
+    lidar_parallelity_max_yaw_drift_disagreement_rad: 0.060
+
+    # LiDAR-only temporal progress resilience. This does not use odom as a
+    # completion fallback. It only prevents one bad front/rear frame from
+    # aborting when a previously trusted LiDAR source remains monotonic.
+    lidar_progress_temporal_filter_enabled: true
+    lidar_progress_temporal_max_backtrack_m: 0.015
+    lidar_progress_temporal_max_jump_m: 0.080
+    lidar_progress_temporal_max_degraded_samples: 2
 
     # Post-rotation LiDAR grid-yaw refinement.
     #
@@ -3286,7 +3361,7 @@ darth_maul_control:
     # This refinement uses only the existing adjacent side-wall grid-yaw
     # estimator. It does not use front/rear axial-wall geometry and it does not
     # command lateral strafe.
-    post_rotation_grid_yaw_refine_enabled: true
+    post_rotation_grid_yaw_refine_enabled: false
 
     # Start correcting only when abs(grid_yaw_error) is above this.
     # Below this, the turn is considered good enough.
@@ -3369,22 +3444,31 @@ from darth_maul_control.geometry import (
 )
 from darth_maul_control.scan_geometry import (
     GridAlignmentEstimate,
+    LidarParallelityEstimate,
     LidarProgressEstimate,
     SectorRange,
+    SideWallObservation,
+    TemporalLidarProgressEstimate,
     WallLineEstimate,
     cardinal_sector_ranges,
     choose_lidar_progress,
     choose_heading_validation_error,
+    choose_temporal_lidar_progress,
     choose_translation_progress,
     compose_angular_command,
     estimate_grid_alignment,
     finite_median_or_nan,
     grid_lateral_drift,
+    grid_yaw_control_evidence_decision,
     post_rotation_grid_yaw_refine_decision,
     grid_yaw_pre_align_complete,
     grid_yaw_correction_radps,
     invalid_grid_alignment,
+    invalid_lidar_parallelity,
+    invalid_side_wall_observation,
+    lidar_parallelity_correction_radps,
     should_pre_align_grid_yaw,
+    side_wall_observation_from_alignment,
 )
 from darth_maul_control.velocity_limiter import VelocityLimiter, VelocityLimits
 from darth_maul_control_interfaces.action import ExecuteMotionPrimitive
@@ -3469,6 +3553,23 @@ class TranslationDiagnostics:
     grid_lateral_drift_per_m: float = 0.0
     grid_lateral_drift_reason: str = ''
 
+    lidar_parallelity_valid: bool = False
+    lidar_parallelity_active: bool = False
+    lidar_parallelity_side: str = 'none'
+    lidar_parallelity_stable_samples: int = 0
+    lidar_parallelity_progress_m: float = 0.0
+    lidar_parallelity_start_offset_m: float = 0.0
+    lidar_parallelity_current_offset_m: float = 0.0
+    lidar_parallelity_drift_m: float = 0.0
+    lidar_parallelity_drift_per_m: float = 0.0
+    lidar_parallelity_yaw_rad: float = 0.0
+    lidar_parallelity_drift_yaw_rad: float = 0.0
+    lidar_parallelity_correction_radps: float = 0.0
+    lidar_parallelity_reason: str = ''
+
+    lidar_progress_temporal_degraded: bool = False
+    lidar_progress_temporal_reason: str = ''
+
 
 @dataclass(frozen=True)
 class GridYawCorrection:
@@ -3550,6 +3651,19 @@ class DarthMaulControlNode(Node):
         self._grid_yaw_correction_active = False
         self._grid_yaw_correction_radps = 0.0
         self._grid_yaw_control_reason = ''
+        self._parallel_wall_tracking_active = False
+        self._parallel_wall_side = 'none'
+        self._parallel_wall_source = 'none'
+        self._parallel_wall_start_offset_m = 0.0
+        self._parallel_wall_start_progress_m = 0.0
+        self._parallel_wall_last_offset_m = 0.0
+        self._parallel_wall_last_yaw_error_rad = 0.0
+        self._parallel_wall_stable_samples = 0
+        self._parallel_wall_last_progress_m = 0.0
+        self._temporal_lidar_progress_valid = False
+        self._temporal_lidar_progress_m = 0.0
+        self._temporal_lidar_progress_source = 'none'
+        self._temporal_lidar_degraded_samples = 0
 
         self._active_goal = False
         self._stop_requested = False
@@ -3882,9 +3996,133 @@ class DarthMaulControlNode(Node):
             0.0,
             min(1.0, float(self.grid_yaw_active_heading_hold_scale)),
         )
+        self.grid_yaw_control_require_strong_evidence = self._bool_param(
+            'grid_yaw_control_require_strong_evidence',
+            True,
+        )
+        self.grid_yaw_control_allow_single_wall = self._bool_param(
+            'grid_yaw_control_allow_single_wall',
+            True,
+        )
+        self.grid_yaw_control_single_wall_min_confidence = self._nonnegative_float_param(
+            'grid_yaw_control_single_wall_min_confidence',
+            0.60,
+        )
+        self.grid_yaw_control_single_wall_max_abs_yaw_error_rad = (
+            self._positive_float_param(
+                'grid_yaw_control_single_wall_max_abs_yaw_error_rad',
+                0.100,
+            )
+        )
+        self.grid_yaw_control_single_wall_max_rms_error_m = self._positive_float_param(
+            'grid_yaw_control_single_wall_max_rms_error_m',
+            0.020,
+        )
+        self.grid_yaw_control_single_wall_min_span_x_m = self._positive_float_param(
+            'grid_yaw_control_single_wall_min_span_x_m',
+            0.220,
+        )
+        self.grid_yaw_control_single_wall_min_support_count = self._positive_int_param(
+            'grid_yaw_control_single_wall_min_support_count',
+            80,
+        )
+        self.lidar_parallelity_control_enabled = self._bool_param(
+            'lidar_parallelity_control_enabled',
+            True,
+        )
+        self.lidar_parallelity_heading_hold_scale = self._nonnegative_float_param(
+            'lidar_parallelity_heading_hold_scale',
+            1.0,
+        )
+        self.lidar_parallelity_heading_hold_scale = max(
+            0.0,
+            min(1.0, self.lidar_parallelity_heading_hold_scale),
+        )
+        self.lidar_parallelity_min_progress_for_control_m = self._positive_float_param(
+            'lidar_parallelity_min_progress_for_control_m',
+            0.040,
+        )
+        self.lidar_parallelity_min_stable_samples = self._positive_int_param(
+            'lidar_parallelity_min_stable_samples',
+            3,
+        )
+        self.lidar_parallelity_max_yaw_jump_rad = self._positive_float_param(
+            'lidar_parallelity_max_yaw_jump_rad',
+            0.025,
+        )
+        self.lidar_parallelity_max_offset_jump_m = self._positive_float_param(
+            'lidar_parallelity_max_offset_jump_m',
+            0.035,
+        )
+        self.lidar_parallelity_max_abs_yaw_error_rad = self._positive_float_param(
+            'lidar_parallelity_max_abs_yaw_error_rad',
+            0.100,
+        )
+        self.lidar_parallelity_min_confidence = self._nonnegative_float_param(
+            'lidar_parallelity_min_confidence',
+            0.60,
+        )
+        self.lidar_parallelity_max_rms_error_m = self._positive_float_param(
+            'lidar_parallelity_max_rms_error_m',
+            0.020,
+        )
+        self.lidar_parallelity_min_span_x_m = self._positive_float_param(
+            'lidar_parallelity_min_span_x_m',
+            0.220,
+        )
+        self.lidar_parallelity_min_support_count = self._positive_int_param(
+            'lidar_parallelity_min_support_count',
+            80,
+        )
+        self.lidar_parallelity_drift_validation_enabled = self._bool_param(
+            'lidar_parallelity_drift_validation_enabled',
+            True,
+        )
+        self.lidar_parallelity_max_drift_per_m = self._positive_float_param(
+            'lidar_parallelity_max_drift_per_m',
+            0.35,
+        )
+        self.k_lidar_parallelity_yaw = self._nonnegative_float_param(
+            'k_lidar_parallelity_yaw',
+            0.80,
+        )
+        self.k_lidar_parallelity_drift = self._nonnegative_float_param(
+            'k_lidar_parallelity_drift',
+            0.20,
+        )
+        self.max_lidar_parallelity_correction_radps = self._positive_float_param(
+            'max_lidar_parallelity_correction_radps',
+            0.040,
+        )
+        self.lidar_parallelity_require_yaw_drift_consistency = self._bool_param(
+            'lidar_parallelity_require_yaw_drift_consistency',
+            True,
+        )
+        self.lidar_parallelity_max_yaw_drift_disagreement_rad = (
+            self._positive_float_param(
+                'lidar_parallelity_max_yaw_drift_disagreement_rad',
+                0.060,
+            )
+        )
+        self.lidar_progress_temporal_filter_enabled = self._bool_param(
+            'lidar_progress_temporal_filter_enabled',
+            True,
+        )
+        self.lidar_progress_temporal_max_backtrack_m = self._positive_float_param(
+            'lidar_progress_temporal_max_backtrack_m',
+            0.015,
+        )
+        self.lidar_progress_temporal_max_jump_m = self._positive_float_param(
+            'lidar_progress_temporal_max_jump_m',
+            0.080,
+        )
+        self.lidar_progress_temporal_max_degraded_samples = self._positive_int_param(
+            'lidar_progress_temporal_max_degraded_samples',
+            2,
+        )
         self.post_rotation_grid_yaw_refine_enabled = self._bool_param(
             'post_rotation_grid_yaw_refine_enabled',
-            True,
+            False,
         )
         self.post_rotation_grid_yaw_refine_start_threshold_rad = (
             self._positive_float_param(
@@ -4309,6 +4547,8 @@ class DarthMaulControlNode(Node):
         start_ranges = self._cardinal_range_snapshot()
         start_alignment = self._grid_alignment_snapshot()
         start_time = time.monotonic()
+        self._reset_lidar_parallelity_tracker('translation start')
+        self._reset_temporal_lidar_progress_tracker()
 
         self.get_logger().info(
             f'{name} start grid diagnostics: '
@@ -4345,6 +4585,7 @@ class DarthMaulControlNode(Node):
             source='none',
             using_memory=False,
         )
+        final_parallelity = invalid_lidar_parallelity('not evaluated')
         grid_yaw_correction_ever_used = False
         lidar_required_invalid_consecutive_samples = 0
         preserve_failure_progress_diagnostics = False
@@ -4403,6 +4644,8 @@ class DarthMaulControlNode(Node):
             while True:
                 if self._cancel_or_stop_requested(goal_handle):
                     self._end_grid_yaw_control_memory()
+                    self._reset_lidar_parallelity_tracker('translation canceled')
+                    self._reset_temporal_lidar_progress_tracker()
                     return self._cancel_result(goal_handle)
 
                 elapsed = time.monotonic() - start_time
@@ -4472,6 +4715,8 @@ class DarthMaulControlNode(Node):
                     start = start_snapshot.pose
                     start_ranges = self._cardinal_range_snapshot()
                     start_alignment = self._grid_alignment_snapshot()
+                    self._reset_lidar_parallelity_tracker('translation baseline reset')
+                    self._reset_temporal_lidar_progress_tracker()
                     final_position_error = target_distance
                     final_heading_error = 0.0
                     final_odom_progress = 0.0
@@ -4567,6 +4812,7 @@ class DarthMaulControlNode(Node):
                 odom_progress_m=0.0,
                 start_ranges=start_ranges,
                 end_ranges=start_ranges,
+                track_lidar_progress=True,
             )
             start_selection = self._select_translation_progress(
                 odom_progress_m=0.0,
@@ -4583,6 +4829,8 @@ class DarthMaulControlNode(Node):
         while not pre_align_failed:
             if self._cancel_or_stop_requested(goal_handle):
                 self._end_grid_yaw_control_memory()
+                self._reset_lidar_parallelity_tracker('translation canceled')
+                self._reset_temporal_lidar_progress_tracker()
                 return self._cancel_result(goal_handle)
 
             elapsed = time.monotonic() - start_time
@@ -4615,6 +4863,7 @@ class DarthMaulControlNode(Node):
                     odom_progress_m=0.0,
                     start_ranges=current_ranges,
                     end_ranges=current_ranges,
+                    track_lidar_progress=True,
                 )
                 progress_selection = self._select_translation_progress(
                     odom_progress_m=0.0,
@@ -4624,6 +4873,8 @@ class DarthMaulControlNode(Node):
                     start = current
                     start_ranges = current_ranges
                     start_alignment = current_alignment
+                    self._reset_lidar_parallelity_tracker('lidar baseline acquired')
+                    self._reset_temporal_lidar_progress_tracker()
                     odom_progress = 0.0
                     final_odom_progress = 0.0
                     lidar_required_start_acquired = True
@@ -4637,6 +4888,7 @@ class DarthMaulControlNode(Node):
                     odom_progress_m=odom_progress,
                     start_ranges=start_ranges,
                     end_ranges=current_ranges,
+                    track_lidar_progress=True,
                 )
                 progress_selection = self._select_translation_progress(
                     odom_progress_m=odom_progress,
@@ -4768,6 +5020,7 @@ class DarthMaulControlNode(Node):
                         odom_progress_m=odom_progress,
                         start_ranges=start_ranges,
                         end_ranges=final_ranges,
+                        track_lidar_progress=True,
                     )
                     final_selection = self._select_translation_progress(
                         odom_progress_m=odom_progress,
@@ -4862,32 +5115,46 @@ class DarthMaulControlNode(Node):
 
             raw_heading_correction = self.k_heading * heading_error
 
+            parallelity = invalid_lidar_parallelity(
+                'LiDAR parallelity only applies to forward translation'
+            )
+            if direction > 0.0:
+                # DRIVE_FORWARD does not use one-frame grid yaw as the active controller.
+                # Active yaw trim comes from the LiDAR local corridor observer, which
+                # requires side-wall continuity over forward motion.
+                parallelity = self._update_lidar_parallelity_tracker(
+                    current_alignment,
+                    control_progress_m=control_progress,
+                )
+
             grid_yaw = GridYawCorrection(
-                active=False,
-                correction_radps=0.0,
-                reason='grid yaw correction only applies to forward translation',
-                source='none',
+                active=parallelity.active,
+                correction_radps=(
+                    parallelity.correction_radps if parallelity.active else 0.0
+                ),
+                reason=parallelity.reason,
+                source=parallelity.side,
                 using_memory=False,
             )
 
-            if direction > 0.0:
-                grid_yaw = self._grid_yaw_correction(current_alignment)
-
             final_grid_yaw_correction = grid_yaw
+            final_parallelity = parallelity
             grid_yaw_correction_ever_used = (
                 grid_yaw_correction_ever_used or grid_yaw.active
             )
 
             cmd.linear.y = 0.0
-            heading_hold_scale = 1.0
-            if grid_yaw.active:
-                heading_hold_scale = self.grid_yaw_active_heading_hold_scale
+            heading_hold_scale = (
+                self.lidar_parallelity_heading_hold_scale
+                if parallelity.active
+                else 1.0
+            )
 
             heading_correction = heading_hold_scale * raw_heading_correction
             cmd.angular.z = compose_angular_command(
                 heading_correction_radps=raw_heading_correction,
                 grid_yaw_correction_radps=grid_yaw.correction_radps,
-                grid_yaw_active=grid_yaw.active,
+                grid_yaw_active=parallelity.active,
                 grid_yaw_active_heading_hold_scale=heading_hold_scale,
             )
 
@@ -4913,8 +5180,10 @@ class DarthMaulControlNode(Node):
                     f'grid_yaw={current_alignment.yaw_error_rad:.3f} rad, '
                     f'grid_lat={current_alignment.lateral_error_m:.3f} m, '
                     f'grid_source={current_alignment.source}, '
-                    f'grid_yaw_corr={grid_yaw.correction_radps:.3f} rad/s, '
-                    f'grid_yaw_corr_active={grid_yaw.active}, '
+                    f'lidar_parallelity_active={parallelity.active}, '
+                    f'lidar_parallelity_side={parallelity.side}, '
+                    f'lidar_parallelity_stable={parallelity.stable_samples}, '
+                    f'lidar_parallelity_corr={grid_yaw.correction_radps:.3f} rad/s, '
                     f'heading_hold_scale={heading_hold_scale:.2f}, '
                     f'heading_correction={heading_correction:.3f} rad/s, '
                     f'heading_error={heading_error:.3f} rad, '
@@ -4939,6 +5208,7 @@ class DarthMaulControlNode(Node):
             odom_progress_m=final_odom_progress,
             start_ranges=start_ranges,
             end_ranges=end_ranges,
+            track_lidar_progress=True,
         )
 
         final_selection = self._select_translation_progress(
@@ -4978,6 +5248,19 @@ class DarthMaulControlNode(Node):
             grid_lateral_drift_m=drift['drift'],
             grid_lateral_drift_per_m=drift['drift_per_m'],
             grid_lateral_drift_reason=drift['reason'],
+            lidar_parallelity_valid=final_parallelity.valid,
+            lidar_parallelity_active=final_parallelity.active,
+            lidar_parallelity_side=final_parallelity.side,
+            lidar_parallelity_stable_samples=final_parallelity.stable_samples,
+            lidar_parallelity_progress_m=final_parallelity.progress_m,
+            lidar_parallelity_start_offset_m=final_parallelity.start_offset_m,
+            lidar_parallelity_current_offset_m=final_parallelity.current_offset_m,
+            lidar_parallelity_drift_m=final_parallelity.offset_drift_m,
+            lidar_parallelity_drift_per_m=final_parallelity.drift_per_m,
+            lidar_parallelity_yaw_rad=final_parallelity.yaw_error_rad,
+            lidar_parallelity_drift_yaw_rad=final_parallelity.drift_yaw_error_rad,
+            lidar_parallelity_correction_radps=final_parallelity.correction_radps,
+            lidar_parallelity_reason=final_parallelity.reason,
         )
 
         result_message = self._append_translation_diagnostics(
@@ -5018,6 +5301,8 @@ class DarthMaulControlNode(Node):
         )
 
         self._end_grid_yaw_control_memory()
+        self._reset_lidar_parallelity_tracker('translation finished')
+        self._reset_temporal_lidar_progress_tracker()
 
         return self._finish_motion_result(
             goal_handle,
@@ -5671,6 +5956,93 @@ class DarthMaulControlNode(Node):
             f'using grid yaw memory age={age:.3f}s because current invalid: {current.reason}'
         )
 
+    def _grid_yaw_contributing_wall_line(
+        self,
+        alignment: GridAlignmentEstimate,
+    ) -> WallLineEstimate | None:
+        if alignment.source == 'left':
+            return alignment.left
+        if alignment.source == 'right':
+            return alignment.right
+        return None
+
+    def _grid_yaw_single_wall_quality_ok(
+        self,
+        alignment: GridAlignmentEstimate,
+    ) -> tuple[bool, str]:
+        wall = self._grid_yaw_contributing_wall_line(alignment)
+        if wall is None:
+            return False, f'source {alignment.source} is not a single wall'
+
+        strong, reason = grid_yaw_control_evidence_decision(
+            source=alignment.source,
+            valid=alignment.valid,
+            yaw_valid=alignment.yaw_valid,
+            confidence=alignment.confidence,
+            yaw_error_rad=alignment.yaw_error_rad,
+            wall_valid=wall.valid,
+            wall_rms_error_m=wall.rms_error_m,
+            wall_span_x_m=wall.span_x_m,
+            wall_support_count=wall.support_count,
+            require_strong_evidence=self.grid_yaw_control_require_strong_evidence,
+            allow_single_wall=True,
+            min_confidence_for_left_right=self.grid_yaw_min_confidence_for_control,
+            single_wall_min_confidence=(
+                self.grid_yaw_control_single_wall_min_confidence
+            ),
+            single_wall_max_abs_yaw_error_rad=(
+                self.grid_yaw_control_single_wall_max_abs_yaw_error_rad
+            ),
+            single_wall_max_rms_error_m=(
+                self.grid_yaw_control_single_wall_max_rms_error_m
+            ),
+            single_wall_min_span_x_m=self.grid_yaw_control_single_wall_min_span_x_m,
+            single_wall_min_support_count=(
+                self.grid_yaw_control_single_wall_min_support_count
+            ),
+        )
+        if not strong and not wall.valid:
+            return False, f'{alignment.source} wall invalid: {wall.reason}'
+        return strong, reason
+
+    def _grid_yaw_has_strong_control_evidence(
+        self,
+        alignment: GridAlignmentEstimate,
+    ) -> tuple[bool, str]:
+        if not self.grid_yaw_control_require_strong_evidence:
+            return True, 'strong-evidence gate disabled'
+
+        if not alignment.valid:
+            return False, f'grid alignment invalid: {alignment.reason}'
+
+        if not alignment.yaw_valid:
+            return False, f'grid yaw invalid: {alignment.reason}'
+
+        if alignment.source == 'left_right':
+            if alignment.confidence < self.grid_yaw_min_confidence_for_control:
+                return (
+                    False,
+                    (
+                        'left_right confidence too low: '
+                        f'{alignment.confidence:.2f} '
+                        f'< {self.grid_yaw_min_confidence_for_control:.2f}'
+                    ),
+                )
+            return True, 'left_right adjacent-wall evidence accepted for active control'
+
+        if alignment.source in ('left', 'right'):
+            if not self.grid_yaw_control_allow_single_wall:
+                return (
+                    False,
+                    (
+                        'single-wall active control disabled by default: '
+                        f'source={alignment.source}, confidence={alignment.confidence:.2f}'
+                    ),
+                )
+            return self._grid_yaw_single_wall_quality_ok(alignment)
+
+        return False, f'unsupported grid yaw source for active control: {alignment.source}'
+
     def _grid_yaw_correction(
         self,
         current: GridAlignmentEstimate,
@@ -5709,6 +6081,16 @@ class DarthMaulControlNode(Node):
                 ),
                 alignment.source,
                 using_memory,
+            )
+
+        strong, strong_reason = self._grid_yaw_has_strong_control_evidence(alignment)
+        if not strong:
+            return GridYawCorrection(
+                active=False,
+                correction_radps=0.0,
+                reason='grid yaw diagnostic only: ' + strong_reason,
+                source=alignment.source,
+                using_memory=using_memory,
             )
 
         correction = grid_yaw_correction_radps(
@@ -5816,12 +6198,321 @@ class DarthMaulControlNode(Node):
     def _range_value(measurement: SectorRange) -> float:
         return float(measurement.median_m) if measurement.valid else 0.0
 
+    def _reset_lidar_parallelity_tracker(self, reason: str = '') -> None:
+        self._parallel_wall_tracking_active = False
+        self._parallel_wall_side = 'none'
+        self._parallel_wall_source = 'none'
+        self._parallel_wall_start_offset_m = 0.0
+        self._parallel_wall_start_progress_m = 0.0
+        self._parallel_wall_last_offset_m = 0.0
+        self._parallel_wall_last_yaw_error_rad = 0.0
+        self._parallel_wall_stable_samples = 0
+        self._parallel_wall_last_progress_m = 0.0
+
+    def _reset_temporal_lidar_progress_tracker(self) -> None:
+        self._temporal_lidar_progress_valid = False
+        self._temporal_lidar_progress_m = 0.0
+        self._temporal_lidar_progress_source = 'none'
+        self._temporal_lidar_degraded_samples = 0
+
+    def _choose_tracked_lidar_progress(
+        self,
+        raw: LidarProgressEstimate,
+        *,
+        front_valid: bool,
+        front_progress_m: float,
+        rear_valid: bool,
+        rear_progress_m: float,
+    ) -> TemporalLidarProgressEstimate:
+        if not self.lidar_progress_temporal_filter_enabled:
+            if raw.valid:
+                return TemporalLidarProgressEstimate(
+                    valid=True,
+                    progress_m=raw.progress_m,
+                    source=raw.source,
+                    degraded=False,
+                    degraded_samples=0,
+                    disagreement_m=raw.disagreement_m,
+                    reason=raw.reason,
+                )
+            return TemporalLidarProgressEstimate(
+                valid=False,
+                progress_m=0.0,
+                source='raw_invalid',
+                degraded=False,
+                degraded_samples=0,
+                disagreement_m=raw.disagreement_m,
+                reason=raw.reason,
+            )
+
+        tracked = choose_temporal_lidar_progress(
+            raw=raw,
+            previous_valid=self._temporal_lidar_progress_valid,
+            previous_progress_m=self._temporal_lidar_progress_m,
+            previous_source=self._temporal_lidar_progress_source,
+            front_valid=front_valid,
+            front_progress_m=front_progress_m,
+            rear_valid=rear_valid,
+            rear_progress_m=rear_progress_m,
+            degraded_samples=self._temporal_lidar_degraded_samples,
+            max_backtrack_m=self.lidar_progress_temporal_max_backtrack_m,
+            max_jump_m=self.lidar_progress_temporal_max_jump_m,
+            max_degraded_samples=self.lidar_progress_temporal_max_degraded_samples,
+        )
+
+        if tracked.valid:
+            self._temporal_lidar_progress_valid = True
+            self._temporal_lidar_progress_m = tracked.progress_m
+            self._temporal_lidar_progress_source = tracked.source
+            self._temporal_lidar_degraded_samples = tracked.degraded_samples
+        else:
+            self._temporal_lidar_degraded_samples = tracked.degraded_samples
+
+        return tracked
+
+    def _update_lidar_parallelity_tracker(
+        self,
+        alignment: GridAlignmentEstimate,
+        *,
+        control_progress_m: float,
+    ) -> LidarParallelityEstimate:
+        if not self.lidar_parallelity_control_enabled:
+            self._reset_lidar_parallelity_tracker('parallelity disabled')
+            return invalid_lidar_parallelity('LiDAR parallelity control disabled')
+
+        if not self.grid_alignment_control_enabled or not self.grid_yaw_correction_enabled:
+            self._reset_lidar_parallelity_tracker('grid alignment/yaw disabled')
+            return invalid_lidar_parallelity('grid alignment/yaw correction disabled')
+
+        observation: SideWallObservation = side_wall_observation_from_alignment(
+            alignment,
+            preferred_side=self._parallel_wall_side,
+            min_confidence=self.lidar_parallelity_min_confidence,
+            max_abs_yaw_error_rad=self.lidar_parallelity_max_abs_yaw_error_rad,
+            max_rms_error_m=self.lidar_parallelity_max_rms_error_m,
+            min_span_x_m=self.lidar_parallelity_min_span_x_m,
+            min_support_count=self.lidar_parallelity_min_support_count,
+        )
+
+        if not observation.valid:
+            self._reset_lidar_parallelity_tracker(observation.reason)
+            return invalid_lidar_parallelity(
+                'no tracked side wall: ' + observation.reason
+            )
+
+        if (
+            not self._parallel_wall_tracking_active
+            or self._parallel_wall_side != observation.side
+            or self._parallel_wall_source != observation.source
+        ):
+            self._parallel_wall_tracking_active = True
+            self._parallel_wall_side = observation.side
+            self._parallel_wall_source = observation.source
+            self._parallel_wall_start_offset_m = observation.offset_m
+            self._parallel_wall_start_progress_m = control_progress_m
+            self._parallel_wall_last_offset_m = observation.offset_m
+            self._parallel_wall_last_yaw_error_rad = observation.yaw_error_rad
+            self._parallel_wall_stable_samples = 1
+            self._parallel_wall_last_progress_m = control_progress_m
+
+            return LidarParallelityEstimate(
+                valid=True,
+                active=False,
+                side=observation.side,
+                stable_samples=1,
+                progress_m=control_progress_m,
+                start_offset_m=observation.offset_m,
+                current_offset_m=observation.offset_m,
+                offset_drift_m=0.0,
+                drift_per_m=0.0,
+                yaw_error_rad=observation.yaw_error_rad,
+                drift_yaw_error_rad=0.0,
+                fused_error_rad=0.0,
+                correction_radps=0.0,
+                reason=(
+                    'LiDAR parallelity collecting stable side wall: 1/'
+                    f'{self.lidar_parallelity_min_stable_samples}; '
+                    f'{observation.reason}'
+                ),
+            )
+
+        yaw_jump = abs(observation.yaw_error_rad - self._parallel_wall_last_yaw_error_rad)
+        offset_jump = abs(observation.offset_m - self._parallel_wall_last_offset_m)
+        same_sign = (
+            abs(observation.yaw_error_rad) < 1e-6
+            or abs(self._parallel_wall_last_yaw_error_rad) < 1e-6
+            or (
+                observation.yaw_error_rad > 0.0
+            ) == (self._parallel_wall_last_yaw_error_rad > 0.0)
+        )
+
+        if (
+            yaw_jump > self.lidar_parallelity_max_yaw_jump_rad
+            or offset_jump > self.lidar_parallelity_max_offset_jump_m
+            or not same_sign
+        ):
+            self._parallel_wall_start_offset_m = observation.offset_m
+            self._parallel_wall_start_progress_m = control_progress_m
+            self._parallel_wall_last_offset_m = observation.offset_m
+            self._parallel_wall_last_yaw_error_rad = observation.yaw_error_rad
+            self._parallel_wall_stable_samples = 1
+            self._parallel_wall_last_progress_m = control_progress_m
+
+            return LidarParallelityEstimate(
+                valid=True,
+                active=False,
+                side=observation.side,
+                stable_samples=1,
+                progress_m=control_progress_m,
+                start_offset_m=observation.offset_m,
+                current_offset_m=observation.offset_m,
+                offset_drift_m=0.0,
+                drift_per_m=0.0,
+                yaw_error_rad=observation.yaw_error_rad,
+                drift_yaw_error_rad=0.0,
+                fused_error_rad=0.0,
+                correction_radps=0.0,
+                reason=(
+                    f'LiDAR parallelity reset: yaw_jump={yaw_jump:.3f} rad, '
+                    f'offset_jump={offset_jump:.3f} m, same_sign={same_sign}'
+                ),
+            )
+
+        self._parallel_wall_stable_samples += 1
+        self._parallel_wall_last_offset_m = observation.offset_m
+        self._parallel_wall_last_yaw_error_rad = observation.yaw_error_rad
+        self._parallel_wall_last_progress_m = control_progress_m
+
+        offset_drift_m = observation.offset_m - self._parallel_wall_start_offset_m
+        tracking_progress_m = max(
+            0.0,
+            control_progress_m - self._parallel_wall_start_progress_m,
+        )
+        if tracking_progress_m <= 1e-6:
+            drift_per_m = 0.0
+        else:
+            drift_per_m = offset_drift_m / tracking_progress_m
+
+        drift_yaw = math.atan(drift_per_m)
+        if (
+            self.lidar_parallelity_drift_validation_enabled
+            and abs(drift_per_m) > self.lidar_parallelity_max_drift_per_m
+        ):
+            return LidarParallelityEstimate(
+                valid=True,
+                active=False,
+                side=observation.side,
+                stable_samples=self._parallel_wall_stable_samples,
+                progress_m=control_progress_m,
+                start_offset_m=self._parallel_wall_start_offset_m,
+                current_offset_m=observation.offset_m,
+                offset_drift_m=offset_drift_m,
+                drift_per_m=drift_per_m,
+                yaw_error_rad=observation.yaw_error_rad,
+                drift_yaw_error_rad=drift_yaw,
+                fused_error_rad=0.0,
+                correction_radps=0.0,
+                reason=(
+                    'LiDAR parallelity drift too large/aliased: '
+                    f'{drift_per_m:.3f} > '
+                    f'{self.lidar_parallelity_max_drift_per_m:.3f}; '
+                    f'tracking_progress={tracking_progress_m:.3f} m'
+                ),
+            )
+
+        if control_progress_m < self.lidar_parallelity_min_progress_for_control_m:
+            return LidarParallelityEstimate(
+                valid=True,
+                active=False,
+                side=observation.side,
+                stable_samples=self._parallel_wall_stable_samples,
+                progress_m=control_progress_m,
+                start_offset_m=self._parallel_wall_start_offset_m,
+                current_offset_m=observation.offset_m,
+                offset_drift_m=offset_drift_m,
+                drift_per_m=drift_per_m,
+                yaw_error_rad=observation.yaw_error_rad,
+                drift_yaw_error_rad=drift_yaw,
+                fused_error_rad=0.0,
+                correction_radps=0.0,
+                reason=(
+                    'LiDAR parallelity waiting for progress: '
+                    f'{control_progress_m:.3f} m < '
+                    f'{self.lidar_parallelity_min_progress_for_control_m:.3f} m; '
+                    f'tracking_progress={tracking_progress_m:.3f} m'
+                ),
+            )
+
+        if self._parallel_wall_stable_samples < self.lidar_parallelity_min_stable_samples:
+            return LidarParallelityEstimate(
+                valid=True,
+                active=False,
+                side=observation.side,
+                stable_samples=self._parallel_wall_stable_samples,
+                progress_m=control_progress_m,
+                start_offset_m=self._parallel_wall_start_offset_m,
+                current_offset_m=observation.offset_m,
+                offset_drift_m=offset_drift_m,
+                drift_per_m=drift_per_m,
+                yaw_error_rad=observation.yaw_error_rad,
+                drift_yaw_error_rad=drift_yaw,
+                fused_error_rad=0.0,
+                correction_radps=0.0,
+                reason=(
+                    'LiDAR parallelity collecting stable samples: '
+                    f'{self._parallel_wall_stable_samples}/'
+                    f'{self.lidar_parallelity_min_stable_samples}; '
+                    f'tracking_progress={tracking_progress_m:.3f} m'
+                ),
+            )
+
+        correction, drift_yaw_error_rad, correction_reason = (
+            lidar_parallelity_correction_radps(
+                yaw_error_rad=observation.yaw_error_rad,
+                drift_per_m=drift_per_m,
+                k_yaw=self.k_lidar_parallelity_yaw,
+                k_drift=self.k_lidar_parallelity_drift,
+                max_correction_radps=self.max_lidar_parallelity_correction_radps,
+                require_consistency=(
+                    self.lidar_parallelity_require_yaw_drift_consistency
+                ),
+                max_yaw_drift_disagreement_rad=(
+                    self.lidar_parallelity_max_yaw_drift_disagreement_rad
+                ),
+            )
+        )
+        correction_reason = (
+            f'{correction_reason}; tracking_progress={tracking_progress_m:.3f} m'
+        )
+        active = abs(correction) > 1e-6
+
+        return LidarParallelityEstimate(
+            valid=True,
+            active=active,
+            side=observation.side,
+            stable_samples=self._parallel_wall_stable_samples,
+            progress_m=control_progress_m,
+            start_offset_m=self._parallel_wall_start_offset_m,
+            current_offset_m=observation.offset_m,
+            offset_drift_m=offset_drift_m,
+            drift_per_m=drift_per_m,
+            yaw_error_rad=observation.yaw_error_rad,
+            drift_yaw_error_rad=drift_yaw_error_rad,
+            fused_error_rad=(
+                self.k_lidar_parallelity_yaw * observation.yaw_error_rad
+                + self.k_lidar_parallelity_drift * drift_yaw_error_rad
+            ),
+            correction_radps=correction,
+            reason=correction_reason,
+        )
+
     def _translation_diagnostics(
         self,
         direction: float,
         odom_progress_m: float,
         start_ranges: Optional[LidarRangeSnapshot],
         end_ranges: Optional[LidarRangeSnapshot],
+        track_lidar_progress: bool = False,
     ) -> TranslationDiagnostics:
         if start_ranges is None or end_ranges is None:
             return TranslationDiagnostics(
@@ -5862,6 +6553,26 @@ class DarthMaulControlNode(Node):
             allow_single_source=self.lidar_progress_allow_single_source,
         )
 
+        temporal_degraded = False
+        temporal_reason = ''
+        if track_lidar_progress:
+            tracked_lidar_progress = self._choose_tracked_lidar_progress(
+                lidar_estimate,
+                front_valid=front_valid,
+                front_progress_m=front_progress,
+                rear_valid=rear_valid,
+                rear_progress_m=rear_progress,
+            )
+            lidar_estimate = LidarProgressEstimate(
+                valid=tracked_lidar_progress.valid,
+                progress_m=tracked_lidar_progress.progress_m,
+                source=tracked_lidar_progress.source,
+                disagreement_m=tracked_lidar_progress.disagreement_m,
+                reason=tracked_lidar_progress.reason,
+            )
+            temporal_degraded = tracked_lidar_progress.degraded
+            temporal_reason = tracked_lidar_progress.reason
+
         lidar_progress_valid = lidar_estimate.valid
         lidar_progress = lidar_estimate.progress_m
 
@@ -5890,6 +6601,8 @@ class DarthMaulControlNode(Node):
             lidar_progress_source=lidar_estimate.source,
             lidar_progress_disagreement_m=lidar_estimate.disagreement_m,
             lidar_progress_reason=lidar_estimate.reason,
+            lidar_progress_temporal_degraded=temporal_degraded,
+            lidar_progress_temporal_reason=temporal_reason,
         )
 
     def _select_translation_progress(
@@ -5953,7 +6666,31 @@ class DarthMaulControlNode(Node):
             f'grid_lateral_drift_valid={diagnostics.grid_lateral_drift_valid}; '
             f'grid_lateral_drift={diagnostics.grid_lateral_drift_m:.3f} m; '
             f'grid_lateral_drift_per_m={diagnostics.grid_lateral_drift_per_m:.3f}; '
-            f'grid_lateral_drift_reason={diagnostics.grid_lateral_drift_reason}'
+            f'grid_lateral_drift_reason={diagnostics.grid_lateral_drift_reason}; '
+            f'lidar_parallelity_valid={diagnostics.lidar_parallelity_valid}; '
+            f'lidar_parallelity_active={diagnostics.lidar_parallelity_active}; '
+            f'lidar_parallelity_side={diagnostics.lidar_parallelity_side}; '
+            f'lidar_parallelity_stable_samples='
+            f'{diagnostics.lidar_parallelity_stable_samples}; '
+            f'lidar_parallelity_progress='
+            f'{diagnostics.lidar_parallelity_progress_m:.3f} m; '
+            f'lidar_parallelity_start_offset='
+            f'{diagnostics.lidar_parallelity_start_offset_m:.3f} m; '
+            f'lidar_parallelity_current_offset='
+            f'{diagnostics.lidar_parallelity_current_offset_m:.3f} m; '
+            f'lidar_parallelity_drift={diagnostics.lidar_parallelity_drift_m:.3f} m; '
+            f'lidar_parallelity_drift_per_m='
+            f'{diagnostics.lidar_parallelity_drift_per_m:.3f}; '
+            f'lidar_parallelity_yaw={diagnostics.lidar_parallelity_yaw_rad:.3f} rad; '
+            f'lidar_parallelity_drift_yaw='
+            f'{diagnostics.lidar_parallelity_drift_yaw_rad:.3f} rad; '
+            f'lidar_parallelity_correction='
+            f'{diagnostics.lidar_parallelity_correction_radps:.3f} rad/s; '
+            f'lidar_parallelity_reason={diagnostics.lidar_parallelity_reason}; '
+            f'lidar_progress_temporal_degraded='
+            f'{diagnostics.lidar_progress_temporal_degraded}; '
+            f'lidar_progress_temporal_reason='
+            f'{diagnostics.lidar_progress_temporal_reason}'
         )
 
     @staticmethod
@@ -6559,6 +7296,49 @@ class PostRotationGridYawRefineDecision:
     reason: str
 
 
+@dataclass(frozen=True)
+class SideWallObservation:
+    valid: bool
+    side: str
+    offset_m: float
+    yaw_error_rad: float
+    rms_error_m: float
+    span_x_m: float
+    support_count: int
+    confidence: float
+    source: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class LidarParallelityEstimate:
+    valid: bool
+    active: bool
+    side: str
+    stable_samples: int
+    progress_m: float
+    start_offset_m: float
+    current_offset_m: float
+    offset_drift_m: float
+    drift_per_m: float
+    yaw_error_rad: float
+    drift_yaw_error_rad: float
+    fused_error_rad: float
+    correction_radps: float
+    reason: str
+
+
+@dataclass(frozen=True)
+class TemporalLidarProgressEstimate:
+    valid: bool
+    progress_m: float
+    source: str
+    degraded: bool
+    degraded_samples: int
+    disagreement_m: float
+    reason: str
+
+
 def invalid_wall_line(side: str, reason: str) -> WallLineEstimate:
     return WallLineEstimate(
         valid=False,
@@ -6587,6 +7367,40 @@ def invalid_grid_alignment(reason: str) -> GridAlignmentEstimate:
         confidence=0.0,
         left=left,
         right=right,
+        reason=reason,
+    )
+
+
+def invalid_side_wall_observation(reason: str) -> SideWallObservation:
+    return SideWallObservation(
+        valid=False,
+        side='none',
+        offset_m=0.0,
+        yaw_error_rad=0.0,
+        rms_error_m=0.0,
+        span_x_m=0.0,
+        support_count=0,
+        confidence=0.0,
+        source='none',
+        reason=reason,
+    )
+
+
+def invalid_lidar_parallelity(reason: str) -> LidarParallelityEstimate:
+    return LidarParallelityEstimate(
+        valid=False,
+        active=False,
+        side='none',
+        stable_samples=0,
+        progress_m=0.0,
+        start_offset_m=0.0,
+        current_offset_m=0.0,
+        offset_drift_m=0.0,
+        drift_per_m=0.0,
+        yaw_error_rad=0.0,
+        drift_yaw_error_rad=0.0,
+        fused_error_rad=0.0,
+        correction_radps=0.0,
         reason=reason,
     )
 
@@ -6739,6 +7553,283 @@ def compose_angular_command(
     return (
         scale * float(heading_correction_radps)
         + float(grid_yaw_correction_radps)
+    )
+
+
+def grid_yaw_control_evidence_decision(
+    *,
+    source: str,
+    valid: bool,
+    yaw_valid: bool,
+    confidence: float,
+    yaw_error_rad: float,
+    wall_valid: bool,
+    wall_rms_error_m: float,
+    wall_span_x_m: float,
+    wall_support_count: int,
+    require_strong_evidence: bool,
+    allow_single_wall: bool,
+    min_confidence_for_left_right: float,
+    single_wall_min_confidence: float,
+    single_wall_max_abs_yaw_error_rad: float,
+    single_wall_max_rms_error_m: float,
+    single_wall_min_span_x_m: float,
+    single_wall_min_support_count: int,
+) -> tuple[bool, str]:
+    if not require_strong_evidence:
+        return True, 'strong-evidence gate disabled'
+
+    if not valid:
+        return False, 'grid alignment invalid'
+
+    if not yaw_valid:
+        return False, 'grid yaw invalid'
+
+    if source == 'left_right':
+        if confidence < min_confidence_for_left_right:
+            return (
+                False,
+                (
+                    'left_right confidence too low: '
+                    f'{confidence:.2f} < {min_confidence_for_left_right:.2f}'
+                ),
+            )
+        return True, 'left_right adjacent-wall evidence accepted for active control'
+
+    if source in ('left', 'right'):
+        if not allow_single_wall:
+            return (
+                False,
+                (
+                    'single-wall active control disabled by default: '
+                    f'source={source}, confidence={confidence:.2f}'
+                ),
+            )
+
+        if not wall_valid:
+            return False, f'{source} wall invalid'
+
+        if confidence < single_wall_min_confidence:
+            return (
+                False,
+                (
+                    'single-wall confidence too low: '
+                    f'{confidence:.2f} < {single_wall_min_confidence:.2f}'
+                ),
+            )
+
+        abs_yaw = abs(float(yaw_error_rad))
+        if abs_yaw > single_wall_max_abs_yaw_error_rad:
+            return (
+                False,
+                (
+                    'single-wall yaw error too large for active control: '
+                    f'{abs_yaw:.3f} rad > '
+                    f'{single_wall_max_abs_yaw_error_rad:.3f} rad'
+                ),
+            )
+
+        if wall_rms_error_m > single_wall_max_rms_error_m:
+            return (
+                False,
+                (
+                    'single-wall rms too high for active control: '
+                    f'{wall_rms_error_m:.3f} m > {single_wall_max_rms_error_m:.3f} m'
+                ),
+            )
+
+        if wall_span_x_m < single_wall_min_span_x_m:
+            return (
+                False,
+                (
+                    'single-wall span too small for active control: '
+                    f'{wall_span_x_m:.3f} m < {single_wall_min_span_x_m:.3f} m'
+                ),
+            )
+
+        if wall_support_count < single_wall_min_support_count:
+            return (
+                False,
+                (
+                    'single-wall support too low for active control: '
+                    f'{wall_support_count} < {single_wall_min_support_count}'
+                ),
+            )
+
+        return (
+            True,
+            (
+                'single-wall evidence accepted for active control: '
+                f'source={source}, confidence={confidence:.2f}, '
+                f'yaw={yaw_error_rad:.3f} rad, '
+                f'rms={wall_rms_error_m:.3f} m, '
+                f'span={wall_span_x_m:.3f} m, '
+                f'count={wall_support_count}'
+            ),
+        )
+
+    return False, f'unsupported grid yaw source for active control: {source}'
+
+
+def side_wall_observation_from_alignment(
+    alignment: GridAlignmentEstimate,
+    *,
+    preferred_side: str = 'none',
+    min_confidence: float = 0.60,
+    max_abs_yaw_error_rad: float = 0.100,
+    max_rms_error_m: float = 0.020,
+    min_span_x_m: float = 0.220,
+    min_support_count: int = 80,
+) -> SideWallObservation:
+    if not alignment.valid or not alignment.yaw_valid:
+        return invalid_side_wall_observation(
+            f'grid alignment invalid for side-wall tracking: {alignment.reason}'
+        )
+
+    candidates: list[tuple[str, WallLineEstimate, float]] = []
+
+    if alignment.source == 'left_right':
+        if alignment.left.valid:
+            candidates.append(('left', alignment.left, alignment.confidence))
+        if alignment.right.valid:
+            candidates.append(('right', alignment.right, alignment.confidence))
+    elif alignment.source == 'left' and alignment.left.valid:
+        candidates.append(('left', alignment.left, alignment.confidence))
+    elif alignment.source == 'right' and alignment.right.valid:
+        candidates.append(('right', alignment.right, alignment.confidence))
+
+    if not candidates:
+        return invalid_side_wall_observation(
+            f'no adjacent side-wall candidate from source={alignment.source}: '
+            f'{alignment.reason}'
+        )
+
+    if preferred_side in ('left', 'right'):
+        preferred = [candidate for candidate in candidates if candidate[0] == preferred_side]
+        if preferred:
+            candidates = preferred
+
+    best_side, best_wall, confidence = max(
+        candidates,
+        key=lambda item: (
+            item[2],
+            item[1].span_x_m,
+            item[1].support_count,
+            -item[1].rms_error_m,
+        ),
+    )
+
+    if confidence < min_confidence:
+        return invalid_side_wall_observation(
+            f'side-wall confidence too low: {confidence:.2f} < {min_confidence:.2f}'
+        )
+
+    abs_yaw = abs(best_wall.yaw_error_rad)
+    if abs_yaw > max_abs_yaw_error_rad:
+        return invalid_side_wall_observation(
+            f'side-wall yaw too large: {abs_yaw:.3f} rad > '
+            f'{max_abs_yaw_error_rad:.3f} rad'
+        )
+
+    if best_wall.rms_error_m > max_rms_error_m:
+        return invalid_side_wall_observation(
+            f'side-wall rms too high: {best_wall.rms_error_m:.3f} m > '
+            f'{max_rms_error_m:.3f} m'
+        )
+
+    if best_wall.span_x_m < min_span_x_m:
+        return invalid_side_wall_observation(
+            f'side-wall span too small: {best_wall.span_x_m:.3f} m < '
+            f'{min_span_x_m:.3f} m'
+        )
+
+    if best_wall.support_count < min_support_count:
+        return invalid_side_wall_observation(
+            f'side-wall support too low: {best_wall.support_count} < '
+            f'{min_support_count}'
+        )
+
+    return SideWallObservation(
+        valid=True,
+        side=best_side,
+        offset_m=best_wall.offset_m,
+        yaw_error_rad=best_wall.yaw_error_rad,
+        rms_error_m=best_wall.rms_error_m,
+        span_x_m=best_wall.span_x_m,
+        support_count=best_wall.support_count,
+        confidence=confidence,
+        source=alignment.source,
+        reason=(
+            f'adjacent {best_side} wall accepted: confidence={confidence:.2f}, '
+            f'yaw={best_wall.yaw_error_rad:.3f} rad, '
+            f'offset={best_wall.offset_m:.3f} m, '
+            f'rms={best_wall.rms_error_m:.3f} m, '
+            f'span={best_wall.span_x_m:.3f} m, '
+            f'count={best_wall.support_count}'
+        ),
+    )
+
+
+def lidar_parallelity_correction_radps(
+    *,
+    yaw_error_rad: float,
+    drift_per_m: float,
+    k_yaw: float,
+    k_drift: float,
+    max_correction_radps: float,
+    require_consistency: bool,
+    max_yaw_drift_disagreement_rad: float,
+) -> tuple[float, float, str]:
+    if not math.isfinite(yaw_error_rad):
+        yaw_error_rad = 0.0
+    if not math.isfinite(drift_per_m):
+        drift_per_m = 0.0
+
+    drift_yaw_error_rad = math.atan(drift_per_m)
+
+    if require_consistency:
+        yaw_sign = 0 if abs(yaw_error_rad) < 1e-6 else (1 if yaw_error_rad > 0.0 else -1)
+        drift_sign = (
+            0
+            if abs(drift_yaw_error_rad) < 1e-6
+            else (1 if drift_yaw_error_rad > 0.0 else -1)
+        )
+        disagreement = abs(yaw_error_rad - drift_yaw_error_rad)
+
+        if yaw_sign != 0 and drift_sign != 0 and yaw_sign != drift_sign:
+            return (
+                0.0,
+                drift_yaw_error_rad,
+                (
+                    'yaw/drift sign disagreement: '
+                    f'yaw={yaw_error_rad:.3f} rad, '
+                    f'drift_yaw={drift_yaw_error_rad:.3f} rad'
+                ),
+            )
+
+        if disagreement > max_yaw_drift_disagreement_rad:
+            return (
+                0.0,
+                drift_yaw_error_rad,
+                (
+                    'yaw/drift magnitude disagreement: '
+                    f'{disagreement:.3f} rad > '
+                    f'{max_yaw_drift_disagreement_rad:.3f} rad'
+                ),
+            )
+
+    fused_error = (float(k_yaw) * yaw_error_rad) + (float(k_drift) * drift_yaw_error_rad)
+    limit = abs(float(max_correction_radps))
+    correction = max(-limit, min(limit, fused_error))
+
+    return (
+        float(correction),
+        float(drift_yaw_error_rad),
+        (
+            f'fused LiDAR parallelity correction: yaw={yaw_error_rad:.3f} rad, '
+            f'drift_yaw={drift_yaw_error_rad:.3f} rad, '
+            f'correction={correction:.3f} rad/s'
+        ),
     )
 
 
@@ -7361,6 +8452,112 @@ def choose_lidar_progress(
     )
 
 
+def choose_temporal_lidar_progress(
+    *,
+    raw: LidarProgressEstimate,
+    previous_valid: bool,
+    previous_progress_m: float,
+    previous_source: str,
+    front_valid: bool,
+    front_progress_m: float,
+    rear_valid: bool,
+    rear_progress_m: float,
+    degraded_samples: int,
+    max_backtrack_m: float,
+    max_jump_m: float,
+    max_degraded_samples: int,
+) -> TemporalLidarProgressEstimate:
+    if raw.valid:
+        return TemporalLidarProgressEstimate(
+            valid=True,
+            progress_m=raw.progress_m,
+            source=raw.source,
+            degraded=False,
+            degraded_samples=0,
+            disagreement_m=raw.disagreement_m,
+            reason=f'raw LiDAR progress accepted: {raw.reason}',
+        )
+
+    if not previous_valid:
+        return TemporalLidarProgressEstimate(
+            valid=False,
+            progress_m=0.0,
+            source='none',
+            degraded=False,
+            degraded_samples=degraded_samples,
+            disagreement_m=raw.disagreement_m,
+            reason=f'no previous LiDAR progress for temporal recovery: {raw.reason}',
+        )
+
+    if degraded_samples >= max_degraded_samples:
+        return TemporalLidarProgressEstimate(
+            valid=False,
+            progress_m=previous_progress_m,
+            source='temporal_rejected',
+            degraded=True,
+            degraded_samples=degraded_samples,
+            disagreement_m=raw.disagreement_m,
+            reason=(
+                f'temporal LiDAR recovery exhausted: {degraded_samples} >= '
+                f'{max_degraded_samples}; raw={raw.reason}'
+            ),
+        )
+
+    candidates: list[tuple[str, float]] = []
+    if front_valid and math.isfinite(front_progress_m):
+        candidates.append(('front_temporal', float(front_progress_m)))
+    if rear_valid and math.isfinite(rear_progress_m):
+        candidates.append(('rear_temporal', float(rear_progress_m)))
+
+    accepted: list[tuple[str, float, float]] = []
+    for source, progress in candidates:
+        backtrack = float(previous_progress_m) - progress
+        jump = abs(progress - float(previous_progress_m))
+
+        if backtrack > float(max_backtrack_m):
+            continue
+        if jump > float(max_jump_m):
+            continue
+
+        source_bonus = 0.0
+        if str(previous_source).startswith('front') and source.startswith('front'):
+            source_bonus = -0.001
+        if str(previous_source).startswith('rear') and source.startswith('rear'):
+            source_bonus = -0.001
+
+        accepted.append((source, progress, jump + source_bonus))
+
+    if not accepted:
+        return TemporalLidarProgressEstimate(
+            valid=False,
+            progress_m=previous_progress_m,
+            source='temporal_unavailable',
+            degraded=True,
+            degraded_samples=degraded_samples + 1,
+            disagreement_m=raw.disagreement_m,
+            reason=(
+                'no temporal LiDAR candidate passed monotonic/jump gates; '
+                f'previous={previous_progress_m:.3f} m; raw={raw.reason}'
+            ),
+        )
+
+    accepted.sort(key=lambda item: item[2])
+    source, progress, _ = accepted[0]
+
+    return TemporalLidarProgressEstimate(
+        valid=True,
+        progress_m=progress,
+        source=source,
+        degraded=True,
+        degraded_samples=degraded_samples + 1,
+        disagreement_m=raw.disagreement_m,
+        reason=(
+            f'temporal LiDAR recovery using {source}: progress={progress:.3f} m, '
+            f'previous={previous_progress_m:.3f} m; raw={raw.reason}'
+        ),
+    )
+
+
 def choose_translation_progress(
     odom_progress_m: float,
     lidar_estimate: LidarProgressEstimate,
@@ -7544,6 +8741,89 @@ def generate_launch_description():
     grid_yaw_active_heading_hold_scale = LaunchConfiguration(
         'grid_yaw_active_heading_hold_scale'
     )
+    grid_yaw_control_require_strong_evidence = LaunchConfiguration(
+        'grid_yaw_control_require_strong_evidence'
+    )
+    grid_yaw_control_allow_single_wall = LaunchConfiguration(
+        'grid_yaw_control_allow_single_wall'
+    )
+    grid_yaw_control_single_wall_min_confidence = LaunchConfiguration(
+        'grid_yaw_control_single_wall_min_confidence'
+    )
+    grid_yaw_control_single_wall_max_abs_yaw_error_rad = LaunchConfiguration(
+        'grid_yaw_control_single_wall_max_abs_yaw_error_rad'
+    )
+    grid_yaw_control_single_wall_max_rms_error_m = LaunchConfiguration(
+        'grid_yaw_control_single_wall_max_rms_error_m'
+    )
+    grid_yaw_control_single_wall_min_span_x_m = LaunchConfiguration(
+        'grid_yaw_control_single_wall_min_span_x_m'
+    )
+    grid_yaw_control_single_wall_min_support_count = LaunchConfiguration(
+        'grid_yaw_control_single_wall_min_support_count'
+    )
+    lidar_parallelity_control_enabled = LaunchConfiguration(
+        'lidar_parallelity_control_enabled'
+    )
+    lidar_parallelity_heading_hold_scale = LaunchConfiguration(
+        'lidar_parallelity_heading_hold_scale'
+    )
+    lidar_parallelity_min_progress_for_control_m = LaunchConfiguration(
+        'lidar_parallelity_min_progress_for_control_m'
+    )
+    lidar_parallelity_min_stable_samples = LaunchConfiguration(
+        'lidar_parallelity_min_stable_samples'
+    )
+    lidar_parallelity_max_yaw_jump_rad = LaunchConfiguration(
+        'lidar_parallelity_max_yaw_jump_rad'
+    )
+    lidar_parallelity_max_offset_jump_m = LaunchConfiguration(
+        'lidar_parallelity_max_offset_jump_m'
+    )
+    lidar_parallelity_max_abs_yaw_error_rad = LaunchConfiguration(
+        'lidar_parallelity_max_abs_yaw_error_rad'
+    )
+    lidar_parallelity_min_confidence = LaunchConfiguration(
+        'lidar_parallelity_min_confidence'
+    )
+    lidar_parallelity_max_rms_error_m = LaunchConfiguration(
+        'lidar_parallelity_max_rms_error_m'
+    )
+    lidar_parallelity_min_span_x_m = LaunchConfiguration(
+        'lidar_parallelity_min_span_x_m'
+    )
+    lidar_parallelity_min_support_count = LaunchConfiguration(
+        'lidar_parallelity_min_support_count'
+    )
+    lidar_parallelity_drift_validation_enabled = LaunchConfiguration(
+        'lidar_parallelity_drift_validation_enabled'
+    )
+    lidar_parallelity_max_drift_per_m = LaunchConfiguration(
+        'lidar_parallelity_max_drift_per_m'
+    )
+    k_lidar_parallelity_yaw = LaunchConfiguration('k_lidar_parallelity_yaw')
+    k_lidar_parallelity_drift = LaunchConfiguration('k_lidar_parallelity_drift')
+    max_lidar_parallelity_correction_radps = LaunchConfiguration(
+        'max_lidar_parallelity_correction_radps'
+    )
+    lidar_parallelity_require_yaw_drift_consistency = LaunchConfiguration(
+        'lidar_parallelity_require_yaw_drift_consistency'
+    )
+    lidar_parallelity_max_yaw_drift_disagreement_rad = LaunchConfiguration(
+        'lidar_parallelity_max_yaw_drift_disagreement_rad'
+    )
+    lidar_progress_temporal_filter_enabled = LaunchConfiguration(
+        'lidar_progress_temporal_filter_enabled'
+    )
+    lidar_progress_temporal_max_backtrack_m = LaunchConfiguration(
+        'lidar_progress_temporal_max_backtrack_m'
+    )
+    lidar_progress_temporal_max_jump_m = LaunchConfiguration(
+        'lidar_progress_temporal_max_jump_m'
+    )
+    lidar_progress_temporal_max_degraded_samples = LaunchConfiguration(
+        'lidar_progress_temporal_max_degraded_samples'
+    )
     translation_progress_source = LaunchConfiguration('translation_progress_source')
     pre_translation_grid_yaw_align_enabled = LaunchConfiguration(
         'pre_translation_grid_yaw_align_enabled'
@@ -7629,6 +8909,63 @@ def generate_launch_description():
             description='Heading-hold scale while grid yaw correction is active.',
         ),
         DeclareLaunchArgument(
+            'grid_yaw_control_require_strong_evidence',
+            default_value='true',
+            description='Require strong evidence before active DRIVE_FORWARD grid yaw correction.',
+        ),
+        DeclareLaunchArgument(
+            'grid_yaw_control_allow_single_wall',
+            default_value='true',
+            description='Allow single-wall grid yaw to actively control DRIVE_FORWARD yaw.',
+        ),
+        DeclareLaunchArgument(
+            'grid_yaw_control_single_wall_min_confidence',
+            default_value='0.60',
+            description='Minimum confidence for experimental single-wall grid yaw control.',
+        ),
+        DeclareLaunchArgument(
+            'grid_yaw_control_single_wall_max_abs_yaw_error_rad',
+            default_value='0.100',
+            description='Maximum single-wall yaw error allowed for active grid yaw control.',
+        ),
+        DeclareLaunchArgument(
+            'grid_yaw_control_single_wall_max_rms_error_m',
+            default_value='0.020',
+            description='Maximum contributing wall RMS error for single-wall yaw control.',
+        ),
+        DeclareLaunchArgument(
+            'grid_yaw_control_single_wall_min_span_x_m',
+            default_value='0.220',
+            description='Minimum contributing wall x-span for single-wall yaw control.',
+        ),
+        DeclareLaunchArgument(
+            'grid_yaw_control_single_wall_min_support_count',
+            default_value='80',
+            description='Minimum contributing wall support points for single-wall yaw control.',
+        ),
+        DeclareLaunchArgument('lidar_parallelity_control_enabled', default_value='true'),
+        DeclareLaunchArgument('lidar_parallelity_heading_hold_scale', default_value='1.0'),
+        DeclareLaunchArgument('lidar_parallelity_min_progress_for_control_m', default_value='0.040'),
+        DeclareLaunchArgument('lidar_parallelity_min_stable_samples', default_value='3'),
+        DeclareLaunchArgument('lidar_parallelity_max_yaw_jump_rad', default_value='0.025'),
+        DeclareLaunchArgument('lidar_parallelity_max_offset_jump_m', default_value='0.035'),
+        DeclareLaunchArgument('lidar_parallelity_max_abs_yaw_error_rad', default_value='0.100'),
+        DeclareLaunchArgument('lidar_parallelity_min_confidence', default_value='0.60'),
+        DeclareLaunchArgument('lidar_parallelity_max_rms_error_m', default_value='0.020'),
+        DeclareLaunchArgument('lidar_parallelity_min_span_x_m', default_value='0.220'),
+        DeclareLaunchArgument('lidar_parallelity_min_support_count', default_value='80'),
+        DeclareLaunchArgument('lidar_parallelity_drift_validation_enabled', default_value='true'),
+        DeclareLaunchArgument('lidar_parallelity_max_drift_per_m', default_value='0.35'),
+        DeclareLaunchArgument('k_lidar_parallelity_yaw', default_value='0.80'),
+        DeclareLaunchArgument('k_lidar_parallelity_drift', default_value='0.20'),
+        DeclareLaunchArgument('max_lidar_parallelity_correction_radps', default_value='0.040'),
+        DeclareLaunchArgument('lidar_parallelity_require_yaw_drift_consistency', default_value='true'),
+        DeclareLaunchArgument('lidar_parallelity_max_yaw_drift_disagreement_rad', default_value='0.060'),
+        DeclareLaunchArgument('lidar_progress_temporal_filter_enabled', default_value='true'),
+        DeclareLaunchArgument('lidar_progress_temporal_max_backtrack_m', default_value='0.015'),
+        DeclareLaunchArgument('lidar_progress_temporal_max_jump_m', default_value='0.080'),
+        DeclareLaunchArgument('lidar_progress_temporal_max_degraded_samples', default_value='2'),
+        DeclareLaunchArgument(
             'translation_progress_source',
             default_value='lidar_required',
             description=(
@@ -7672,7 +9009,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'post_rotation_grid_yaw_refine_enabled',
-            default_value='true',
+            default_value='false',
             description='Enable LiDAR side-wall yaw refinement after ROTATE_RELATIVE.',
         ),
         DeclareLaunchArgument(
@@ -7751,6 +9088,101 @@ def generate_launch_description():
                     'grid_yaw_active_heading_hold_scale': ParameterValue(
                         grid_yaw_active_heading_hold_scale,
                         value_type=float,
+                    ),
+                    'grid_yaw_control_require_strong_evidence': ParameterValue(
+                        grid_yaw_control_require_strong_evidence,
+                        value_type=bool,
+                    ),
+                    'grid_yaw_control_allow_single_wall': ParameterValue(
+                        grid_yaw_control_allow_single_wall,
+                        value_type=bool,
+                    ),
+                    'grid_yaw_control_single_wall_min_confidence': ParameterValue(
+                        grid_yaw_control_single_wall_min_confidence,
+                        value_type=float,
+                    ),
+                    'grid_yaw_control_single_wall_max_abs_yaw_error_rad': ParameterValue(
+                        grid_yaw_control_single_wall_max_abs_yaw_error_rad,
+                        value_type=float,
+                    ),
+                    'grid_yaw_control_single_wall_max_rms_error_m': ParameterValue(
+                        grid_yaw_control_single_wall_max_rms_error_m,
+                        value_type=float,
+                    ),
+                    'grid_yaw_control_single_wall_min_span_x_m': ParameterValue(
+                        grid_yaw_control_single_wall_min_span_x_m,
+                        value_type=float,
+                    ),
+                    'grid_yaw_control_single_wall_min_support_count': ParameterValue(
+                        grid_yaw_control_single_wall_min_support_count,
+                        value_type=int,
+                    ),
+                    'lidar_parallelity_control_enabled': ParameterValue(
+                        lidar_parallelity_control_enabled, value_type=bool
+                    ),
+                    'lidar_parallelity_heading_hold_scale': ParameterValue(
+                        lidar_parallelity_heading_hold_scale, value_type=float
+                    ),
+                    'lidar_parallelity_min_progress_for_control_m': ParameterValue(
+                        lidar_parallelity_min_progress_for_control_m, value_type=float
+                    ),
+                    'lidar_parallelity_min_stable_samples': ParameterValue(
+                        lidar_parallelity_min_stable_samples, value_type=int
+                    ),
+                    'lidar_parallelity_max_yaw_jump_rad': ParameterValue(
+                        lidar_parallelity_max_yaw_jump_rad, value_type=float
+                    ),
+                    'lidar_parallelity_max_offset_jump_m': ParameterValue(
+                        lidar_parallelity_max_offset_jump_m, value_type=float
+                    ),
+                    'lidar_parallelity_max_abs_yaw_error_rad': ParameterValue(
+                        lidar_parallelity_max_abs_yaw_error_rad, value_type=float
+                    ),
+                    'lidar_parallelity_min_confidence': ParameterValue(
+                        lidar_parallelity_min_confidence, value_type=float
+                    ),
+                    'lidar_parallelity_max_rms_error_m': ParameterValue(
+                        lidar_parallelity_max_rms_error_m, value_type=float
+                    ),
+                    'lidar_parallelity_min_span_x_m': ParameterValue(
+                        lidar_parallelity_min_span_x_m, value_type=float
+                    ),
+                    'lidar_parallelity_min_support_count': ParameterValue(
+                        lidar_parallelity_min_support_count, value_type=int
+                    ),
+                    'lidar_parallelity_drift_validation_enabled': ParameterValue(
+                        lidar_parallelity_drift_validation_enabled, value_type=bool
+                    ),
+                    'lidar_parallelity_max_drift_per_m': ParameterValue(
+                        lidar_parallelity_max_drift_per_m, value_type=float
+                    ),
+                    'k_lidar_parallelity_yaw': ParameterValue(
+                        k_lidar_parallelity_yaw, value_type=float
+                    ),
+                    'k_lidar_parallelity_drift': ParameterValue(
+                        k_lidar_parallelity_drift, value_type=float
+                    ),
+                    'max_lidar_parallelity_correction_radps': ParameterValue(
+                        max_lidar_parallelity_correction_radps, value_type=float
+                    ),
+                    'lidar_parallelity_require_yaw_drift_consistency': ParameterValue(
+                        lidar_parallelity_require_yaw_drift_consistency, value_type=bool
+                    ),
+                    'lidar_parallelity_max_yaw_drift_disagreement_rad': ParameterValue(
+                        lidar_parallelity_max_yaw_drift_disagreement_rad,
+                        value_type=float,
+                    ),
+                    'lidar_progress_temporal_filter_enabled': ParameterValue(
+                        lidar_progress_temporal_filter_enabled, value_type=bool
+                    ),
+                    'lidar_progress_temporal_max_backtrack_m': ParameterValue(
+                        lidar_progress_temporal_max_backtrack_m, value_type=float
+                    ),
+                    'lidar_progress_temporal_max_jump_m': ParameterValue(
+                        lidar_progress_temporal_max_jump_m, value_type=float
+                    ),
+                    'lidar_progress_temporal_max_degraded_samples': ParameterValue(
+                        lidar_progress_temporal_max_degraded_samples, value_type=int
                     ),
                     'translation_progress_source': ParameterValue(
                         translation_progress_source,
@@ -7840,6 +9272,8 @@ def generate_launch_description():
 
 from pathlib import Path
 
+import pytest
+
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 GEOMETRY_VALIDATION_PARAM = 'lidar_progress_geometry_validation' + '_enabled'
@@ -7863,7 +9297,7 @@ def test_control_params_default_to_lidar_required():
     assert 'pre_translation_grid_yaw_align_stable_samples: 3' in text
     assert 'pre_translation_grid_yaw_align_max_invalid_samples: 3' in text
     assert 'translation_lidar_required_invalid_max_consecutive_samples: 2' in text
-    assert 'post_rotation_grid_yaw_refine_enabled: true' in text
+    assert 'post_rotation_grid_yaw_refine_enabled: false' in text
     assert 'post_rotation_grid_yaw_refine_start_threshold_rad: 0.030' in text
     assert 'post_rotation_grid_yaw_refine_target_rad: 0.015' in text
     assert 'post_rotation_grid_yaw_refine_stable_samples: 3' in text
@@ -7874,6 +9308,29 @@ def test_control_params_default_to_lidar_required():
     assert 'post_rotation_grid_yaw_refine_kp: 1.00' in text
     assert 'post_rotation_grid_yaw_refine_max_angular_z_radps: 0.080' in text
     assert 'post_rotation_grid_yaw_refine_require_valid: false' in text
+    assert 'grid_yaw_control_require_strong_evidence: true' in text
+    assert 'grid_yaw_control_allow_single_wall: true' in text
+    assert 'grid_yaw_control_single_wall_min_confidence: 0.60' in text
+    assert 'grid_yaw_control_single_wall_max_abs_yaw_error_rad: 0.100' in text
+    assert 'grid_yaw_control_single_wall_max_rms_error_m: 0.020' in text
+    assert 'grid_yaw_control_single_wall_min_span_x_m: 0.220' in text
+    assert 'grid_yaw_control_single_wall_min_support_count: 80' in text
+    assert 'lidar_parallelity_control_enabled: true' in text
+    assert 'lidar_parallelity_heading_hold_scale: 1.0' in text
+    assert 'lidar_parallelity_min_progress_for_control_m: 0.040' in text
+    assert 'lidar_parallelity_min_stable_samples: 3' in text
+    assert 'lidar_parallelity_max_yaw_jump_rad: 0.025' in text
+    assert 'lidar_parallelity_max_offset_jump_m: 0.035' in text
+    assert 'lidar_parallelity_max_abs_yaw_error_rad: 0.100' in text
+    assert 'lidar_parallelity_min_confidence: 0.60' in text
+    assert 'lidar_parallelity_max_rms_error_m: 0.020' in text
+    assert 'lidar_parallelity_min_span_x_m: 0.220' in text
+    assert 'lidar_parallelity_min_support_count: 80' in text
+    assert 'lidar_parallelity_drift_validation_enabled: true' in text
+    assert 'k_lidar_parallelity_yaw: 0.80' in text
+    assert 'k_lidar_parallelity_drift: 0.20' in text
+    assert 'max_lidar_parallelity_correction_radps: 0.040' in text
+    assert 'lidar_progress_temporal_filter_enabled: true' in text
     assert 'translation_lidar_required_invalid_grace_s' not in text
     assert 'Odom is diagnostic only' in text
 
@@ -7910,6 +9367,25 @@ def test_control_launch_defaults_for_exam_mode():
     assert "'post_rotation_grid_yaw_refine_kp'" in text
     assert "'post_rotation_grid_yaw_refine_max_angular_z_radps'" in text
     assert "'post_rotation_grid_yaw_refine_require_valid'" in text
+    assert "'grid_yaw_control_require_strong_evidence'" in text
+    assert "'grid_yaw_control_allow_single_wall'" in text
+    assert "'grid_yaw_control_single_wall_min_confidence'" in text
+    assert "'grid_yaw_control_single_wall_max_abs_yaw_error_rad'" in text
+    assert "'grid_yaw_control_single_wall_max_rms_error_m'" in text
+    assert "'grid_yaw_control_single_wall_min_span_x_m'" in text
+    assert "'grid_yaw_control_single_wall_min_support_count'" in text
+    assert "'lidar_parallelity_control_enabled'" in text
+    assert "'lidar_parallelity_heading_hold_scale'" in text
+    assert "'lidar_parallelity_min_progress_for_control_m'" in text
+    assert "'lidar_parallelity_min_stable_samples'" in text
+    assert "'lidar_parallelity_max_yaw_jump_rad'" in text
+    assert "'lidar_parallelity_max_offset_jump_m'" in text
+    assert "'lidar_parallelity_max_abs_yaw_error_rad'" in text
+    assert "'lidar_parallelity_min_confidence'" in text
+    assert "'lidar_parallelity_max_rms_error_m'" in text
+    assert "'lidar_parallelity_min_span_x_m'" in text
+    assert "'lidar_parallelity_min_support_count'" in text
+    assert "'lidar_progress_temporal_filter_enabled'" in text
     assert 'translation_lidar_required_invalid_grace_s' not in text
 
 
@@ -7934,9 +9410,47 @@ def test_control_node_defaults_to_grid_yaw_correction_enabled():
 
     assert "self._bool_param(\n            'grid_alignment_control_enabled',\n            True" in text
     assert "self._bool_param(\n            'grid_yaw_correction_enabled',\n            True" in text
+    assert 'grid_yaw_control_require_strong_evidence' in text
+    assert 'grid_yaw_control_allow_single_wall' in text
+    assert 'def _grid_yaw_has_strong_control_evidence(' in text
+    assert 'def _grid_yaw_single_wall_quality_ok(' in text
+    assert 'grid yaw diagnostic only:' in text
     assert "self._bool_param(\n            'pre_translation_grid_yaw_align_enabled',\n            False" in text
-    assert "self._bool_param(\n            'post_rotation_grid_yaw_refine_enabled',\n            True" in text
+    assert "self._bool_param(\n            'post_rotation_grid_yaw_refine_enabled',\n            False" in text
     assert "self._bool_param(\n            'post_rotation_grid_yaw_refine_require_valid',\n            False" in text
+
+
+def test_drive_forward_uses_lidar_parallelity_observer_not_direct_grid_yaw():
+    text = (
+        PACKAGE_ROOT
+        / 'darth_maul_control'
+        / 'control_node.py'
+    ).read_text()
+
+    assert 'def _update_lidar_parallelity_tracker(' in text
+    assert '_update_lidar_parallelity_tracker(' in text
+    assert 'DRIVE_FORWARD does not use one-frame grid yaw' in text
+
+
+def test_parallelity_drift_uses_tracking_progress_baseline():
+    text = (
+        PACKAGE_ROOT
+        / 'darth_maul_control'
+        / 'control_node.py'
+    ).read_text()
+
+    assert '_parallel_wall_start_progress_m = 0.0' in text
+    assert 'control_progress_m - self._parallel_wall_start_progress_m' in text
+    assert 'drift_per_m = offset_drift_m / tracking_progress_m' in text
+    assert 'offset_drift_m / max(control_progress_m' not in text
+
+    baseline_progress_m = 0.20
+    current_progress_m = 0.25
+    offset_drift_m = 0.01
+    tracking_progress_m = current_progress_m - baseline_progress_m
+
+    assert offset_drift_m / tracking_progress_m == pytest.approx(0.20)
+    assert offset_drift_m / current_progress_m == pytest.approx(0.04)
 
 
 def test_control_node_has_post_rotation_refine_hook_in_rotate_only():
@@ -7975,6 +9489,7 @@ from darth_maul_control.scan_geometry import (
     choose_lidar_progress,
     choose_translation_progress,
     compose_angular_command,
+    grid_yaw_control_evidence_decision,
     grid_yaw_pre_align_complete,
     grid_lateral_drift,
     grid_yaw_correction_radps,
@@ -8185,6 +9700,114 @@ def test_compose_angular_command_uses_heading_hold_when_grid_inactive():
         grid_yaw_active=False,
         grid_yaw_active_heading_hold_scale=0.0,
     ) == pytest.approx(0.04)
+
+
+def test_grid_yaw_control_rejects_default_single_right_wall_confidence_060():
+    strong, reason = grid_yaw_control_evidence_decision(
+        source='right',
+        valid=True,
+        yaw_valid=True,
+        confidence=0.60,
+        yaw_error_rad=0.08,
+        wall_valid=True,
+        wall_rms_error_m=0.010,
+        wall_span_x_m=0.400,
+        wall_support_count=160,
+        require_strong_evidence=True,
+        allow_single_wall=False,
+        min_confidence_for_left_right=0.60,
+        single_wall_min_confidence=0.90,
+        single_wall_max_abs_yaw_error_rad=0.050,
+        single_wall_max_rms_error_m=0.012,
+        single_wall_min_span_x_m=0.300,
+        single_wall_min_support_count=120,
+    )
+
+    assert not strong
+    assert 'single-wall active control disabled' in reason
+
+
+def test_grid_yaw_control_accepts_left_right_evidence():
+    strong, reason = grid_yaw_control_evidence_decision(
+        source='left_right',
+        valid=True,
+        yaw_valid=True,
+        confidence=0.95,
+        yaw_error_rad=0.02,
+        wall_valid=False,
+        wall_rms_error_m=0.0,
+        wall_span_x_m=0.0,
+        wall_support_count=0,
+        require_strong_evidence=True,
+        allow_single_wall=False,
+        min_confidence_for_left_right=0.60,
+        single_wall_min_confidence=0.90,
+        single_wall_max_abs_yaw_error_rad=0.050,
+        single_wall_max_rms_error_m=0.012,
+        single_wall_min_span_x_m=0.300,
+        single_wall_min_support_count=120,
+    )
+
+    assert strong
+    assert 'left_right' in reason
+
+
+def test_grid_yaw_control_can_accept_strict_single_wall_when_enabled():
+    strong, reason = grid_yaw_control_evidence_decision(
+        source='right',
+        valid=True,
+        yaw_valid=True,
+        confidence=0.95,
+        yaw_error_rad=0.02,
+        wall_valid=True,
+        wall_rms_error_m=0.008,
+        wall_span_x_m=0.400,
+        wall_support_count=160,
+        require_strong_evidence=True,
+        allow_single_wall=True,
+        min_confidence_for_left_right=0.60,
+        single_wall_min_confidence=0.90,
+        single_wall_max_abs_yaw_error_rad=0.050,
+        single_wall_max_rms_error_m=0.012,
+        single_wall_min_span_x_m=0.300,
+        single_wall_min_support_count=120,
+    )
+
+    assert strong
+    assert 'single-wall evidence accepted' in reason
+
+
+def test_compose_angular_command_uses_heading_hold_when_grid_rejected():
+    angular = compose_angular_command(
+        heading_correction_radps=0.04,
+        grid_yaw_correction_radps=0.0,
+        grid_yaw_active=False,
+        grid_yaw_active_heading_hold_scale=0.0,
+    )
+
+    assert angular == pytest.approx(0.04)
+
+
+def test_parallelity_inactive_keeps_heading_hold_even_with_heading_hold_scale_zero():
+    angular = compose_angular_command(
+        heading_correction_radps=0.04,
+        grid_yaw_correction_radps=0.0,
+        grid_yaw_active=False,
+        grid_yaw_active_heading_hold_scale=0.0,
+    )
+
+    assert angular == pytest.approx(0.04)
+
+
+def test_parallelity_active_adds_trim_to_heading_hold():
+    angular = compose_angular_command(
+        heading_correction_radps=0.04,
+        grid_yaw_correction_radps=-0.02,
+        grid_yaw_active=True,
+        grid_yaw_active_heading_hold_scale=1.0,
+    )
+
+    assert angular == pytest.approx(0.02)
 
 
 def test_compose_angular_command_grid_active_disables_heading_hold_by_default():
@@ -8446,12 +10069,20 @@ import math
 import pytest
 
 from darth_maul_control.scan_geometry import (
+    GridAlignmentEstimate,
+    LidarProgressEstimate,
+    WallLineEstimate,
     cardinal_sector_ranges,
     choose_lidar_progress,
+    choose_temporal_lidar_progress,
     choose_translation_progress,
     estimate_grid_alignment,
     fit_side_wall_line,
+    invalid_grid_alignment,
+    invalid_wall_line,
+    lidar_parallelity_correction_radps,
     sector_range,
+    side_wall_observation_from_alignment,
     side_wall_candidate_points,
     valid_scan_points_xy,
     valid_ranges_in_sector,
@@ -8538,6 +10169,44 @@ def make_points_scan(
         ranges,
         angle_min=angle_min,
         angle_increment=angle_increment,
+    )
+
+
+def make_wall(side, offset, yaw=0.02, rms=0.012, span=0.30, count=120):
+    return WallLineEstimate(
+        valid=True,
+        side=side,
+        offset_m=offset,
+        yaw_error_rad=yaw,
+        slope=math.tan(yaw),
+        intercept_m=offset,
+        support_count=count,
+        span_x_m=span,
+        rms_error_m=rms,
+        reason='test wall',
+    )
+
+
+def make_alignment(
+    source='right',
+    confidence=0.60,
+    left=None,
+    right=None,
+    yaw=0.02,
+):
+    left = left if left is not None else invalid_wall_line('left', 'not used')
+    right = right if right is not None else invalid_wall_line('right', 'not used')
+    return GridAlignmentEstimate(
+        valid=True,
+        yaw_valid=True,
+        yaw_error_rad=yaw,
+        lateral_valid=True,
+        lateral_error_m=0.0,
+        source=source,
+        confidence=confidence,
+        left=left,
+        right=right,
+        reason='test alignment',
     )
 
 
@@ -9121,6 +10790,284 @@ def test_estimate_grid_alignment_rejects_bad_pair_width_and_uses_better_wall():
     assert estimate.source in {'left', 'right'}
     assert estimate.source != 'left_right'
     assert 'pair rejected by width' in estimate.reason
+
+
+def test_side_wall_observation_rejects_invalid_alignment():
+    observation = side_wall_observation_from_alignment(
+        invalid_grid_alignment('bad geometry')
+    )
+
+    assert not observation.valid
+    assert 'grid alignment invalid' in observation.reason
+
+
+def test_side_wall_observation_rejects_no_adjacent_source():
+    alignment = make_alignment(source='none')
+    observation = side_wall_observation_from_alignment(alignment)
+
+    assert not observation.valid
+    assert 'no adjacent side-wall candidate' in observation.reason
+
+
+def test_side_wall_observation_accepts_right_adjacent_wall():
+    alignment = make_alignment(right=make_wall('right', -0.125))
+    observation = side_wall_observation_from_alignment(alignment)
+
+    assert observation.valid
+    assert observation.side == 'right'
+    assert observation.confidence == pytest.approx(0.60)
+
+
+def test_side_wall_observation_rejects_large_yaw():
+    alignment = make_alignment(right=make_wall('right', -0.125, yaw=0.110))
+    observation = side_wall_observation_from_alignment(alignment)
+
+    assert not observation.valid
+    assert 'yaw too large' in observation.reason
+
+
+def test_side_wall_observation_rejects_large_rms():
+    alignment = make_alignment(right=make_wall('right', -0.125, rms=0.021))
+    observation = side_wall_observation_from_alignment(alignment)
+
+    assert not observation.valid
+    assert 'rms too high' in observation.reason
+
+
+def test_side_wall_observation_rejects_small_span():
+    alignment = make_alignment(right=make_wall('right', -0.125, span=0.219))
+    observation = side_wall_observation_from_alignment(alignment)
+
+    assert not observation.valid
+    assert 'span too small' in observation.reason
+
+
+def test_side_wall_observation_rejects_low_support():
+    alignment = make_alignment(right=make_wall('right', -0.125, count=79))
+    observation = side_wall_observation_from_alignment(alignment)
+
+    assert not observation.valid
+    assert 'support too low' in observation.reason
+
+
+def test_side_wall_observation_left_right_chooses_better_candidate():
+    alignment = make_alignment(
+        source='left_right',
+        confidence=1.0,
+        left=make_wall('left', 0.125, span=0.35, count=140, rms=0.011),
+        right=make_wall('right', -0.125, span=0.30, count=160, rms=0.008),
+    )
+    observation = side_wall_observation_from_alignment(alignment)
+
+    assert observation.valid
+    assert observation.side == 'left'
+
+
+def test_side_wall_observation_honors_preferred_side():
+    alignment = make_alignment(
+        source='left_right',
+        confidence=1.0,
+        left=make_wall('left', 0.125, span=0.35),
+        right=make_wall('right', -0.125, span=0.30),
+    )
+    observation = side_wall_observation_from_alignment(
+        alignment,
+        preferred_side='right',
+    )
+
+    assert observation.valid
+    assert observation.side == 'right'
+
+
+def test_lidar_parallelity_correction_accepts_consistent_yaw_and_drift():
+    correction, drift_yaw, reason = lidar_parallelity_correction_radps(
+        yaw_error_rad=0.05,
+        drift_per_m=math.tan(0.04),
+        k_yaw=0.80,
+        k_drift=0.20,
+        max_correction_radps=0.040,
+        require_consistency=True,
+        max_yaw_drift_disagreement_rad=0.060,
+    )
+
+    assert drift_yaw == pytest.approx(0.04)
+    assert correction > 0.0
+    assert 'fused LiDAR parallelity correction' in reason
+
+
+def test_lidar_parallelity_correction_rejects_sign_disagreement():
+    correction, _drift_yaw, reason = lidar_parallelity_correction_radps(
+        yaw_error_rad=0.05,
+        drift_per_m=math.tan(-0.04),
+        k_yaw=0.80,
+        k_drift=0.20,
+        max_correction_radps=0.040,
+        require_consistency=True,
+        max_yaw_drift_disagreement_rad=0.060,
+    )
+
+    assert correction == pytest.approx(0.0)
+    assert 'sign disagreement' in reason
+
+
+def test_lidar_parallelity_correction_rejects_magnitude_disagreement():
+    correction, _drift_yaw, reason = lidar_parallelity_correction_radps(
+        yaw_error_rad=0.02,
+        drift_per_m=math.tan(0.10),
+        k_yaw=0.80,
+        k_drift=0.20,
+        max_correction_radps=0.040,
+        require_consistency=True,
+        max_yaw_drift_disagreement_rad=0.060,
+    )
+
+    assert correction == pytest.approx(0.0)
+    assert 'magnitude disagreement' in reason
+
+
+def test_lidar_parallelity_correction_is_capped():
+    correction, _drift_yaw, _reason = lidar_parallelity_correction_radps(
+        yaw_error_rad=0.20,
+        drift_per_m=math.tan(0.20),
+        k_yaw=0.80,
+        k_drift=0.20,
+        max_correction_radps=0.040,
+        require_consistency=True,
+        max_yaw_drift_disagreement_rad=0.060,
+    )
+
+    assert correction == pytest.approx(0.040)
+
+
+def test_temporal_lidar_progress_raw_valid_resets_degraded_samples():
+    raw = LidarProgressEstimate(True, 0.12, 'front_rear', 0.001, 'raw ok')
+    estimate = choose_temporal_lidar_progress(
+        raw=raw,
+        previous_valid=True,
+        previous_progress_m=0.10,
+        previous_source='front_temporal',
+        front_valid=True,
+        front_progress_m=0.12,
+        rear_valid=True,
+        rear_progress_m=0.12,
+        degraded_samples=2,
+        max_backtrack_m=0.015,
+        max_jump_m=0.080,
+        max_degraded_samples=2,
+    )
+
+    assert estimate.valid
+    assert not estimate.degraded
+    assert estimate.degraded_samples == 0
+    assert estimate.source == 'front_rear'
+
+
+def test_temporal_lidar_progress_raw_invalid_without_previous_is_invalid():
+    raw = LidarProgressEstimate(False, 0.0, 'none', 0.0, 'raw bad')
+    estimate = choose_temporal_lidar_progress(
+        raw=raw,
+        previous_valid=False,
+        previous_progress_m=0.0,
+        previous_source='none',
+        front_valid=True,
+        front_progress_m=0.04,
+        rear_valid=False,
+        rear_progress_m=0.0,
+        degraded_samples=0,
+        max_backtrack_m=0.015,
+        max_jump_m=0.080,
+        max_degraded_samples=2,
+    )
+
+    assert not estimate.valid
+    assert 'no previous LiDAR progress' in estimate.reason
+
+
+def test_temporal_lidar_progress_recovers_with_monotonic_front_source():
+    raw = LidarProgressEstimate(False, 0.0, 'front_rear_rejected', 0.10, 'raw bad')
+    estimate = choose_temporal_lidar_progress(
+        raw=raw,
+        previous_valid=True,
+        previous_progress_m=0.10,
+        previous_source='front',
+        front_valid=True,
+        front_progress_m=0.14,
+        rear_valid=True,
+        rear_progress_m=0.20,
+        degraded_samples=0,
+        max_backtrack_m=0.015,
+        max_jump_m=0.080,
+        max_degraded_samples=2,
+    )
+
+    assert estimate.valid
+    assert estimate.degraded
+    assert estimate.source == 'front_temporal'
+    assert estimate.progress_m == pytest.approx(0.14)
+
+
+def test_temporal_lidar_progress_rejects_backtrack_candidates():
+    raw = LidarProgressEstimate(False, 0.0, 'front_rear_rejected', 0.10, 'raw bad')
+    estimate = choose_temporal_lidar_progress(
+        raw=raw,
+        previous_valid=True,
+        previous_progress_m=0.10,
+        previous_source='front',
+        front_valid=True,
+        front_progress_m=0.07,
+        rear_valid=True,
+        rear_progress_m=0.06,
+        degraded_samples=0,
+        max_backtrack_m=0.015,
+        max_jump_m=0.080,
+        max_degraded_samples=2,
+    )
+
+    assert not estimate.valid
+    assert 'no temporal LiDAR candidate' in estimate.reason
+
+
+def test_temporal_lidar_progress_rejects_when_degraded_exhausted():
+    raw = LidarProgressEstimate(False, 0.0, 'front_rear_rejected', 0.10, 'raw bad')
+    estimate = choose_temporal_lidar_progress(
+        raw=raw,
+        previous_valid=True,
+        previous_progress_m=0.10,
+        previous_source='front',
+        front_valid=True,
+        front_progress_m=0.11,
+        rear_valid=False,
+        rear_progress_m=0.0,
+        degraded_samples=2,
+        max_backtrack_m=0.015,
+        max_jump_m=0.080,
+        max_degraded_samples=2,
+    )
+
+    assert not estimate.valid
+    assert estimate.source == 'temporal_rejected'
+    assert 'exhausted' in estimate.reason
+
+
+def test_temporal_lidar_progress_never_references_odom():
+    raw = LidarProgressEstimate(False, 0.0, 'none', 0.0, 'raw bad')
+    estimate = choose_temporal_lidar_progress(
+        raw=raw,
+        previous_valid=True,
+        previous_progress_m=0.10,
+        previous_source='front',
+        front_valid=True,
+        front_progress_m=0.11,
+        rear_valid=False,
+        rear_progress_m=0.0,
+        degraded_samples=0,
+        max_backtrack_m=0.015,
+        max_jump_m=0.080,
+        max_degraded_samples=2,
+    )
+
+    assert 'odom' not in estimate.reason.lower()
+    assert 'odom' not in estimate.source.lower()
 
 
 # ================== FILE 54: ros2_ws/src/darth_maul_control_interfaces/CMakeLists.txt ==================

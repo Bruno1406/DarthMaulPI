@@ -85,6 +85,49 @@ class PostRotationGridYawRefineDecision:
     reason: str
 
 
+@dataclass(frozen=True)
+class SideWallObservation:
+    valid: bool
+    side: str
+    offset_m: float
+    yaw_error_rad: float
+    rms_error_m: float
+    span_x_m: float
+    support_count: int
+    confidence: float
+    source: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class LidarParallelityEstimate:
+    valid: bool
+    active: bool
+    side: str
+    stable_samples: int
+    progress_m: float
+    start_offset_m: float
+    current_offset_m: float
+    offset_drift_m: float
+    drift_per_m: float
+    yaw_error_rad: float
+    drift_yaw_error_rad: float
+    fused_error_rad: float
+    correction_radps: float
+    reason: str
+
+
+@dataclass(frozen=True)
+class TemporalLidarProgressEstimate:
+    valid: bool
+    progress_m: float
+    source: str
+    degraded: bool
+    degraded_samples: int
+    disagreement_m: float
+    reason: str
+
+
 def invalid_wall_line(side: str, reason: str) -> WallLineEstimate:
     return WallLineEstimate(
         valid=False,
@@ -113,6 +156,40 @@ def invalid_grid_alignment(reason: str) -> GridAlignmentEstimate:
         confidence=0.0,
         left=left,
         right=right,
+        reason=reason,
+    )
+
+
+def invalid_side_wall_observation(reason: str) -> SideWallObservation:
+    return SideWallObservation(
+        valid=False,
+        side='none',
+        offset_m=0.0,
+        yaw_error_rad=0.0,
+        rms_error_m=0.0,
+        span_x_m=0.0,
+        support_count=0,
+        confidence=0.0,
+        source='none',
+        reason=reason,
+    )
+
+
+def invalid_lidar_parallelity(reason: str) -> LidarParallelityEstimate:
+    return LidarParallelityEstimate(
+        valid=False,
+        active=False,
+        side='none',
+        stable_samples=0,
+        progress_m=0.0,
+        start_offset_m=0.0,
+        current_offset_m=0.0,
+        offset_drift_m=0.0,
+        drift_per_m=0.0,
+        yaw_error_rad=0.0,
+        drift_yaw_error_rad=0.0,
+        fused_error_rad=0.0,
+        correction_radps=0.0,
         reason=reason,
     )
 
@@ -265,6 +342,283 @@ def compose_angular_command(
     return (
         scale * float(heading_correction_radps)
         + float(grid_yaw_correction_radps)
+    )
+
+
+def grid_yaw_control_evidence_decision(
+    *,
+    source: str,
+    valid: bool,
+    yaw_valid: bool,
+    confidence: float,
+    yaw_error_rad: float,
+    wall_valid: bool,
+    wall_rms_error_m: float,
+    wall_span_x_m: float,
+    wall_support_count: int,
+    require_strong_evidence: bool,
+    allow_single_wall: bool,
+    min_confidence_for_left_right: float,
+    single_wall_min_confidence: float,
+    single_wall_max_abs_yaw_error_rad: float,
+    single_wall_max_rms_error_m: float,
+    single_wall_min_span_x_m: float,
+    single_wall_min_support_count: int,
+) -> tuple[bool, str]:
+    if not require_strong_evidence:
+        return True, 'strong-evidence gate disabled'
+
+    if not valid:
+        return False, 'grid alignment invalid'
+
+    if not yaw_valid:
+        return False, 'grid yaw invalid'
+
+    if source == 'left_right':
+        if confidence < min_confidence_for_left_right:
+            return (
+                False,
+                (
+                    'left_right confidence too low: '
+                    f'{confidence:.2f} < {min_confidence_for_left_right:.2f}'
+                ),
+            )
+        return True, 'left_right adjacent-wall evidence accepted for active control'
+
+    if source in ('left', 'right'):
+        if not allow_single_wall:
+            return (
+                False,
+                (
+                    'single-wall active control disabled by default: '
+                    f'source={source}, confidence={confidence:.2f}'
+                ),
+            )
+
+        if not wall_valid:
+            return False, f'{source} wall invalid'
+
+        if confidence < single_wall_min_confidence:
+            return (
+                False,
+                (
+                    'single-wall confidence too low: '
+                    f'{confidence:.2f} < {single_wall_min_confidence:.2f}'
+                ),
+            )
+
+        abs_yaw = abs(float(yaw_error_rad))
+        if abs_yaw > single_wall_max_abs_yaw_error_rad:
+            return (
+                False,
+                (
+                    'single-wall yaw error too large for active control: '
+                    f'{abs_yaw:.3f} rad > '
+                    f'{single_wall_max_abs_yaw_error_rad:.3f} rad'
+                ),
+            )
+
+        if wall_rms_error_m > single_wall_max_rms_error_m:
+            return (
+                False,
+                (
+                    'single-wall rms too high for active control: '
+                    f'{wall_rms_error_m:.3f} m > {single_wall_max_rms_error_m:.3f} m'
+                ),
+            )
+
+        if wall_span_x_m < single_wall_min_span_x_m:
+            return (
+                False,
+                (
+                    'single-wall span too small for active control: '
+                    f'{wall_span_x_m:.3f} m < {single_wall_min_span_x_m:.3f} m'
+                ),
+            )
+
+        if wall_support_count < single_wall_min_support_count:
+            return (
+                False,
+                (
+                    'single-wall support too low for active control: '
+                    f'{wall_support_count} < {single_wall_min_support_count}'
+                ),
+            )
+
+        return (
+            True,
+            (
+                'single-wall evidence accepted for active control: '
+                f'source={source}, confidence={confidence:.2f}, '
+                f'yaw={yaw_error_rad:.3f} rad, '
+                f'rms={wall_rms_error_m:.3f} m, '
+                f'span={wall_span_x_m:.3f} m, '
+                f'count={wall_support_count}'
+            ),
+        )
+
+    return False, f'unsupported grid yaw source for active control: {source}'
+
+
+def side_wall_observation_from_alignment(
+    alignment: GridAlignmentEstimate,
+    *,
+    preferred_side: str = 'none',
+    min_confidence: float = 0.60,
+    max_abs_yaw_error_rad: float = 0.100,
+    max_rms_error_m: float = 0.020,
+    min_span_x_m: float = 0.220,
+    min_support_count: int = 80,
+) -> SideWallObservation:
+    if not alignment.valid or not alignment.yaw_valid:
+        return invalid_side_wall_observation(
+            f'grid alignment invalid for side-wall tracking: {alignment.reason}'
+        )
+
+    candidates: list[tuple[str, WallLineEstimate, float]] = []
+
+    if alignment.source == 'left_right':
+        if alignment.left.valid:
+            candidates.append(('left', alignment.left, alignment.confidence))
+        if alignment.right.valid:
+            candidates.append(('right', alignment.right, alignment.confidence))
+    elif alignment.source == 'left' and alignment.left.valid:
+        candidates.append(('left', alignment.left, alignment.confidence))
+    elif alignment.source == 'right' and alignment.right.valid:
+        candidates.append(('right', alignment.right, alignment.confidence))
+
+    if not candidates:
+        return invalid_side_wall_observation(
+            f'no adjacent side-wall candidate from source={alignment.source}: '
+            f'{alignment.reason}'
+        )
+
+    if preferred_side in ('left', 'right'):
+        preferred = [candidate for candidate in candidates if candidate[0] == preferred_side]
+        if preferred:
+            candidates = preferred
+
+    best_side, best_wall, confidence = max(
+        candidates,
+        key=lambda item: (
+            item[2],
+            item[1].span_x_m,
+            item[1].support_count,
+            -item[1].rms_error_m,
+        ),
+    )
+
+    if confidence < min_confidence:
+        return invalid_side_wall_observation(
+            f'side-wall confidence too low: {confidence:.2f} < {min_confidence:.2f}'
+        )
+
+    abs_yaw = abs(best_wall.yaw_error_rad)
+    if abs_yaw > max_abs_yaw_error_rad:
+        return invalid_side_wall_observation(
+            f'side-wall yaw too large: {abs_yaw:.3f} rad > '
+            f'{max_abs_yaw_error_rad:.3f} rad'
+        )
+
+    if best_wall.rms_error_m > max_rms_error_m:
+        return invalid_side_wall_observation(
+            f'side-wall rms too high: {best_wall.rms_error_m:.3f} m > '
+            f'{max_rms_error_m:.3f} m'
+        )
+
+    if best_wall.span_x_m < min_span_x_m:
+        return invalid_side_wall_observation(
+            f'side-wall span too small: {best_wall.span_x_m:.3f} m < '
+            f'{min_span_x_m:.3f} m'
+        )
+
+    if best_wall.support_count < min_support_count:
+        return invalid_side_wall_observation(
+            f'side-wall support too low: {best_wall.support_count} < '
+            f'{min_support_count}'
+        )
+
+    return SideWallObservation(
+        valid=True,
+        side=best_side,
+        offset_m=best_wall.offset_m,
+        yaw_error_rad=best_wall.yaw_error_rad,
+        rms_error_m=best_wall.rms_error_m,
+        span_x_m=best_wall.span_x_m,
+        support_count=best_wall.support_count,
+        confidence=confidence,
+        source=alignment.source,
+        reason=(
+            f'adjacent {best_side} wall accepted: confidence={confidence:.2f}, '
+            f'yaw={best_wall.yaw_error_rad:.3f} rad, '
+            f'offset={best_wall.offset_m:.3f} m, '
+            f'rms={best_wall.rms_error_m:.3f} m, '
+            f'span={best_wall.span_x_m:.3f} m, '
+            f'count={best_wall.support_count}'
+        ),
+    )
+
+
+def lidar_parallelity_correction_radps(
+    *,
+    yaw_error_rad: float,
+    drift_per_m: float,
+    k_yaw: float,
+    k_drift: float,
+    max_correction_radps: float,
+    require_consistency: bool,
+    max_yaw_drift_disagreement_rad: float,
+) -> tuple[float, float, str]:
+    if not math.isfinite(yaw_error_rad):
+        yaw_error_rad = 0.0
+    if not math.isfinite(drift_per_m):
+        drift_per_m = 0.0
+
+    drift_yaw_error_rad = math.atan(drift_per_m)
+
+    if require_consistency:
+        yaw_sign = 0 if abs(yaw_error_rad) < 1e-6 else (1 if yaw_error_rad > 0.0 else -1)
+        drift_sign = (
+            0
+            if abs(drift_yaw_error_rad) < 1e-6
+            else (1 if drift_yaw_error_rad > 0.0 else -1)
+        )
+        disagreement = abs(yaw_error_rad - drift_yaw_error_rad)
+
+        if yaw_sign != 0 and drift_sign != 0 and yaw_sign != drift_sign:
+            return (
+                0.0,
+                drift_yaw_error_rad,
+                (
+                    'yaw/drift sign disagreement: '
+                    f'yaw={yaw_error_rad:.3f} rad, '
+                    f'drift_yaw={drift_yaw_error_rad:.3f} rad'
+                ),
+            )
+
+        if disagreement > max_yaw_drift_disagreement_rad:
+            return (
+                0.0,
+                drift_yaw_error_rad,
+                (
+                    'yaw/drift magnitude disagreement: '
+                    f'{disagreement:.3f} rad > '
+                    f'{max_yaw_drift_disagreement_rad:.3f} rad'
+                ),
+            )
+
+    fused_error = (float(k_yaw) * yaw_error_rad) + (float(k_drift) * drift_yaw_error_rad)
+    limit = abs(float(max_correction_radps))
+    correction = max(-limit, min(limit, fused_error))
+
+    return (
+        float(correction),
+        float(drift_yaw_error_rad),
+        (
+            f'fused LiDAR parallelity correction: yaw={yaw_error_rad:.3f} rad, '
+            f'drift_yaw={drift_yaw_error_rad:.3f} rad, '
+            f'correction={correction:.3f} rad/s'
+        ),
     )
 
 
@@ -883,6 +1237,112 @@ def choose_lidar_progress(
         reason=(
             'no valid LiDAR progress source: '
             f'front={front_rejection}; rear={rear_rejection}'
+        ),
+    )
+
+
+def choose_temporal_lidar_progress(
+    *,
+    raw: LidarProgressEstimate,
+    previous_valid: bool,
+    previous_progress_m: float,
+    previous_source: str,
+    front_valid: bool,
+    front_progress_m: float,
+    rear_valid: bool,
+    rear_progress_m: float,
+    degraded_samples: int,
+    max_backtrack_m: float,
+    max_jump_m: float,
+    max_degraded_samples: int,
+) -> TemporalLidarProgressEstimate:
+    if raw.valid:
+        return TemporalLidarProgressEstimate(
+            valid=True,
+            progress_m=raw.progress_m,
+            source=raw.source,
+            degraded=False,
+            degraded_samples=0,
+            disagreement_m=raw.disagreement_m,
+            reason=f'raw LiDAR progress accepted: {raw.reason}',
+        )
+
+    if not previous_valid:
+        return TemporalLidarProgressEstimate(
+            valid=False,
+            progress_m=0.0,
+            source='none',
+            degraded=False,
+            degraded_samples=degraded_samples,
+            disagreement_m=raw.disagreement_m,
+            reason=f'no previous LiDAR progress for temporal recovery: {raw.reason}',
+        )
+
+    if degraded_samples >= max_degraded_samples:
+        return TemporalLidarProgressEstimate(
+            valid=False,
+            progress_m=previous_progress_m,
+            source='temporal_rejected',
+            degraded=True,
+            degraded_samples=degraded_samples,
+            disagreement_m=raw.disagreement_m,
+            reason=(
+                f'temporal LiDAR recovery exhausted: {degraded_samples} >= '
+                f'{max_degraded_samples}; raw={raw.reason}'
+            ),
+        )
+
+    candidates: list[tuple[str, float]] = []
+    if front_valid and math.isfinite(front_progress_m):
+        candidates.append(('front_temporal', float(front_progress_m)))
+    if rear_valid and math.isfinite(rear_progress_m):
+        candidates.append(('rear_temporal', float(rear_progress_m)))
+
+    accepted: list[tuple[str, float, float]] = []
+    for source, progress in candidates:
+        backtrack = float(previous_progress_m) - progress
+        jump = abs(progress - float(previous_progress_m))
+
+        if backtrack > float(max_backtrack_m):
+            continue
+        if jump > float(max_jump_m):
+            continue
+
+        source_bonus = 0.0
+        if str(previous_source).startswith('front') and source.startswith('front'):
+            source_bonus = -0.001
+        if str(previous_source).startswith('rear') and source.startswith('rear'):
+            source_bonus = -0.001
+
+        accepted.append((source, progress, jump + source_bonus))
+
+    if not accepted:
+        return TemporalLidarProgressEstimate(
+            valid=False,
+            progress_m=previous_progress_m,
+            source='temporal_unavailable',
+            degraded=True,
+            degraded_samples=degraded_samples + 1,
+            disagreement_m=raw.disagreement_m,
+            reason=(
+                'no temporal LiDAR candidate passed monotonic/jump gates; '
+                f'previous={previous_progress_m:.3f} m; raw={raw.reason}'
+            ),
+        )
+
+    accepted.sort(key=lambda item: item[2])
+    source, progress, _ = accepted[0]
+
+    return TemporalLidarProgressEstimate(
+        valid=True,
+        progress_m=progress,
+        source=source,
+        degraded=True,
+        degraded_samples=degraded_samples + 1,
+        disagreement_m=raw.disagreement_m,
+        reason=(
+            f'temporal LiDAR recovery using {source}: progress={progress:.3f} m, '
+            f'previous={previous_progress_m:.3f} m; raw={raw.reason}'
         ),
     )
 

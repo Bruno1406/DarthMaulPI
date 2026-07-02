@@ -159,6 +159,9 @@ darth_maul_control:
     # It does not command lateral strafe and it does not replace front/rear LiDAR distance stopping.
     grid_alignment_control_enabled: true
     grid_yaw_correction_enabled: true
+    # Legacy direct one-frame grid-yaw correction parameters.
+    # These remain for diagnostics/backward compatibility, but DRIVE_FORWARD
+    # should use the LiDAR local corridor observer below for active yaw trim.
     # Lab-tuned on 2026-07-02:
     # k=0.70 corrected weakly; k=1.20 visibly corrected more strongly without observed snaking.
     k_grid_yaw: 1.20
@@ -170,6 +173,78 @@ darth_maul_control:
     # not fight the LiDAR grid-yaw correction. 0.0 means grid yaw fully owns
     # angular correction while valid; odom/IMU heading hold is fallback only.
     grid_yaw_active_heading_hold_scale: 0.0
+
+    # Active grid-yaw control evidence gate.
+    #
+    # These thresholds remain for the legacy direct controller and diagnostics.
+    # Active DRIVE_FORWARD yaw control is handled by the LiDAR local corridor
+    # observer below.
+    grid_yaw_control_require_strong_evidence: true
+
+    # Single adjacent walls may be reported as usable evidence, but the active
+    # forward controller still requires temporal continuity before applying trim.
+    grid_yaw_control_allow_single_wall: true
+
+    grid_yaw_control_single_wall_min_confidence: 0.60
+    grid_yaw_control_single_wall_max_abs_yaw_error_rad: 0.100
+    grid_yaw_control_single_wall_max_rms_error_m: 0.020
+    grid_yaw_control_single_wall_min_span_x_m: 0.220
+    grid_yaw_control_single_wall_min_support_count: 80
+
+    # LiDAR local corridor observer for DRIVE_FORWARD.
+    #
+    # This replaces one-frame wall-yaw control. A single adjacent wall may be
+    # used, but only after it is tracked consistently over forward motion.
+    # The controller keeps odom/IMU heading hold as the base and adds a small
+    # LiDAR parallelity trim only when the side wall is stable.
+    lidar_parallelity_control_enabled: true
+
+    # Keep odom/IMU heading hold active while applying LiDAR trim.
+    # 1.0 means full heading hold plus LiDAR trim.
+    lidar_parallelity_heading_hold_scale: 1.0
+
+    # Minimum accepted LiDAR forward progress before side-wall drift can control.
+    # Prevents correction from one scan before real motion is observed.
+    lidar_parallelity_min_progress_for_control_m: 0.040
+
+    # Stable samples of the same adjacent side wall before active trim.
+    lidar_parallelity_min_stable_samples: 3
+
+    # Side-wall continuity gates.
+    lidar_parallelity_max_yaw_jump_rad: 0.025
+    lidar_parallelity_max_offset_jump_m: 0.035
+    lidar_parallelity_max_abs_yaw_error_rad: 0.100
+
+    # Wall-line quality gates for tracked single-wall correction.
+    lidar_parallelity_min_confidence: 0.60
+    lidar_parallelity_max_rms_error_m: 0.020
+    lidar_parallelity_min_span_x_m: 0.220
+    lidar_parallelity_min_support_count: 80
+
+    # Drift validation. Drift is measured from side wall offset change over
+    # forward LiDAR progress. A real parallel wall should have small drift.
+    lidar_parallelity_drift_validation_enabled: true
+    lidar_parallelity_max_drift_per_m: 0.35
+
+    # Correction gains. The yaw component uses the same sign convention as
+    # the existing grid_yaw_correction_radps helper, which already worked in
+    # strong-evidence forward-drive tests. Drift is used primarily as a
+    # consistency check and second weak estimate.
+    k_lidar_parallelity_yaw: 0.80
+    k_lidar_parallelity_drift: 0.20
+    max_lidar_parallelity_correction_radps: 0.040
+
+    # If yaw and drift disagree strongly, do not apply LiDAR trim.
+    lidar_parallelity_require_yaw_drift_consistency: true
+    lidar_parallelity_max_yaw_drift_disagreement_rad: 0.060
+
+    # LiDAR-only temporal progress resilience. This does not use odom as a
+    # completion fallback. It only prevents one bad front/rear frame from
+    # aborting when a previously trusted LiDAR source remains monotonic.
+    lidar_progress_temporal_filter_enabled: true
+    lidar_progress_temporal_max_backtrack_m: 0.015
+    lidar_progress_temporal_max_jump_m: 0.080
+    lidar_progress_temporal_max_degraded_samples: 2
 
     # Post-rotation LiDAR grid-yaw refinement.
     #
@@ -185,7 +260,7 @@ darth_maul_control:
     # This refinement uses only the existing adjacent side-wall grid-yaw
     # estimator. It does not use front/rear axial-wall geometry and it does not
     # command lateral strafe.
-    post_rotation_grid_yaw_refine_enabled: true
+    post_rotation_grid_yaw_refine_enabled: false
 
     # Start correcting only when abs(grid_yaw_error) is above this.
     # Below this, the turn is considered good enough.

@@ -27,6 +27,89 @@ def generate_launch_description():
     grid_yaw_active_heading_hold_scale = LaunchConfiguration(
         'grid_yaw_active_heading_hold_scale'
     )
+    grid_yaw_control_require_strong_evidence = LaunchConfiguration(
+        'grid_yaw_control_require_strong_evidence'
+    )
+    grid_yaw_control_allow_single_wall = LaunchConfiguration(
+        'grid_yaw_control_allow_single_wall'
+    )
+    grid_yaw_control_single_wall_min_confidence = LaunchConfiguration(
+        'grid_yaw_control_single_wall_min_confidence'
+    )
+    grid_yaw_control_single_wall_max_abs_yaw_error_rad = LaunchConfiguration(
+        'grid_yaw_control_single_wall_max_abs_yaw_error_rad'
+    )
+    grid_yaw_control_single_wall_max_rms_error_m = LaunchConfiguration(
+        'grid_yaw_control_single_wall_max_rms_error_m'
+    )
+    grid_yaw_control_single_wall_min_span_x_m = LaunchConfiguration(
+        'grid_yaw_control_single_wall_min_span_x_m'
+    )
+    grid_yaw_control_single_wall_min_support_count = LaunchConfiguration(
+        'grid_yaw_control_single_wall_min_support_count'
+    )
+    lidar_parallelity_control_enabled = LaunchConfiguration(
+        'lidar_parallelity_control_enabled'
+    )
+    lidar_parallelity_heading_hold_scale = LaunchConfiguration(
+        'lidar_parallelity_heading_hold_scale'
+    )
+    lidar_parallelity_min_progress_for_control_m = LaunchConfiguration(
+        'lidar_parallelity_min_progress_for_control_m'
+    )
+    lidar_parallelity_min_stable_samples = LaunchConfiguration(
+        'lidar_parallelity_min_stable_samples'
+    )
+    lidar_parallelity_max_yaw_jump_rad = LaunchConfiguration(
+        'lidar_parallelity_max_yaw_jump_rad'
+    )
+    lidar_parallelity_max_offset_jump_m = LaunchConfiguration(
+        'lidar_parallelity_max_offset_jump_m'
+    )
+    lidar_parallelity_max_abs_yaw_error_rad = LaunchConfiguration(
+        'lidar_parallelity_max_abs_yaw_error_rad'
+    )
+    lidar_parallelity_min_confidence = LaunchConfiguration(
+        'lidar_parallelity_min_confidence'
+    )
+    lidar_parallelity_max_rms_error_m = LaunchConfiguration(
+        'lidar_parallelity_max_rms_error_m'
+    )
+    lidar_parallelity_min_span_x_m = LaunchConfiguration(
+        'lidar_parallelity_min_span_x_m'
+    )
+    lidar_parallelity_min_support_count = LaunchConfiguration(
+        'lidar_parallelity_min_support_count'
+    )
+    lidar_parallelity_drift_validation_enabled = LaunchConfiguration(
+        'lidar_parallelity_drift_validation_enabled'
+    )
+    lidar_parallelity_max_drift_per_m = LaunchConfiguration(
+        'lidar_parallelity_max_drift_per_m'
+    )
+    k_lidar_parallelity_yaw = LaunchConfiguration('k_lidar_parallelity_yaw')
+    k_lidar_parallelity_drift = LaunchConfiguration('k_lidar_parallelity_drift')
+    max_lidar_parallelity_correction_radps = LaunchConfiguration(
+        'max_lidar_parallelity_correction_radps'
+    )
+    lidar_parallelity_require_yaw_drift_consistency = LaunchConfiguration(
+        'lidar_parallelity_require_yaw_drift_consistency'
+    )
+    lidar_parallelity_max_yaw_drift_disagreement_rad = LaunchConfiguration(
+        'lidar_parallelity_max_yaw_drift_disagreement_rad'
+    )
+    lidar_progress_temporal_filter_enabled = LaunchConfiguration(
+        'lidar_progress_temporal_filter_enabled'
+    )
+    lidar_progress_temporal_max_backtrack_m = LaunchConfiguration(
+        'lidar_progress_temporal_max_backtrack_m'
+    )
+    lidar_progress_temporal_max_jump_m = LaunchConfiguration(
+        'lidar_progress_temporal_max_jump_m'
+    )
+    lidar_progress_temporal_max_degraded_samples = LaunchConfiguration(
+        'lidar_progress_temporal_max_degraded_samples'
+    )
     translation_progress_source = LaunchConfiguration('translation_progress_source')
     pre_translation_grid_yaw_align_enabled = LaunchConfiguration(
         'pre_translation_grid_yaw_align_enabled'
@@ -112,6 +195,63 @@ def generate_launch_description():
             description='Heading-hold scale while grid yaw correction is active.',
         ),
         DeclareLaunchArgument(
+            'grid_yaw_control_require_strong_evidence',
+            default_value='true',
+            description='Require strong evidence before active DRIVE_FORWARD grid yaw correction.',
+        ),
+        DeclareLaunchArgument(
+            'grid_yaw_control_allow_single_wall',
+            default_value='true',
+            description='Allow single-wall grid yaw to actively control DRIVE_FORWARD yaw.',
+        ),
+        DeclareLaunchArgument(
+            'grid_yaw_control_single_wall_min_confidence',
+            default_value='0.60',
+            description='Minimum confidence for experimental single-wall grid yaw control.',
+        ),
+        DeclareLaunchArgument(
+            'grid_yaw_control_single_wall_max_abs_yaw_error_rad',
+            default_value='0.100',
+            description='Maximum single-wall yaw error allowed for active grid yaw control.',
+        ),
+        DeclareLaunchArgument(
+            'grid_yaw_control_single_wall_max_rms_error_m',
+            default_value='0.020',
+            description='Maximum contributing wall RMS error for single-wall yaw control.',
+        ),
+        DeclareLaunchArgument(
+            'grid_yaw_control_single_wall_min_span_x_m',
+            default_value='0.220',
+            description='Minimum contributing wall x-span for single-wall yaw control.',
+        ),
+        DeclareLaunchArgument(
+            'grid_yaw_control_single_wall_min_support_count',
+            default_value='80',
+            description='Minimum contributing wall support points for single-wall yaw control.',
+        ),
+        DeclareLaunchArgument('lidar_parallelity_control_enabled', default_value='true'),
+        DeclareLaunchArgument('lidar_parallelity_heading_hold_scale', default_value='1.0'),
+        DeclareLaunchArgument('lidar_parallelity_min_progress_for_control_m', default_value='0.040'),
+        DeclareLaunchArgument('lidar_parallelity_min_stable_samples', default_value='3'),
+        DeclareLaunchArgument('lidar_parallelity_max_yaw_jump_rad', default_value='0.025'),
+        DeclareLaunchArgument('lidar_parallelity_max_offset_jump_m', default_value='0.035'),
+        DeclareLaunchArgument('lidar_parallelity_max_abs_yaw_error_rad', default_value='0.100'),
+        DeclareLaunchArgument('lidar_parallelity_min_confidence', default_value='0.60'),
+        DeclareLaunchArgument('lidar_parallelity_max_rms_error_m', default_value='0.020'),
+        DeclareLaunchArgument('lidar_parallelity_min_span_x_m', default_value='0.220'),
+        DeclareLaunchArgument('lidar_parallelity_min_support_count', default_value='80'),
+        DeclareLaunchArgument('lidar_parallelity_drift_validation_enabled', default_value='true'),
+        DeclareLaunchArgument('lidar_parallelity_max_drift_per_m', default_value='0.35'),
+        DeclareLaunchArgument('k_lidar_parallelity_yaw', default_value='0.80'),
+        DeclareLaunchArgument('k_lidar_parallelity_drift', default_value='0.20'),
+        DeclareLaunchArgument('max_lidar_parallelity_correction_radps', default_value='0.040'),
+        DeclareLaunchArgument('lidar_parallelity_require_yaw_drift_consistency', default_value='true'),
+        DeclareLaunchArgument('lidar_parallelity_max_yaw_drift_disagreement_rad', default_value='0.060'),
+        DeclareLaunchArgument('lidar_progress_temporal_filter_enabled', default_value='true'),
+        DeclareLaunchArgument('lidar_progress_temporal_max_backtrack_m', default_value='0.015'),
+        DeclareLaunchArgument('lidar_progress_temporal_max_jump_m', default_value='0.080'),
+        DeclareLaunchArgument('lidar_progress_temporal_max_degraded_samples', default_value='2'),
+        DeclareLaunchArgument(
             'translation_progress_source',
             default_value='lidar_required',
             description=(
@@ -155,7 +295,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'post_rotation_grid_yaw_refine_enabled',
-            default_value='true',
+            default_value='false',
             description='Enable LiDAR side-wall yaw refinement after ROTATE_RELATIVE.',
         ),
         DeclareLaunchArgument(
@@ -234,6 +374,101 @@ def generate_launch_description():
                     'grid_yaw_active_heading_hold_scale': ParameterValue(
                         grid_yaw_active_heading_hold_scale,
                         value_type=float,
+                    ),
+                    'grid_yaw_control_require_strong_evidence': ParameterValue(
+                        grid_yaw_control_require_strong_evidence,
+                        value_type=bool,
+                    ),
+                    'grid_yaw_control_allow_single_wall': ParameterValue(
+                        grid_yaw_control_allow_single_wall,
+                        value_type=bool,
+                    ),
+                    'grid_yaw_control_single_wall_min_confidence': ParameterValue(
+                        grid_yaw_control_single_wall_min_confidence,
+                        value_type=float,
+                    ),
+                    'grid_yaw_control_single_wall_max_abs_yaw_error_rad': ParameterValue(
+                        grid_yaw_control_single_wall_max_abs_yaw_error_rad,
+                        value_type=float,
+                    ),
+                    'grid_yaw_control_single_wall_max_rms_error_m': ParameterValue(
+                        grid_yaw_control_single_wall_max_rms_error_m,
+                        value_type=float,
+                    ),
+                    'grid_yaw_control_single_wall_min_span_x_m': ParameterValue(
+                        grid_yaw_control_single_wall_min_span_x_m,
+                        value_type=float,
+                    ),
+                    'grid_yaw_control_single_wall_min_support_count': ParameterValue(
+                        grid_yaw_control_single_wall_min_support_count,
+                        value_type=int,
+                    ),
+                    'lidar_parallelity_control_enabled': ParameterValue(
+                        lidar_parallelity_control_enabled, value_type=bool
+                    ),
+                    'lidar_parallelity_heading_hold_scale': ParameterValue(
+                        lidar_parallelity_heading_hold_scale, value_type=float
+                    ),
+                    'lidar_parallelity_min_progress_for_control_m': ParameterValue(
+                        lidar_parallelity_min_progress_for_control_m, value_type=float
+                    ),
+                    'lidar_parallelity_min_stable_samples': ParameterValue(
+                        lidar_parallelity_min_stable_samples, value_type=int
+                    ),
+                    'lidar_parallelity_max_yaw_jump_rad': ParameterValue(
+                        lidar_parallelity_max_yaw_jump_rad, value_type=float
+                    ),
+                    'lidar_parallelity_max_offset_jump_m': ParameterValue(
+                        lidar_parallelity_max_offset_jump_m, value_type=float
+                    ),
+                    'lidar_parallelity_max_abs_yaw_error_rad': ParameterValue(
+                        lidar_parallelity_max_abs_yaw_error_rad, value_type=float
+                    ),
+                    'lidar_parallelity_min_confidence': ParameterValue(
+                        lidar_parallelity_min_confidence, value_type=float
+                    ),
+                    'lidar_parallelity_max_rms_error_m': ParameterValue(
+                        lidar_parallelity_max_rms_error_m, value_type=float
+                    ),
+                    'lidar_parallelity_min_span_x_m': ParameterValue(
+                        lidar_parallelity_min_span_x_m, value_type=float
+                    ),
+                    'lidar_parallelity_min_support_count': ParameterValue(
+                        lidar_parallelity_min_support_count, value_type=int
+                    ),
+                    'lidar_parallelity_drift_validation_enabled': ParameterValue(
+                        lidar_parallelity_drift_validation_enabled, value_type=bool
+                    ),
+                    'lidar_parallelity_max_drift_per_m': ParameterValue(
+                        lidar_parallelity_max_drift_per_m, value_type=float
+                    ),
+                    'k_lidar_parallelity_yaw': ParameterValue(
+                        k_lidar_parallelity_yaw, value_type=float
+                    ),
+                    'k_lidar_parallelity_drift': ParameterValue(
+                        k_lidar_parallelity_drift, value_type=float
+                    ),
+                    'max_lidar_parallelity_correction_radps': ParameterValue(
+                        max_lidar_parallelity_correction_radps, value_type=float
+                    ),
+                    'lidar_parallelity_require_yaw_drift_consistency': ParameterValue(
+                        lidar_parallelity_require_yaw_drift_consistency, value_type=bool
+                    ),
+                    'lidar_parallelity_max_yaw_drift_disagreement_rad': ParameterValue(
+                        lidar_parallelity_max_yaw_drift_disagreement_rad,
+                        value_type=float,
+                    ),
+                    'lidar_progress_temporal_filter_enabled': ParameterValue(
+                        lidar_progress_temporal_filter_enabled, value_type=bool
+                    ),
+                    'lidar_progress_temporal_max_backtrack_m': ParameterValue(
+                        lidar_progress_temporal_max_backtrack_m, value_type=float
+                    ),
+                    'lidar_progress_temporal_max_jump_m': ParameterValue(
+                        lidar_progress_temporal_max_jump_m, value_type=float
+                    ),
+                    'lidar_progress_temporal_max_degraded_samples': ParameterValue(
+                        lidar_progress_temporal_max_degraded_samples, value_type=int
                     ),
                     'translation_progress_source': ParameterValue(
                         translation_progress_source,
