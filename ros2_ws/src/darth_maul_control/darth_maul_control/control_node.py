@@ -27,8 +27,10 @@ from darth_maul_control.scan_geometry import (
     estimate_grid_alignment,
     finite_median_or_nan,
     grid_lateral_drift,
+    grid_yaw_pre_align_complete,
     grid_yaw_correction_radps,
     invalid_grid_alignment,
+    should_pre_align_grid_yaw,
 )
 from darth_maul_control.velocity_limiter import VelocityLimiter, VelocityLimits
 from darth_maul_control_interfaces.action import ExecuteMotionPrimitive
@@ -351,10 +353,38 @@ class DarthMaulControlNode(Node):
                 'falling back to odom_only'
             )
             self.translation_progress_source = 'odom_only'
-        self.translation_lidar_required_invalid_grace_s = (
-            self._nonnegative_float_param(
-                'translation_lidar_required_invalid_grace_s',
-                0.20,
+        self.pre_translation_grid_yaw_align_enabled = self._bool_param(
+            'pre_translation_grid_yaw_align_enabled',
+            True,
+        )
+        self.pre_translation_grid_yaw_align_start_threshold_rad = (
+            self._positive_float_param(
+                'pre_translation_grid_yaw_align_start_threshold_rad',
+                0.035,
+            )
+        )
+        self.pre_translation_grid_yaw_align_target_rad = (
+            self._positive_float_param(
+                'pre_translation_grid_yaw_align_target_rad',
+                0.015,
+            )
+        )
+        self.pre_translation_grid_yaw_align_stable_samples = (
+            self._positive_int_param(
+                'pre_translation_grid_yaw_align_stable_samples',
+                3,
+            )
+        )
+        self.pre_translation_grid_yaw_align_max_invalid_samples = (
+            self._positive_int_param(
+                'pre_translation_grid_yaw_align_max_invalid_samples',
+                3,
+            )
+        )
+        self.translation_lidar_required_invalid_max_consecutive_samples = (
+            self._nonnegative_int_param(
+                'translation_lidar_required_invalid_max_consecutive_samples',
+                2,
             )
         )
 
@@ -455,11 +485,11 @@ class DarthMaulControlNode(Node):
 
         self.grid_alignment_control_enabled = self._bool_param(
             'grid_alignment_control_enabled',
-            False,
+            True,
         )
         self.grid_yaw_correction_enabled = self._bool_param(
             'grid_yaw_correction_enabled',
-            False,
+            True,
         )
         self.k_grid_yaw = self._nonnegative_float_param('k_grid_yaw', 1.20)
         self.max_grid_yaw_correction_radps = self._nonnegative_float_param(
@@ -563,6 +593,16 @@ class DarthMaulControlNode(Node):
             raise ValueError(f'Parameter {name} must be an integer')
         if value <= 0:
             raise ValueError(f'Parameter {name} must be positive, got {value}')
+        return value
+
+    def _nonnegative_int_param(self, name: str, default: int) -> int:
+        value = self.declare_parameter(name, int(default)).value
+        try:
+            value = int(value)
+        except (TypeError, ValueError):
+            raise ValueError(f'Parameter {name} must be an integer')
+        if value < 0:
+            raise ValueError(f'Parameter {name} must be nonnegative, got {value}')
         return value
 
     def _nonnegative_float_param(self, name: str, default: float) -> float:
@@ -845,24 +885,6 @@ class DarthMaulControlNode(Node):
         start_ranges = self._cardinal_range_snapshot()
         start_alignment = self._grid_alignment_snapshot()
         start_time = time.monotonic()
-        lidar_required_start_acquired = True
-        if lidar_required_mode:
-            start_diagnostics = self._translation_diagnostics(
-                direction=direction,
-                odom_progress_m=0.0,
-                start_ranges=start_ranges,
-                end_ranges=start_ranges,
-            )
-            start_selection = self._select_translation_progress(
-                odom_progress_m=0.0,
-                diagnostics=start_diagnostics,
-            )
-            lidar_required_start_acquired = start_selection.valid
-
-        self._begin_grid_yaw_control_memory(
-            start_alignment,
-            accept_updates=direction > 0.0,
-        )
 
         self.get_logger().info(
             f'{name} start grid diagnostics: '
@@ -900,11 +922,241 @@ class DarthMaulControlNode(Node):
             using_memory=False,
         )
         grid_yaw_correction_ever_used = False
-        lidar_required_invalid_started_s: Optional[float] = None
-        lidar_required_invalid_elapsed_s = 0.0
+        lidar_required_invalid_consecutive_samples = 0
         preserve_failure_progress_diagnostics = False
+        pre_align_failed = False
+        pre_align_used = False
+        pre_align_start_yaw = start_alignment.yaw_error_rad
+        pre_align_final_yaw = start_alignment.yaw_error_rad
+        pre_align_result_message = 'pre_align=skipped: not evaluated'
 
-        while True:
+        if (
+            self.pre_translation_grid_yaw_align_enabled
+            and (
+                not self.grid_alignment_control_enabled
+                or not self.grid_yaw_correction_enabled
+            )
+        ):
+            should_pre_align = False
+            pre_align_reason = 'grid yaw correction disabled'
+        else:
+            should_pre_align, pre_align_reason = should_pre_align_grid_yaw(
+                enabled=self.pre_translation_grid_yaw_align_enabled,
+                direction=direction,
+                alignment_valid=start_alignment.valid,
+                yaw_valid=start_alignment.yaw_valid,
+                yaw_error_rad=start_alignment.yaw_error_rad,
+                confidence=start_alignment.confidence,
+                min_confidence=self.grid_yaw_min_confidence_for_control,
+                start_threshold_rad=self.pre_translation_grid_yaw_align_start_threshold_rad,
+                max_control_error_rad=self.grid_yaw_max_abs_error_for_control_rad,
+            )
+
+        if (
+            direction > 0.0
+            and start_alignment.valid
+            and start_alignment.yaw_valid
+            and abs(start_alignment.yaw_error_rad)
+            > self.grid_yaw_max_abs_error_for_control_rad
+        ):
+            result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
+            result_message = (
+                f'{name} failed before translation: pre-align grid yaw '
+                f'unavailable/inactive; yaw={start_alignment.yaw_error_rad:.3f} rad; '
+                f'reason={pre_align_reason}'
+            )
+            pre_align_result_message = (
+                f'pre_align=failed; pre_align_start_yaw={pre_align_start_yaw:.3f} rad; '
+                f'reason={pre_align_reason}'
+            )
+            pre_align_failed = True
+        elif should_pre_align:
+            pre_align_used = True
+            stable_samples = 0
+            invalid_samples = 0
+            self._begin_grid_yaw_control_memory(start_alignment, accept_updates=True)
+
+            while True:
+                if self._cancel_or_stop_requested(goal_handle):
+                    self._end_grid_yaw_control_memory()
+                    return self._cancel_result(goal_handle)
+
+                elapsed = time.monotonic() - start_time
+                if elapsed > timeout_s:
+                    result_code = ExecuteMotionPrimitive.Result.TIMEOUT
+                    result_message = f'{name} timed out after {elapsed:.1f}s'
+                    pre_align_result_message = (
+                        f'pre_align=failed; pre_align_start_yaw={pre_align_start_yaw:.3f} rad; '
+                        f'reason=primitive timeout during pre-align'
+                    )
+                    pre_align_failed = True
+                    break
+
+                snapshot = self._get_motion_snapshot()
+                if snapshot is None:
+                    result_code = ExecuteMotionPrimitive.Result.ODOM_UNAVAILABLE
+                    result_message = f'{name} lost odom during pre-align'
+                    pre_align_result_message = (
+                        f'pre_align=failed; pre_align_start_yaw={pre_align_start_yaw:.3f} rad; '
+                        'reason=odom unavailable during pre-align'
+                    )
+                    pre_align_failed = True
+                    break
+
+                current_alignment = self._grid_alignment_snapshot()
+                complete, complete_reason = grid_yaw_pre_align_complete(
+                    alignment_valid=current_alignment.valid,
+                    yaw_valid=current_alignment.yaw_valid,
+                    yaw_error_rad=current_alignment.yaw_error_rad,
+                    confidence=current_alignment.confidence,
+                    min_confidence=self.grid_yaw_min_confidence_for_control,
+                    target_rad=self.pre_translation_grid_yaw_align_target_rad,
+                )
+                grid_yaw = self._grid_yaw_correction(current_alignment)
+                final_grid_yaw_correction = grid_yaw
+                grid_yaw_correction_ever_used = (
+                    grid_yaw_correction_ever_used or grid_yaw.active
+                )
+
+                if complete:
+                    stable_samples += 1
+                    invalid_samples = 0
+                elif grid_yaw.active:
+                    stable_samples = 0
+                    invalid_samples = 0
+                else:
+                    stable_samples = 0
+                    invalid_samples += 1
+
+                if stable_samples >= self.pre_translation_grid_yaw_align_stable_samples:
+                    pre_align_final_yaw = current_alignment.yaw_error_rad
+                    self.publish_zero_twist()
+
+                    start_snapshot = self._get_motion_snapshot()
+                    if start_snapshot is None:
+                        result_code = ExecuteMotionPrimitive.Result.ODOM_UNAVAILABLE
+                        result_message = f'{name} lost odom after pre-align'
+                        pre_align_result_message = (
+                            f'pre_align=failed; '
+                            f'pre_align_start_yaw={pre_align_start_yaw:.3f} rad; '
+                            f'pre_align_final_yaw={pre_align_final_yaw:.3f} rad; '
+                            'reason=odom unavailable after pre-align'
+                        )
+                        pre_align_failed = True
+                        break
+
+                    start = start_snapshot.pose
+                    start_ranges = self._cardinal_range_snapshot()
+                    start_alignment = self._grid_alignment_snapshot()
+                    final_position_error = target_distance
+                    final_heading_error = 0.0
+                    final_odom_progress = 0.0
+                    final_control_progress = 0.0
+                    final_progress_source_used = (
+                        'lidar_required_unavailable'
+                        if lidar_required_mode
+                        else 'odom'
+                    )
+                    final_control_progress_reason = ''
+                    self._begin_grid_yaw_control_memory(
+                        start_alignment,
+                        accept_updates=True,
+                    )
+                    pre_align_result_message = (
+                        f'pre_align=used; '
+                        f'pre_align_start_yaw={pre_align_start_yaw:.3f} rad; '
+                        f'pre_align_final_yaw={pre_align_final_yaw:.3f} rad; '
+                        'translation baseline reset after pre-align'
+                    )
+                    break
+
+                if (
+                    invalid_samples
+                    > self.pre_translation_grid_yaw_align_max_invalid_samples
+                ):
+                    result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
+                    result_message = (
+                        f'{name} failed before translation: pre-align grid yaw '
+                        f'unavailable/inactive; yaw={current_alignment.yaw_error_rad:.3f} rad; '
+                        f'reason={grid_yaw.reason}; complete={complete_reason}'
+                    )
+                    pre_align_result_message = (
+                        f'pre_align=failed; '
+                        f'pre_align_start_yaw={pre_align_start_yaw:.3f} rad; '
+                        f'pre_align_final_yaw={current_alignment.yaw_error_rad:.3f} rad; '
+                        f'reason={grid_yaw.reason}; complete={complete_reason}'
+                    )
+                    pre_align_failed = True
+                    break
+
+                cmd = Twist()
+                cmd.linear.x = 0.0
+                cmd.linear.y = 0.0
+                cmd.angular.z = grid_yaw.correction_radps if grid_yaw.active else 0.0
+                cmd = self._limiter.clamp(cmd, limits)
+                cmd = self._apply_acceleration_limits(cmd)
+                self._cmd_vel_pub.publish(cmd)
+                self._set_grid_yaw_control_status(
+                    grid_yaw.active,
+                    grid_yaw.correction_radps,
+                    grid_yaw.reason,
+                )
+
+                self._update_motion_state(
+                    distance_remaining=target_distance,
+                    distance_traveled=0.0,
+                    heading_error=current_alignment.yaw_error_rad,
+                    status=(
+                        f'{name} pre-aligning grid yaw: '
+                        f'yaw={current_alignment.yaw_error_rad:.3f} rad, '
+                        f'target={self.pre_translation_grid_yaw_align_target_rad:.3f} rad, '
+                        f'stable={stable_samples}/'
+                        f'{self.pre_translation_grid_yaw_align_stable_samples}, '
+                        f'correction={grid_yaw.correction_radps:.3f} rad/s, '
+                        f'source={current_alignment.source}'
+                    ),
+                )
+
+                self._publish_feedback(
+                    goal_handle,
+                    progress=0.0,
+                    distance_remaining=target_distance,
+                    heading_remaining=current_alignment.yaw_error_rad,
+                    state=f'{name}_PRE_ALIGN',
+                )
+
+                time.sleep(1.0 / self.control_rate_hz)
+        else:
+            if 'within threshold' in pre_align_reason:
+                pre_align_result_message = (
+                    'pre_align=skipped: start grid yaw within threshold'
+                )
+            elif 'no valid grid yaw' in pre_align_reason:
+                pre_align_result_message = 'pre_align=skipped: no valid grid yaw'
+            else:
+                pre_align_result_message = f'pre_align=skipped: {pre_align_reason}'
+
+        lidar_required_start_acquired = True
+        if not pre_align_failed and lidar_required_mode:
+            start_diagnostics = self._translation_diagnostics(
+                direction=direction,
+                odom_progress_m=0.0,
+                start_ranges=start_ranges,
+                end_ranges=start_ranges,
+            )
+            start_selection = self._select_translation_progress(
+                odom_progress_m=0.0,
+                diagnostics=start_diagnostics,
+            )
+            lidar_required_start_acquired = start_selection.valid
+
+        if not pre_align_failed and not pre_align_used:
+            self._begin_grid_yaw_control_memory(
+                start_alignment,
+                accept_updates=direction > 0.0,
+            )
+
+        while not pre_align_failed:
             if self._cancel_or_stop_requested(goal_handle):
                 self._end_grid_yaw_control_memory()
                 return self._cancel_result(goal_handle)
@@ -969,13 +1221,7 @@ class DarthMaulControlNode(Node):
 
             if not progress_selection.valid:
                 if lidar_required_mode:
-                    now_ros_s = self._ros_time_seconds()
-                    if lidar_required_invalid_started_s is None:
-                        lidar_required_invalid_started_s = now_ros_s
-                    lidar_required_invalid_elapsed_s = max(
-                        0.0,
-                        now_ros_s - lidar_required_invalid_started_s,
-                    )
+                    lidar_required_invalid_consecutive_samples += 1
                     final_progress_source_used = progress_selection.source
                     final_control_progress_reason = progress_selection.reason
                     translation_diagnostics = replace(
@@ -987,15 +1233,16 @@ class DarthMaulControlNode(Node):
                     self.publish_zero_twist()
 
                     if (
-                        lidar_required_invalid_elapsed_s
-                        >= self.translation_lidar_required_invalid_grace_s
+                        lidar_required_invalid_consecutive_samples
+                        > self.translation_lidar_required_invalid_max_consecutive_samples
                     ):
                         result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
                         preserve_failure_progress_diagnostics = True
                         result_message = (
                             f'{name} failed: LiDAR progress required but '
                             'unavailable/inconsistent for '
-                            f'{lidar_required_invalid_elapsed_s:.2f} s; '
+                            f'{lidar_required_invalid_consecutive_samples} '
+                            'consecutive samples; '
                             f'{current_diagnostics.lidar_progress_reason}; '
                             f'odom progress {odom_progress:.3f} m ignored'
                         )
@@ -1010,8 +1257,9 @@ class DarthMaulControlNode(Node):
                         heading_error=0.0,
                         status=(
                             f'{name}: waiting for required LiDAR progress; '
-                            f'invalid_for={lidar_required_invalid_elapsed_s:.2f} s, '
-                            f'grace={self.translation_lidar_required_invalid_grace_s:.2f} s, '
+                            'invalid_samples='
+                            f'{lidar_required_invalid_consecutive_samples}/'
+                            f'{self.translation_lidar_required_invalid_max_consecutive_samples}, '
                             f'odom_progress={odom_progress:.3f} m ignored, '
                             f'control_progress={final_control_progress:.3f} m, '
                             f'reason={progress_selection.reason}'
@@ -1047,8 +1295,7 @@ class DarthMaulControlNode(Node):
                 )
                 break
 
-            lidar_required_invalid_started_s = None
-            lidar_required_invalid_elapsed_s = 0.0
+            lidar_required_invalid_consecutive_samples = 0
             control_progress = max(0.0, progress_selection.progress_m)
             final_control_progress = control_progress
             final_progress_source_used = progress_selection.source
@@ -1310,7 +1557,7 @@ class DarthMaulControlNode(Node):
         )
 
         result_message = self._append_translation_diagnostics(
-            result_message,
+            f'{result_message}; {pre_align_result_message}',
             translation_diagnostics,
         )
         result_message = self._append_grid_alignment_diagnostics(

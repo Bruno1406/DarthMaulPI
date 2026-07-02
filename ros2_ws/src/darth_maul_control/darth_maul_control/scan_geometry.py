@@ -261,6 +261,96 @@ def compose_angular_command(
     )
 
 
+def should_pre_align_grid_yaw(
+    *,
+    enabled: bool,
+    direction: float,
+    alignment_valid: bool,
+    yaw_valid: bool,
+    yaw_error_rad: float,
+    confidence: float,
+    min_confidence: float,
+    start_threshold_rad: float,
+    max_control_error_rad: float,
+) -> tuple[bool, str]:
+    if not enabled:
+        return False, 'pre-translation grid-yaw alignment disabled'
+
+    if float(direction) <= 0.0:
+        return False, 'reverse translation does not use pre-alignment'
+
+    if not alignment_valid or not yaw_valid:
+        return False, 'no valid grid yaw'
+
+    if float(confidence) < float(min_confidence):
+        return (
+            False,
+            (
+                f'grid confidence too low: {float(confidence):.2f} '
+                f'< {float(min_confidence):.2f}'
+            ),
+        )
+
+    abs_error = abs(float(yaw_error_rad))
+    if abs_error > float(max_control_error_rad):
+        return (
+            False,
+            (
+                f'grid yaw error too large for pre-align control: '
+                f'{float(yaw_error_rad):.3f} rad > '
+                f'{float(max_control_error_rad):.3f} rad'
+            ),
+        )
+
+    if abs_error <= float(start_threshold_rad):
+        return (
+            False,
+            (
+                f'start grid yaw within threshold: {float(yaw_error_rad):.3f} rad '
+                f'<= {float(start_threshold_rad):.3f} rad'
+            ),
+        )
+
+    return True, 'pre-translation grid-yaw alignment required'
+
+
+def grid_yaw_pre_align_complete(
+    *,
+    alignment_valid: bool,
+    yaw_valid: bool,
+    yaw_error_rad: float,
+    confidence: float,
+    min_confidence: float,
+    target_rad: float,
+) -> tuple[bool, str]:
+    if not alignment_valid or not yaw_valid:
+        return False, 'no valid grid yaw'
+
+    if float(confidence) < float(min_confidence):
+        return (
+            False,
+            (
+                f'grid confidence too low: {float(confidence):.2f} '
+                f'< {float(min_confidence):.2f}'
+            ),
+        )
+
+    abs_error = abs(float(yaw_error_rad))
+    if abs_error > float(target_rad):
+        return (
+            False,
+            (
+                f'grid yaw outside target: {float(yaw_error_rad):.3f} rad '
+                f'> {float(target_rad):.3f} rad'
+            ),
+        )
+
+    return True, (
+        f'grid yaw within target: {float(yaw_error_rad):.3f} rad '
+        f'<= {float(target_rad):.3f} rad'
+    )
+
+
 def choose_heading_validation_error(
     odom_heading_error_rad: float,
     grid_yaw_error_rad: float,

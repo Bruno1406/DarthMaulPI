@@ -61,9 +61,32 @@ darth_maul_control:
     #   odom_only: use odom only
     translation_progress_source: lidar_required
 
-    # Grace window for noisy/missing LiDAR progress in lidar_required mode.
-    # During this window the robot holds still and odom remains diagnostic only.
-    translation_lidar_required_invalid_grace_s: 0.20
+    # Pre-translation grid-yaw acquisition.
+    # If a forward translation begins with a valid but large LiDAR grid-yaw error,
+    # rotate in place first, then reset front/rear LiDAR distance baselines before driving.
+    pre_translation_grid_yaw_align_enabled: true
+
+    # Trigger pre-alignment only when the absolute starting grid-yaw error is above this.
+    # 0.035 rad ~= 2.0 deg.
+    pre_translation_grid_yaw_align_start_threshold_rad: 0.035
+
+    # Finish pre-alignment when the absolute grid-yaw error is at or below this for
+    # a configured number of consecutive valid samples.
+    # 0.015 rad ~= 0.86 deg.
+    pre_translation_grid_yaw_align_target_rad: 0.015
+
+    # Require this many consecutive valid, in-target grid-yaw samples before declaring
+    # pre-alignment complete. This replaces timing-based settling.
+    pre_translation_grid_yaw_align_stable_samples: 3
+
+    # If pre-alignment has started and grid yaw becomes invalid/inactive for this
+    # many consecutive samples, fail rather than driving forward on a bad heading.
+    pre_translation_grid_yaw_align_max_invalid_samples: 3
+
+    # In lidar_required mode, if LiDAR progress becomes invalid, hold zero velocity.
+    # Allow this many consecutive invalid samples before failing.
+    # This is sample/state based, not a wall-clock grace window.
+    translation_lidar_required_invalid_max_consecutive_samples: 2
 
     # Maximum allowed disagreement between front and rear LiDAR progress.
     # If both are valid and disagree more than this, reject LiDAR progress.
@@ -136,8 +159,8 @@ darth_maul_control:
     # LiDAR grid-yaw correction for straight translation.
     # This is intentionally low-gain and heavily gated. It corrects heading only.
     # It does not command lateral strafe and it does not replace front/rear LiDAR distance stopping.
-    grid_alignment_control_enabled: false
-    grid_yaw_correction_enabled: false
+    grid_alignment_control_enabled: true
+    grid_yaw_correction_enabled: true
     # Lab-tuned on 2026-07-02:
     # k=0.70 corrected weakly; k=1.20 visibly corrected more strongly without observed snaking.
     k_grid_yaw: 1.20

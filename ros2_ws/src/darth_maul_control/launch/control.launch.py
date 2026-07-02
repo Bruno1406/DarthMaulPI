@@ -28,11 +28,29 @@ def generate_launch_description():
         'grid_yaw_active_heading_hold_scale'
     )
     translation_progress_source = LaunchConfiguration('translation_progress_source')
+    pre_translation_grid_yaw_align_enabled = LaunchConfiguration(
+        'pre_translation_grid_yaw_align_enabled'
+    )
+    pre_translation_grid_yaw_align_start_threshold_rad = LaunchConfiguration(
+        'pre_translation_grid_yaw_align_start_threshold_rad'
+    )
+    pre_translation_grid_yaw_align_target_rad = LaunchConfiguration(
+        'pre_translation_grid_yaw_align_target_rad'
+    )
+    pre_translation_grid_yaw_align_stable_samples = LaunchConfiguration(
+        'pre_translation_grid_yaw_align_stable_samples'
+    )
+    pre_translation_grid_yaw_align_max_invalid_samples = LaunchConfiguration(
+        'pre_translation_grid_yaw_align_max_invalid_samples'
+    )
+    translation_lidar_required_invalid_max_consecutive_samples = LaunchConfiguration(
+        'translation_lidar_required_invalid_max_consecutive_samples'
+    )
 
     return LaunchDescription([
         DeclareLaunchArgument(
             'grid_alignment_control_enabled',
-            default_value='false',
+            default_value='true',
             description=(
                 'Enable LiDAR grid-alignment control terms. '
                 'When false, grid alignment remains diagnostic only.'
@@ -40,7 +58,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'grid_yaw_correction_enabled',
-            default_value='false',
+            default_value='true',
             description=(
                 'Enable low-gain LiDAR grid-yaw correction during forward translation.'
             ),
@@ -67,6 +85,36 @@ def generate_launch_description():
                 'Translation distance authority: lidar_required, '
                 'lidar_when_consistent, or odom_only.'
             ),
+        ),
+        DeclareLaunchArgument(
+            'pre_translation_grid_yaw_align_enabled',
+            default_value='true',
+            description='Enable pre-translation LiDAR grid-yaw alignment.',
+        ),
+        DeclareLaunchArgument(
+            'pre_translation_grid_yaw_align_start_threshold_rad',
+            default_value='0.035',
+            description='Starting grid-yaw error threshold for pre-alignment.',
+        ),
+        DeclareLaunchArgument(
+            'pre_translation_grid_yaw_align_target_rad',
+            default_value='0.015',
+            description='Target grid-yaw error for pre-alignment completion.',
+        ),
+        DeclareLaunchArgument(
+            'pre_translation_grid_yaw_align_stable_samples',
+            default_value='3',
+            description='Consecutive in-target samples required after pre-alignment.',
+        ),
+        DeclareLaunchArgument(
+            'pre_translation_grid_yaw_align_max_invalid_samples',
+            default_value='3',
+            description='Consecutive inactive/invalid pre-alignment samples before failure.',
+        ),
+        DeclareLaunchArgument(
+            'translation_lidar_required_invalid_max_consecutive_samples',
+            default_value='2',
+            description='Consecutive invalid LiDAR progress samples allowed in lidar_required mode.',
         ),
         Node(
             package=package_name,
@@ -98,6 +146,30 @@ def generate_launch_description():
                     'translation_progress_source': ParameterValue(
                         translation_progress_source,
                         value_type=str,
+                    ),
+                    'pre_translation_grid_yaw_align_enabled': ParameterValue(
+                        pre_translation_grid_yaw_align_enabled,
+                        value_type=bool,
+                    ),
+                    'pre_translation_grid_yaw_align_start_threshold_rad': ParameterValue(
+                        pre_translation_grid_yaw_align_start_threshold_rad,
+                        value_type=float,
+                    ),
+                    'pre_translation_grid_yaw_align_target_rad': ParameterValue(
+                        pre_translation_grid_yaw_align_target_rad,
+                        value_type=float,
+                    ),
+                    'pre_translation_grid_yaw_align_stable_samples': ParameterValue(
+                        pre_translation_grid_yaw_align_stable_samples,
+                        value_type=int,
+                    ),
+                    'pre_translation_grid_yaw_align_max_invalid_samples': ParameterValue(
+                        pre_translation_grid_yaw_align_max_invalid_samples,
+                        value_type=int,
+                    ),
+                    'translation_lidar_required_invalid_max_consecutive_samples': ParameterValue(
+                        translation_lidar_required_invalid_max_consecutive_samples,
+                        value_type=int,
                     ),
                 },
             ],

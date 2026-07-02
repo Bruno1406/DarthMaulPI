@@ -3,8 +3,10 @@ import pytest
 from darth_maul_control.scan_geometry import (
     choose_heading_validation_error,
     compose_angular_command,
+    grid_yaw_pre_align_complete,
     grid_lateral_drift,
     grid_yaw_correction_radps,
+    should_pre_align_grid_yaw,
 )
 
 
@@ -186,3 +188,147 @@ def test_heading_validation_uses_odom_when_grid_yaw_too_large():
 
     assert error == pytest.approx(0.073)
     assert source == 'odom'
+
+
+def test_should_pre_align_grid_yaw_accepts_lab_failure_case():
+    should_align, reason = should_pre_align_grid_yaw(
+        enabled=True,
+        direction=1.0,
+        alignment_valid=True,
+        yaw_valid=True,
+        yaw_error_rad=-0.105,
+        confidence=0.6,
+        min_confidence=0.6,
+        start_threshold_rad=0.035,
+        max_control_error_rad=0.20,
+    )
+
+    assert should_align
+    assert 'required' in reason
+
+
+def test_should_pre_align_grid_yaw_skips_small_start_error():
+    should_align, reason = should_pre_align_grid_yaw(
+        enabled=True,
+        direction=1.0,
+        alignment_valid=True,
+        yaw_valid=True,
+        yaw_error_rad=-0.002,
+        confidence=0.6,
+        min_confidence=0.6,
+        start_threshold_rad=0.035,
+        max_control_error_rad=0.20,
+    )
+
+    assert not should_align
+    assert 'within threshold' in reason
+
+
+def test_should_pre_align_grid_yaw_skips_reverse_translation():
+    should_align, reason = should_pre_align_grid_yaw(
+        enabled=True,
+        direction=-1.0,
+        alignment_valid=True,
+        yaw_valid=True,
+        yaw_error_rad=-0.105,
+        confidence=0.6,
+        min_confidence=0.6,
+        start_threshold_rad=0.035,
+        max_control_error_rad=0.20,
+    )
+
+    assert not should_align
+    assert 'reverse translation' in reason
+
+
+def test_should_pre_align_grid_yaw_skips_invalid_yaw():
+    should_align, reason = should_pre_align_grid_yaw(
+        enabled=True,
+        direction=1.0,
+        alignment_valid=False,
+        yaw_valid=False,
+        yaw_error_rad=0.0,
+        confidence=0.0,
+        min_confidence=0.6,
+        start_threshold_rad=0.035,
+        max_control_error_rad=0.20,
+    )
+
+    assert not should_align
+    assert 'no valid grid yaw' in reason
+
+
+def test_should_pre_align_grid_yaw_rejects_low_confidence():
+    should_align, reason = should_pre_align_grid_yaw(
+        enabled=True,
+        direction=1.0,
+        alignment_valid=True,
+        yaw_valid=True,
+        yaw_error_rad=-0.105,
+        confidence=0.5,
+        min_confidence=0.6,
+        start_threshold_rad=0.035,
+        max_control_error_rad=0.20,
+    )
+
+    assert not should_align
+    assert 'confidence too low' in reason
+
+
+def test_should_pre_align_grid_yaw_rejects_error_above_control_limit():
+    should_align, reason = should_pre_align_grid_yaw(
+        enabled=True,
+        direction=1.0,
+        alignment_valid=True,
+        yaw_valid=True,
+        yaw_error_rad=0.25,
+        confidence=0.6,
+        min_confidence=0.6,
+        start_threshold_rad=0.035,
+        max_control_error_rad=0.20,
+    )
+
+    assert not should_align
+    assert 'too large' in reason
+
+
+def test_grid_yaw_pre_align_complete_accepts_valid_target_sample():
+    complete, reason = grid_yaw_pre_align_complete(
+        alignment_valid=True,
+        yaw_valid=True,
+        yaw_error_rad=-0.012,
+        confidence=0.6,
+        min_confidence=0.6,
+        target_rad=0.015,
+    )
+
+    assert complete
+    assert 'within target' in reason
+
+
+@pytest.mark.parametrize(
+    'alignment_valid,yaw_valid,yaw_error_rad,confidence,reason_text',
+    [
+        (False, False, 0.0, 0.0, 'no valid grid yaw'),
+        (True, True, 0.0, 0.5, 'confidence too low'),
+        (True, True, 0.030, 0.6, 'outside target'),
+    ],
+)
+def test_grid_yaw_pre_align_complete_rejects_unusable_samples(
+    alignment_valid,
+    yaw_valid,
+    yaw_error_rad,
+    confidence,
+    reason_text,
+):
+    complete, reason = grid_yaw_pre_align_complete(
+        alignment_valid=alignment_valid,
+        yaw_valid=yaw_valid,
+        yaw_error_rad=yaw_error_rad,
+        confidence=confidence,
+        min_confidence=0.6,
+        target_rad=0.015,
+    )
+
+    assert not complete
+    assert reason_text in reason
