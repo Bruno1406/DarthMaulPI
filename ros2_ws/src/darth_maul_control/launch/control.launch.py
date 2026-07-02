@@ -162,6 +162,9 @@ def generate_launch_description():
     post_rotation_grid_yaw_refine_require_valid = LaunchConfiguration(
         'post_rotation_grid_yaw_refine_require_valid'
     )
+    rotate_timeout_accept_heading_error_rad = LaunchConfiguration(
+        'rotate_timeout_accept_heading_error_rad'
+    )
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -237,17 +240,17 @@ def generate_launch_description():
         DeclareLaunchArgument('lidar_parallelity_max_offset_jump_m', default_value='0.035'),
         DeclareLaunchArgument('lidar_parallelity_max_abs_yaw_error_rad', default_value='0.100'),
         DeclareLaunchArgument('lidar_parallelity_min_confidence', default_value='0.60'),
-        DeclareLaunchArgument('lidar_parallelity_max_rms_error_m', default_value='0.020'),
+        DeclareLaunchArgument('lidar_parallelity_max_rms_error_m', default_value='0.025'),
         DeclareLaunchArgument('lidar_parallelity_min_span_x_m', default_value='0.220'),
         DeclareLaunchArgument('lidar_parallelity_min_support_count', default_value='80'),
         DeclareLaunchArgument('lidar_parallelity_drift_validation_enabled', default_value='true'),
         DeclareLaunchArgument('lidar_parallelity_max_drift_per_m', default_value='0.35'),
         DeclareLaunchArgument('k_lidar_parallelity_yaw', default_value='0.80'),
         DeclareLaunchArgument('k_lidar_parallelity_drift', default_value='0.20'),
-        DeclareLaunchArgument('max_lidar_parallelity_correction_radps', default_value='0.040'),
+        DeclareLaunchArgument('max_lidar_parallelity_correction_radps', default_value='0.060'),
         DeclareLaunchArgument('lidar_parallelity_require_yaw_drift_consistency', default_value='true'),
         DeclareLaunchArgument('lidar_parallelity_max_yaw_drift_disagreement_rad', default_value='0.060'),
-        DeclareLaunchArgument('lidar_progress_temporal_filter_enabled', default_value='true'),
+        DeclareLaunchArgument('lidar_progress_temporal_filter_enabled', default_value='false'),
         DeclareLaunchArgument('lidar_progress_temporal_max_backtrack_m', default_value='0.015'),
         DeclareLaunchArgument('lidar_progress_temporal_max_jump_m', default_value='0.080'),
         DeclareLaunchArgument('lidar_progress_temporal_max_degraded_samples', default_value='2'),
@@ -347,6 +350,14 @@ def generate_launch_description():
             'post_rotation_grid_yaw_refine_require_valid',
             default_value='false',
             description='If true, fail ROTATE_RELATIVE when post-rotation grid yaw is unavailable.',
+        ),
+        DeclareLaunchArgument(
+            'rotate_timeout_accept_heading_error_rad',
+            default_value='0.090',
+            description=(
+                'Accept ROTATE_RELATIVE timeout as success when odom heading error '
+                'is at or below this threshold.'
+            ),
         ),
         Node(
             package=package_name,
@@ -541,6 +552,10 @@ def generate_launch_description():
                     'post_rotation_grid_yaw_refine_require_valid': ParameterValue(
                         post_rotation_grid_yaw_refine_require_valid,
                         value_type=bool,
+                    ),
+                    'rotate_timeout_accept_heading_error_rad': ParameterValue(
+                        rotate_timeout_accept_heading_error_rad,
+                        value_type=float,
                     ),
                 },
             ],

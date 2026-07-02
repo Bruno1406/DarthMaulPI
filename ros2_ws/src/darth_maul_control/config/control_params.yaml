@@ -217,7 +217,7 @@ darth_maul_control:
 
     # Wall-line quality gates for tracked single-wall correction.
     lidar_parallelity_min_confidence: 0.60
-    lidar_parallelity_max_rms_error_m: 0.020
+    lidar_parallelity_max_rms_error_m: 0.025
     lidar_parallelity_min_span_x_m: 0.220
     lidar_parallelity_min_support_count: 80
 
@@ -232,7 +232,7 @@ darth_maul_control:
     # consistency check and second weak estimate.
     k_lidar_parallelity_yaw: 0.80
     k_lidar_parallelity_drift: 0.20
-    max_lidar_parallelity_correction_radps: 0.040
+    max_lidar_parallelity_correction_radps: 0.060
 
     # If yaw and drift disagree strongly, do not apply LiDAR trim.
     lidar_parallelity_require_yaw_drift_consistency: true
@@ -241,7 +241,7 @@ darth_maul_control:
     # LiDAR-only temporal progress resilience. This does not use odom as a
     # completion fallback. It only prevents one bad front/rear frame from
     # aborting when a previously trusted LiDAR source remains monotonic.
-    lidar_progress_temporal_filter_enabled: true
+    lidar_progress_temporal_filter_enabled: false
     lidar_progress_temporal_max_backtrack_m: 0.015
     lidar_progress_temporal_max_jump_m: 0.080
     lidar_progress_temporal_max_degraded_samples: 2
@@ -299,6 +299,10 @@ darth_maul_control:
     # turn, log it and return rotate success. This avoids creating a new exam
     # failure at openings/junctions. Set true only for debugging.
     post_rotation_grid_yaw_refine_require_valid: false
+
+    # If ROTATE_RELATIVE reaches timeout very near the odom/IMU target, accept
+    # the turn rather than aborting the command queue. This does not use LiDAR.
+    rotate_timeout_accept_heading_error_rad: 0.090
 
     # Movement-parallelity diagnostics only. No lateral strafe correction in this change.
     grid_lateral_drift_diagnostics_enabled: true

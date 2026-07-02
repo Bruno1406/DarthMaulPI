@@ -51,14 +51,15 @@ def test_control_params_default_to_lidar_required():
     assert 'lidar_parallelity_max_offset_jump_m: 0.035' in text
     assert 'lidar_parallelity_max_abs_yaw_error_rad: 0.100' in text
     assert 'lidar_parallelity_min_confidence: 0.60' in text
-    assert 'lidar_parallelity_max_rms_error_m: 0.020' in text
+    assert 'lidar_parallelity_max_rms_error_m: 0.025' in text
     assert 'lidar_parallelity_min_span_x_m: 0.220' in text
     assert 'lidar_parallelity_min_support_count: 80' in text
     assert 'lidar_parallelity_drift_validation_enabled: true' in text
     assert 'k_lidar_parallelity_yaw: 0.80' in text
     assert 'k_lidar_parallelity_drift: 0.20' in text
-    assert 'max_lidar_parallelity_correction_radps: 0.040' in text
-    assert 'lidar_progress_temporal_filter_enabled: true' in text
+    assert 'max_lidar_parallelity_correction_radps: 0.060' in text
+    assert 'lidar_progress_temporal_filter_enabled: false' in text
+    assert 'rotate_timeout_accept_heading_error_rad: 0.090' in text
     assert 'translation_lidar_required_invalid_grace_s' not in text
     assert 'Odom is diagnostic only' in text
 
@@ -114,6 +115,10 @@ def test_control_launch_defaults_for_exam_mode():
     assert "'lidar_parallelity_min_span_x_m'" in text
     assert "'lidar_parallelity_min_support_count'" in text
     assert "'lidar_progress_temporal_filter_enabled'" in text
+    assert "'rotate_timeout_accept_heading_error_rad'" in text
+    assert "default_value='0.025'" in text
+    assert "default_value='0.060'" in text
+    assert "default_value='0.090'" in text
     assert 'translation_lidar_required_invalid_grace_s' not in text
 
 
@@ -146,6 +151,10 @@ def test_control_node_defaults_to_grid_yaw_correction_enabled():
     assert "self._bool_param(\n            'pre_translation_grid_yaw_align_enabled',\n            False" in text
     assert "self._bool_param(\n            'post_rotation_grid_yaw_refine_enabled',\n            False" in text
     assert "self._bool_param(\n            'post_rotation_grid_yaw_refine_require_valid',\n            False" in text
+    assert "self._nonnegative_float_param(\n            'rotate_timeout_accept_heading_error_rad',\n            0.090" in text
+    assert "self._bool_param(\n            'lidar_progress_temporal_filter_enabled',\n            False" in text
+    assert "self._positive_float_param(\n            'lidar_parallelity_max_rms_error_m',\n            0.025" in text
+    assert "self._positive_float_param(\n            'max_lidar_parallelity_correction_radps',\n            0.060" in text
 
 
 def test_drive_forward_uses_lidar_parallelity_observer_not_direct_grid_yaw():
@@ -193,6 +202,8 @@ def test_control_node_has_post_rotation_refine_hook_in_rotate_only():
     assert 'ROTATE_RELATIVE_POST_GRID_REFINE' in text
     assert '_refine_post_rotation_grid_yaw(' in text
     assert 'post_rotation_refine=' in text
+    assert 'ROTATE_RELATIVE accepted near target after timeout' in text
+    assert 'rotation_timeout_accepts_heading_error(' in text
 
 
 def test_control_node_has_no_4g_geometry_validation_runtime_path():

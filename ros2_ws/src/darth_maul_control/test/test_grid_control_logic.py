@@ -11,6 +11,7 @@ from darth_maul_control.scan_geometry import (
     grid_lateral_drift,
     grid_yaw_correction_radps,
     post_rotation_grid_yaw_refine_decision,
+    rotation_timeout_accepts_heading_error,
     should_pre_align_grid_yaw,
 )
 
@@ -208,6 +209,20 @@ def test_post_rotation_refine_corrects_above_start_threshold():
     assert not decision.stable
     assert decision.should_correct
     assert 'correction needed' in decision.reason
+
+
+def test_rotation_timeout_accepts_near_target_error():
+    assert rotation_timeout_accepts_heading_error(
+        final_heading_error_rad=0.084,
+        accept_threshold_rad=0.090,
+    )
+
+
+def test_rotation_timeout_rejects_large_residual_error():
+    assert not rotation_timeout_accepts_heading_error(
+        final_heading_error_rad=0.120,
+        accept_threshold_rad=0.090,
+    )
 
 
 def test_compose_angular_command_uses_heading_hold_when_grid_inactive():

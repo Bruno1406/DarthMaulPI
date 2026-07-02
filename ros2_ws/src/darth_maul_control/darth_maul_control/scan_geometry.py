@@ -345,6 +345,13 @@ def compose_angular_command(
     )
 
 
+def rotation_timeout_accepts_heading_error(
+    final_heading_error_rad: float,
+    accept_threshold_rad: float,
+) -> bool:
+    return abs(float(final_heading_error_rad)) <= max(0.0, float(accept_threshold_rad))
+
+
 def grid_yaw_control_evidence_decision(
     *,
     source: str,

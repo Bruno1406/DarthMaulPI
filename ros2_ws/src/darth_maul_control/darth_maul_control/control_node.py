@@ -33,6 +33,7 @@ from darth_maul_control.scan_geometry import (
     grid_lateral_drift,
     grid_yaw_control_evidence_decision,
     post_rotation_grid_yaw_refine_decision,
+    rotation_timeout_accepts_heading_error,
     grid_yaw_pre_align_complete,
     grid_yaw_correction_radps,
     invalid_grid_alignment,
@@ -636,7 +637,7 @@ class DarthMaulControlNode(Node):
         )
         self.lidar_parallelity_max_rms_error_m = self._positive_float_param(
             'lidar_parallelity_max_rms_error_m',
-            0.020,
+            0.025,
         )
         self.lidar_parallelity_min_span_x_m = self._positive_float_param(
             'lidar_parallelity_min_span_x_m',
@@ -664,7 +665,7 @@ class DarthMaulControlNode(Node):
         )
         self.max_lidar_parallelity_correction_radps = self._positive_float_param(
             'max_lidar_parallelity_correction_radps',
-            0.040,
+            0.060,
         )
         self.lidar_parallelity_require_yaw_drift_consistency = self._bool_param(
             'lidar_parallelity_require_yaw_drift_consistency',
@@ -678,7 +679,7 @@ class DarthMaulControlNode(Node):
         )
         self.lidar_progress_temporal_filter_enabled = self._bool_param(
             'lidar_progress_temporal_filter_enabled',
-            True,
+            False,
         )
         self.lidar_progress_temporal_max_backtrack_m = self._positive_float_param(
             'lidar_progress_temporal_max_backtrack_m',
@@ -749,6 +750,10 @@ class DarthMaulControlNode(Node):
         self.post_rotation_grid_yaw_refine_require_valid = self._bool_param(
             'post_rotation_grid_yaw_refine_require_valid',
             False,
+        )
+        self.rotate_timeout_accept_heading_error_rad = self._nonnegative_float_param(
+            'rotate_timeout_accept_heading_error_rad',
+            0.090,
         )
 
         self.grid_lateral_drift_diagnostics_enabled = self._bool_param(
@@ -2259,8 +2264,31 @@ class DarthMaulControlNode(Node):
 
             elapsed = time.monotonic() - start_time
             if elapsed > timeout_s:
-                result_code = ExecuteMotionPrimitive.Result.TIMEOUT
-                result_message = f'ROTATE_RELATIVE timed out after {elapsed:.1f}s'
+                timeout_heading_error_valid = False
+                snapshot = self._get_motion_snapshot()
+                if snapshot is not None:
+                    remaining = normalize_angle(target_yaw - snapshot.pose.yaw)
+                    final_heading_error = abs(remaining)
+                    timeout_heading_error_valid = True
+
+                accept_near_target_timeout = (
+                    timeout_heading_error_valid
+                    and rotation_timeout_accepts_heading_error(
+                        final_heading_error,
+                        self.rotate_timeout_accept_heading_error_rad,
+                    )
+                )
+                if accept_near_target_timeout:
+                    self._publish_zero_for_duration()
+                    result_success = True
+                    result_code = ExecuteMotionPrimitive.Result.SUCCESS
+                    result_message = (
+                        'ROTATE_RELATIVE accepted near target after timeout: '
+                        f'heading_error={final_heading_error:.3f} rad'
+                    )
+                else:
+                    result_code = ExecuteMotionPrimitive.Result.TIMEOUT
+                    result_message = f'ROTATE_RELATIVE timed out after {elapsed:.1f}s'
                 break
 
             snapshot = self._get_motion_snapshot()
