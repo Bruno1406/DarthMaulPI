@@ -15,6 +15,7 @@ def test_control_params_default_to_lidar_required():
     assert 'grid_alignment_control_enabled: true' in text
     assert 'grid_yaw_correction_enabled: true' in text
     assert 'pre_translation_grid_yaw_align_enabled: false' in text
+    assert 'front_stop_distance_m: 0.08' in text
     assert GEOMETRY_VALIDATION_PARAM not in text
     assert AXIAL_WALL_PARAM_PREFIX not in text
     assert 'pre_translation_grid_yaw_align_start_threshold_rad: 0.035' in text

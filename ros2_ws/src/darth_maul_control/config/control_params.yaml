@@ -46,7 +46,7 @@ darth_maul_control:
     # LiDAR front stop
     require_scan_for_forward: true
     front_sector_deg: 35.0
-    front_stop_distance_m: 0.13
+    front_stop_distance_m: 0.08
 
     # LiDAR cardinal-sector diagnostics.
     lidar_diagnostics_enabled: true
