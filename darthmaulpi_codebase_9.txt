@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 258
-Skipped files: 12278
+Skipped files: 12340
 
 # Included File Index
 
@@ -270,7 +270,7 @@ Skipped files: 12278
 - binary, media, generated, or not useful as text: 57
 - not UTF-8 text: 1
 - previous merged output: 1
-- skipped directory: 12219
+- skipped directory: 12281
 
 # File Contents
 
@@ -3242,6 +3242,10 @@ darth_maul_control:
     grid_yaw_min_confidence_for_control: 0.60
     grid_yaw_max_abs_error_for_control_rad: 0.20
     grid_yaw_memory_timeout_s: 0.35
+    # When grid yaw correction is active, the odom/IMU heading-hold loop must
+    # not fight the LiDAR grid-yaw correction. 0.0 means grid yaw fully owns
+    # angular correction while valid; odom/IMU heading hold is fallback only.
+    grid_yaw_active_heading_hold_scale: 0.0
 
     # Movement-parallelity diagnostics only. No lateral strafe correction in this change.
     grid_lateral_drift_diagnostics_enabled: true
@@ -3292,6 +3296,7 @@ from darth_maul_control.scan_geometry import (
     cardinal_sector_ranges,
     choose_lidar_progress,
     choose_translation_progress,
+    compose_angular_command,
     estimate_grid_alignment,
     finite_median_or_nan,
     grid_lateral_drift,
@@ -3739,6 +3744,14 @@ class DarthMaulControlNode(Node):
         self.grid_yaw_memory_timeout_s = self._nonnegative_float_param(
             'grid_yaw_memory_timeout_s',
             0.35,
+        )
+        self.grid_yaw_active_heading_hold_scale = self._float_param(
+            'grid_yaw_active_heading_hold_scale',
+            0.0,
+        )
+        self.grid_yaw_active_heading_hold_scale = max(
+            0.0,
+            min(1.0, float(self.grid_yaw_active_heading_hold_scale)),
         )
 
         self.grid_lateral_drift_diagnostics_enabled = self._bool_param(
@@ -4298,7 +4311,7 @@ class DarthMaulControlNode(Node):
             )
             cmd.linear.x = direction * speed_mag
 
-            heading_correction = self.k_heading * heading_error
+            raw_heading_correction = self.k_heading * heading_error
 
             grid_yaw = GridYawCorrection(
                 active=False,
@@ -4317,7 +4330,17 @@ class DarthMaulControlNode(Node):
             )
 
             cmd.linear.y = 0.0
-            cmd.angular.z = heading_correction + grid_yaw.correction_radps
+            heading_hold_scale = 1.0
+            if grid_yaw.active:
+                heading_hold_scale = self.grid_yaw_active_heading_hold_scale
+
+            heading_correction = heading_hold_scale * raw_heading_correction
+            cmd.angular.z = compose_angular_command(
+                heading_correction_radps=raw_heading_correction,
+                grid_yaw_correction_radps=grid_yaw.correction_radps,
+                grid_yaw_active=grid_yaw.active,
+                grid_yaw_active_heading_hold_scale=heading_hold_scale,
+            )
 
             cmd = self._limiter.clamp(cmd, limits)
             cmd = self._apply_acceleration_limits(cmd)
@@ -4343,6 +4366,8 @@ class DarthMaulControlNode(Node):
                     f'grid_source={current_alignment.source}, '
                     f'grid_yaw_corr={grid_yaw.correction_radps:.3f} rad/s, '
                     f'grid_yaw_corr_active={grid_yaw.active}, '
+                    f'heading_hold_scale={heading_hold_scale:.2f}, '
+                    f'heading_correction={heading_correction:.3f} rad/s, '
                     f'heading_error={heading_error:.3f} rad, '
                     f'angular_z_cmd={cmd.angular.z:.3f} rad/s, '
                     f'linear_y={cmd.linear.y:.3f} m/s'
@@ -5797,6 +5822,21 @@ def grid_yaw_correction_radps(
     return float(max(-limit, min(limit, correction)))
 
 
+def compose_angular_command(
+    heading_correction_radps: float,
+    grid_yaw_correction_radps: float,
+    grid_yaw_active: bool,
+    grid_yaw_active_heading_hold_scale: float,
+) -> float:
+    scale = 1.0
+    if grid_yaw_active:
+        scale = max(0.0, min(1.0, float(grid_yaw_active_heading_hold_scale)))
+    return (
+        scale * float(heading_correction_radps)
+        + float(grid_yaw_correction_radps)
+    )
+
+
 def grid_lateral_drift(
     start_valid: bool,
     start_error_m: float,
@@ -6403,6 +6443,9 @@ def generate_launch_description():
     max_grid_yaw_correction_radps = LaunchConfiguration(
         'max_grid_yaw_correction_radps'
     )
+    grid_yaw_active_heading_hold_scale = LaunchConfiguration(
+        'grid_yaw_active_heading_hold_scale'
+    )
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -6430,6 +6473,11 @@ def generate_launch_description():
             default_value='0.060',
             description='Absolute cap for grid yaw correction in rad/s.',
         ),
+        DeclareLaunchArgument(
+            'grid_yaw_active_heading_hold_scale',
+            default_value='0.0',
+            description='Heading-hold scale while grid yaw correction is active.',
+        ),
         Node(
             package=package_name,
             executable='control_node',
@@ -6453,6 +6501,10 @@ def generate_launch_description():
                         max_grid_yaw_correction_radps,
                         value_type=float,
                     ),
+                    'grid_yaw_active_heading_hold_scale': ParameterValue(
+                        grid_yaw_active_heading_hold_scale,
+                        value_type=float,
+                    ),
                 },
             ],
             output='screen',
@@ -6470,6 +6522,7 @@ def generate_launch_description():
 import pytest
 
 from darth_maul_control.scan_geometry import (
+    compose_angular_command,
     grid_lateral_drift,
     grid_yaw_correction_radps,
 )
@@ -6537,6 +6590,42 @@ def test_grid_yaw_correction_is_capped():
     )
 
     assert correction == pytest.approx(0.045)
+
+
+def test_compose_angular_command_uses_heading_hold_when_grid_inactive():
+    assert compose_angular_command(
+        heading_correction_radps=0.04,
+        grid_yaw_correction_radps=0.0,
+        grid_yaw_active=False,
+        grid_yaw_active_heading_hold_scale=0.0,
+    ) == pytest.approx(0.04)
+
+
+def test_compose_angular_command_grid_active_disables_heading_hold_by_default():
+    assert compose_angular_command(
+        heading_correction_radps=0.04,
+        grid_yaw_correction_radps=-0.06,
+        grid_yaw_active=True,
+        grid_yaw_active_heading_hold_scale=0.0,
+    ) == pytest.approx(-0.06)
+
+
+def test_compose_angular_command_grid_active_can_blend_heading_hold():
+    assert compose_angular_command(
+        heading_correction_radps=0.04,
+        grid_yaw_correction_radps=-0.06,
+        grid_yaw_active=True,
+        grid_yaw_active_heading_hold_scale=0.25,
+    ) == pytest.approx(-0.05)
+
+
+def test_compose_angular_command_clamps_heading_hold_scale():
+    assert compose_angular_command(
+        heading_correction_radps=0.04,
+        grid_yaw_correction_radps=-0.06,
+        grid_yaw_active=True,
+        grid_yaw_active_heading_hold_scale=2.0,
+    ) == pytest.approx(-0.02)
 
 
 # ================== FILE 52: ros2_ws/src/darth_maul_control/test/test_scan_geometry.py ==================

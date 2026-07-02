@@ -1,6 +1,7 @@
 import pytest
 
 from darth_maul_control.scan_geometry import (
+    compose_angular_command,
     grid_lateral_drift,
     grid_yaw_correction_radps,
 )
@@ -68,3 +69,39 @@ def test_grid_yaw_correction_is_capped():
     )
 
     assert correction == pytest.approx(0.045)
+
+
+def test_compose_angular_command_uses_heading_hold_when_grid_inactive():
+    assert compose_angular_command(
+        heading_correction_radps=0.04,
+        grid_yaw_correction_radps=0.0,
+        grid_yaw_active=False,
+        grid_yaw_active_heading_hold_scale=0.0,
+    ) == pytest.approx(0.04)
+
+
+def test_compose_angular_command_grid_active_disables_heading_hold_by_default():
+    assert compose_angular_command(
+        heading_correction_radps=0.04,
+        grid_yaw_correction_radps=-0.06,
+        grid_yaw_active=True,
+        grid_yaw_active_heading_hold_scale=0.0,
+    ) == pytest.approx(-0.06)
+
+
+def test_compose_angular_command_grid_active_can_blend_heading_hold():
+    assert compose_angular_command(
+        heading_correction_radps=0.04,
+        grid_yaw_correction_radps=-0.06,
+        grid_yaw_active=True,
+        grid_yaw_active_heading_hold_scale=0.25,
+    ) == pytest.approx(-0.05)
+
+
+def test_compose_angular_command_clamps_heading_hold_scale():
+    assert compose_angular_command(
+        heading_correction_radps=0.04,
+        grid_yaw_correction_radps=-0.06,
+        grid_yaw_active=True,
+        grid_yaw_active_heading_hold_scale=2.0,
+    ) == pytest.approx(-0.02)

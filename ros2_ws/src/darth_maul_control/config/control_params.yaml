@@ -143,6 +143,10 @@ darth_maul_control:
     grid_yaw_min_confidence_for_control: 0.60
     grid_yaw_max_abs_error_for_control_rad: 0.20
     grid_yaw_memory_timeout_s: 0.35
+    # When grid yaw correction is active, the odom/IMU heading-hold loop must
+    # not fight the LiDAR grid-yaw correction. 0.0 means grid yaw fully owns
+    # angular correction while valid; odom/IMU heading hold is fallback only.
+    grid_yaw_active_heading_hold_scale: 0.0
 
     # Movement-parallelity diagnostics only. No lateral strafe correction in this change.
     grid_lateral_drift_diagnostics_enabled: true

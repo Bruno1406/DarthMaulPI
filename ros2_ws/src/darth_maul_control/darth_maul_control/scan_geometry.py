@@ -246,6 +246,21 @@ def grid_yaw_correction_radps(
     return float(max(-limit, min(limit, correction)))
 
 
+def compose_angular_command(
+    heading_correction_radps: float,
+    grid_yaw_correction_radps: float,
+    grid_yaw_active: bool,
+    grid_yaw_active_heading_hold_scale: float,
+) -> float:
+    scale = 1.0
+    if grid_yaw_active:
+        scale = max(0.0, min(1.0, float(grid_yaw_active_heading_hold_scale)))
+    return (
+        scale * float(heading_correction_radps)
+        + float(grid_yaw_correction_radps)
+    )
+
+
 def grid_lateral_drift(
     start_valid: bool,
     start_error_m: float,

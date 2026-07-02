@@ -24,6 +24,9 @@ def generate_launch_description():
     max_grid_yaw_correction_radps = LaunchConfiguration(
         'max_grid_yaw_correction_radps'
     )
+    grid_yaw_active_heading_hold_scale = LaunchConfiguration(
+        'grid_yaw_active_heading_hold_scale'
+    )
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -51,6 +54,11 @@ def generate_launch_description():
             default_value='0.060',
             description='Absolute cap for grid yaw correction in rad/s.',
         ),
+        DeclareLaunchArgument(
+            'grid_yaw_active_heading_hold_scale',
+            default_value='0.0',
+            description='Heading-hold scale while grid yaw correction is active.',
+        ),
         Node(
             package=package_name,
             executable='control_node',
@@ -72,6 +80,10 @@ def generate_launch_description():
                     ),
                     'max_grid_yaw_correction_radps': ParameterValue(
                         max_grid_yaw_correction_radps,
+                        value_type=float,
+                    ),
+                    'grid_yaw_active_heading_hold_scale': ParameterValue(
+                        grid_yaw_active_heading_hold_scale,
                         value_type=float,
                     ),
                 },

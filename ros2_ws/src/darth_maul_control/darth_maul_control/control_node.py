@@ -22,6 +22,7 @@ from darth_maul_control.scan_geometry import (
     cardinal_sector_ranges,
     choose_lidar_progress,
     choose_translation_progress,
+    compose_angular_command,
     estimate_grid_alignment,
     finite_median_or_nan,
     grid_lateral_drift,
@@ -469,6 +470,14 @@ class DarthMaulControlNode(Node):
         self.grid_yaw_memory_timeout_s = self._nonnegative_float_param(
             'grid_yaw_memory_timeout_s',
             0.35,
+        )
+        self.grid_yaw_active_heading_hold_scale = self._float_param(
+            'grid_yaw_active_heading_hold_scale',
+            0.0,
+        )
+        self.grid_yaw_active_heading_hold_scale = max(
+            0.0,
+            min(1.0, float(self.grid_yaw_active_heading_hold_scale)),
         )
 
         self.grid_lateral_drift_diagnostics_enabled = self._bool_param(
@@ -1028,7 +1037,7 @@ class DarthMaulControlNode(Node):
             )
             cmd.linear.x = direction * speed_mag
 
-            heading_correction = self.k_heading * heading_error
+            raw_heading_correction = self.k_heading * heading_error
 
             grid_yaw = GridYawCorrection(
                 active=False,
@@ -1047,7 +1056,17 @@ class DarthMaulControlNode(Node):
             )
 
             cmd.linear.y = 0.0
-            cmd.angular.z = heading_correction + grid_yaw.correction_radps
+            heading_hold_scale = 1.0
+            if grid_yaw.active:
+                heading_hold_scale = self.grid_yaw_active_heading_hold_scale
+
+            heading_correction = heading_hold_scale * raw_heading_correction
+            cmd.angular.z = compose_angular_command(
+                heading_correction_radps=raw_heading_correction,
+                grid_yaw_correction_radps=grid_yaw.correction_radps,
+                grid_yaw_active=grid_yaw.active,
+                grid_yaw_active_heading_hold_scale=heading_hold_scale,
+            )
 
             cmd = self._limiter.clamp(cmd, limits)
             cmd = self._apply_acceleration_limits(cmd)
@@ -1073,6 +1092,8 @@ class DarthMaulControlNode(Node):
                     f'grid_source={current_alignment.source}, '
                     f'grid_yaw_corr={grid_yaw.correction_radps:.3f} rad/s, '
                     f'grid_yaw_corr_active={grid_yaw.active}, '
+                    f'heading_hold_scale={heading_hold_scale:.2f}, '
+                    f'heading_correction={heading_correction:.3f} rad/s, '
                     f'heading_error={heading_error:.3f} rad, '
                     f'angular_z_cmd={cmd.angular.z:.3f} rad/s, '
                     f'linear_y={cmd.linear.y:.3f} m/s'
