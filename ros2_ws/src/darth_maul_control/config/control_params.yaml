@@ -53,17 +53,16 @@ darth_maul_control:
     lidar_diagnostic_sector_width_deg: 10.0
     lidar_diagnostic_min_samples: 3
 
-    # Final maze mode requires LiDAR front/rear progress for straight distance.
-    # Odom is diagnostic only in this mode because /odom is command-integrated and
-    # can be wrong by 50-70 mm over a 3-cell move.
-    # Debug alternatives:
-    #   lidar_when_consistent: use LiDAR when valid, otherwise fall back to odom
-    #   odom_only: use odom only
+    # Straight translation distance authority.
+    # In final maze mode, straight distance is measured from raw front/rear
+    # cardinal LiDAR range deltas, accepted only when the selected source is
+    # internally consistent. Odom is diagnostic only because /odom is
+    # command-integrated and can overreport by 50-70 mm over a 3-cell move.
     translation_progress_source: lidar_required
 
-    # Pre-translation grid-yaw acquisition.
-    # Experimental/debug option only. Default false because raw front/rear
-    # distance progress must not be contaminated by rotate-in-place side-wall aliasing.
+    # Pre-translation grid-yaw acquisition is experimental and disabled by default.
+    # Real robot testing showed rotate-in-place pre-align can rotate the front
+    # sector into an adjacent side wall and contaminate distance progress.
     pre_translation_grid_yaw_align_enabled: false
 
     # Trigger pre-alignment only when the absolute starting grid-yaw error is above this.
@@ -93,37 +92,11 @@ darth_maul_control:
     lidar_progress_max_disagreement_m: 0.025
 
     # Reject negative LiDAR progress below this threshold.
-    # Small negative values can happen from noise; larger negative values mean bad geometry.
     lidar_progress_min_m: -0.010
 
     # Allow one valid source, front-only or rear-only, when the other side is invalid.
-    # Needed for long maze corridors where only the rear or front reference is visible.
+    # Needed for long corridors where only one cardinal reference is visible.
     lidar_progress_allow_single_source: true
-
-    # Geometry-qualified front/rear LiDAR progress.
-    # A front/rear range may be used for longitudinal progress only if the scan
-    # contains an axial wall line approximately perpendicular to the drive axis.
-    lidar_progress_geometry_validation_enabled: true
-
-    # Candidate front/rear wall points must be this far from the robot along +/-x.
-    lidar_progress_axial_wall_min_distance_m: 0.05
-    lidar_progress_axial_wall_max_distance_m: 2.00
-
-    # Candidate points must be near the robot corridor laterally.
-    # This can be wider than half-cell width because yaw and wall edges spread points.
-    lidar_progress_axial_wall_max_abs_lateral_m: 0.35
-
-    # Minimum support for front/rear wall fitting.
-    lidar_progress_axial_wall_min_points: 8
-
-    # Required lateral span. This rejects side walls masquerading as front/rear walls.
-    lidar_progress_axial_wall_min_span_y_m: 0.08
-
-    # Reject noisy/curved/corner-like front/rear clusters.
-    lidar_progress_axial_wall_max_rms_error_m: 0.025
-
-    # Reject front/rear wall fits whose orientation is too far from axial.
-    lidar_progress_axial_wall_max_abs_yaw_error_rad: 0.35
 
     # Reject LiDAR progress if it is implausibly ahead of odom.
     # Odom is not trusted as truth, but it is still useful as a sanity bound.

@@ -8,7 +8,6 @@ from darth_maul_control.scan_geometry import (
     choose_lidar_progress,
     choose_translation_progress,
     estimate_grid_alignment,
-    fit_longitudinal_wall_line,
     fit_side_wall_line,
     sector_range,
     side_wall_candidate_points,
@@ -64,46 +63,6 @@ def make_line_scan(
                 best = min(best, r)
 
         ranges[i] = best
-
-    return make_scan(
-        ranges,
-        angle_min=angle_min,
-        angle_increment=angle_increment,
-    )
-
-
-def make_longitudinal_line_scan(
-    face,
-    slope,
-    intercept,
-    y_min,
-    y_max,
-    num_samples=720,
-    angle_min=-math.pi,
-    angle_max=math.pi,
-    range_min=0.05,
-    range_max=12.0,
-):
-    """Create a synthetic scan from front/rear lines: signed_x = slope*y + intercept."""
-    angle_increment = (angle_max - angle_min) / num_samples
-    ranges = [float('inf')] * num_samples
-    sign = 1.0 if face == 'front' else -1.0
-
-    for i in range(num_samples):
-        theta = angle_min + i * angle_increment
-        c = math.cos(theta)
-        s = math.sin(theta)
-        denom = sign * c - slope * s
-        if abs(denom) < 1e-9:
-            continue
-
-        r = intercept / denom
-        if not math.isfinite(r) or r < range_min or r > range_max:
-            continue
-
-        y = r * s
-        if y_min <= y <= y_max:
-            ranges[i] = r
 
     return make_scan(
         ranges,
@@ -496,152 +455,6 @@ def test_fit_side_wall_line_right_parallel_wall():
     assert estimate.valid
     assert estimate.offset_m == pytest.approx(-0.18, abs=0.01)
     assert estimate.yaw_error_rad == pytest.approx(0.0, abs=0.02)
-
-
-def test_fit_longitudinal_wall_line_valid_front_wall():
-    scan = make_longitudinal_line_scan(
-        face='front',
-        slope=0.0,
-        intercept=1.0,
-        y_min=-0.12,
-        y_max=0.12,
-    )
-
-    estimate = fit_longitudinal_wall_line(
-        scan,
-        face='front',
-        min_distance_m=0.05,
-        max_distance_m=2.0,
-        max_abs_lateral_m=0.35,
-        min_points=8,
-        min_span_y_m=0.08,
-        max_rms_error_m=0.025,
-        max_abs_yaw_error_rad=0.35,
-    )
-
-    assert estimate.valid
-    assert estimate.distance_m == pytest.approx(1.0, abs=0.01)
-    assert estimate.span_y_m >= 0.08
-    assert estimate.rms_error_m < 0.01
-
-
-def test_fit_longitudinal_wall_line_valid_rear_wall():
-    scan = make_longitudinal_line_scan(
-        face='rear',
-        slope=0.0,
-        intercept=0.3,
-        y_min=-0.12,
-        y_max=0.12,
-    )
-
-    estimate = fit_longitudinal_wall_line(
-        scan,
-        face='rear',
-        min_distance_m=0.05,
-        max_distance_m=2.0,
-        max_abs_lateral_m=0.35,
-        min_points=8,
-        min_span_y_m=0.08,
-        max_rms_error_m=0.025,
-        max_abs_yaw_error_rad=0.35,
-    )
-
-    assert estimate.valid
-    assert estimate.distance_m == pytest.approx(0.3, abs=0.01)
-    assert estimate.span_y_m >= 0.08
-
-
-def test_fit_longitudinal_wall_line_rejects_side_wall_as_front_wall():
-    scan = make_line_scan([(0.0, -0.125, 0.10, 0.70)])
-
-    estimate = fit_longitudinal_wall_line(
-        scan,
-        face='front',
-        min_distance_m=0.05,
-        max_distance_m=2.0,
-        max_abs_lateral_m=0.35,
-        min_points=8,
-        min_span_y_m=0.08,
-        max_rms_error_m=0.025,
-        max_abs_yaw_error_rad=0.35,
-    )
-
-    assert not estimate.valid
-    assert 'span' in estimate.reason or 'side-wall-like' in estimate.reason
-
-
-def test_fit_longitudinal_wall_line_rejects_noisy_corner_cluster():
-    points = []
-    for i in range(16):
-        y = -0.12 + i * (0.24 / 15.0)
-        noise = 0.06 if i % 2 == 0 else -0.06
-        points.append((1.0 + noise, y))
-    scan = make_points_scan(points)
-
-    estimate = fit_longitudinal_wall_line(
-        scan,
-        face='front',
-        min_distance_m=0.05,
-        max_distance_m=2.0,
-        max_abs_lateral_m=0.35,
-        min_points=8,
-        min_span_y_m=0.08,
-        max_rms_error_m=0.025,
-        max_abs_yaw_error_rad=0.35,
-    )
-
-    assert not estimate.valid
-    assert 'rms' in estimate.reason
-
-
-def test_fit_longitudinal_wall_line_rejects_too_few_points():
-    scan = make_points_scan([
-        (1.0, -0.12),
-        (1.0, -0.06),
-        (1.0, 0.0),
-        (1.0, 0.06),
-        (1.0, 0.12),
-    ])
-
-    estimate = fit_longitudinal_wall_line(
-        scan,
-        face='front',
-        min_distance_m=0.05,
-        max_distance_m=2.0,
-        max_abs_lateral_m=0.35,
-        min_points=8,
-        min_span_y_m=0.08,
-        max_rms_error_m=0.025,
-        max_abs_yaw_error_rad=0.35,
-    )
-
-    assert not estimate.valid
-    assert 'not enough candidate points' in estimate.reason
-
-
-def test_fit_longitudinal_wall_line_rejects_excessive_axial_wall_yaw():
-    scan = make_longitudinal_line_scan(
-        face='front',
-        slope=0.5,
-        intercept=1.0,
-        y_min=-0.12,
-        y_max=0.12,
-    )
-
-    estimate = fit_longitudinal_wall_line(
-        scan,
-        face='front',
-        min_distance_m=0.05,
-        max_distance_m=2.0,
-        max_abs_lateral_m=0.35,
-        min_points=8,
-        min_span_y_m=0.08,
-        max_rms_error_m=0.025,
-        max_abs_yaw_error_rad=0.35,
-    )
-
-    assert not estimate.valid
-    assert 'yaw too large' in estimate.reason
 
 
 def test_fit_side_wall_line_rejects_far_wall_seen_through_opening():

@@ -7,7 +7,6 @@ from launch_ros.actions import Node
 def generate_launch_description():
     maze_nr = LaunchConfiguration('maze_nr')
     cell_length_m = LaunchConfiguration('cell_length_m')
-    max_cells_per_drive = LaunchConfiguration('max_cells_per_drive')
     max_commands_to_execute = LaunchConfiguration('max_commands_to_execute')
     execute_motions = LaunchConfiguration('execute_motions')
     maze_service_timeout_s = LaunchConfiguration('maze_service_timeout_s')
@@ -16,7 +15,6 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('maze_nr', default_value='1'),
         DeclareLaunchArgument('cell_length_m', default_value='0.254'),
-        DeclareLaunchArgument('max_cells_per_drive', default_value='2'),
         DeclareLaunchArgument('max_commands_to_execute', default_value='0'),
         DeclareLaunchArgument('execute_motions', default_value='false'),
         DeclareLaunchArgument('maze_service_timeout_s', default_value='15.0'),
@@ -30,7 +28,6 @@ def generate_launch_description():
             parameters=[{
                 'maze_nr': maze_nr,
                 'cell_length_m': cell_length_m,
-                'max_cells_per_drive': max_cells_per_drive,
                 'max_commands_to_execute': max_commands_to_execute,
                 'execute_motions': execute_motions,
                 'maze_service_name': '/get_ros_maze',

@@ -46,30 +46,6 @@ def generate_launch_description():
     translation_lidar_required_invalid_max_consecutive_samples = LaunchConfiguration(
         'translation_lidar_required_invalid_max_consecutive_samples'
     )
-    lidar_progress_geometry_validation_enabled = LaunchConfiguration(
-        'lidar_progress_geometry_validation_enabled'
-    )
-    lidar_progress_axial_wall_min_distance_m = LaunchConfiguration(
-        'lidar_progress_axial_wall_min_distance_m'
-    )
-    lidar_progress_axial_wall_max_distance_m = LaunchConfiguration(
-        'lidar_progress_axial_wall_max_distance_m'
-    )
-    lidar_progress_axial_wall_max_abs_lateral_m = LaunchConfiguration(
-        'lidar_progress_axial_wall_max_abs_lateral_m'
-    )
-    lidar_progress_axial_wall_min_points = LaunchConfiguration(
-        'lidar_progress_axial_wall_min_points'
-    )
-    lidar_progress_axial_wall_min_span_y_m = LaunchConfiguration(
-        'lidar_progress_axial_wall_min_span_y_m'
-    )
-    lidar_progress_axial_wall_max_rms_error_m = LaunchConfiguration(
-        'lidar_progress_axial_wall_max_rms_error_m'
-    )
-    lidar_progress_axial_wall_max_abs_yaw_error_rad = LaunchConfiguration(
-        'lidar_progress_axial_wall_max_abs_yaw_error_rad'
-    )
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -144,46 +120,6 @@ def generate_launch_description():
             default_value='2',
             description='Consecutive invalid LiDAR progress samples allowed in lidar_required mode.',
         ),
-        DeclareLaunchArgument(
-            'lidar_progress_geometry_validation_enabled',
-            default_value='true',
-            description='Require axial front/rear wall geometry for LiDAR progress.',
-        ),
-        DeclareLaunchArgument(
-            'lidar_progress_axial_wall_min_distance_m',
-            default_value='0.05',
-            description='Minimum +/-x distance for front/rear axial wall candidates.',
-        ),
-        DeclareLaunchArgument(
-            'lidar_progress_axial_wall_max_distance_m',
-            default_value='2.00',
-            description='Maximum +/-x distance for front/rear axial wall candidates.',
-        ),
-        DeclareLaunchArgument(
-            'lidar_progress_axial_wall_max_abs_lateral_m',
-            default_value='0.35',
-            description='Maximum absolute lateral y for front/rear axial wall candidates.',
-        ),
-        DeclareLaunchArgument(
-            'lidar_progress_axial_wall_min_points',
-            default_value='8',
-            description='Minimum point support for front/rear axial wall fitting.',
-        ),
-        DeclareLaunchArgument(
-            'lidar_progress_axial_wall_min_span_y_m',
-            default_value='0.08',
-            description='Minimum lateral span for front/rear axial wall fitting.',
-        ),
-        DeclareLaunchArgument(
-            'lidar_progress_axial_wall_max_rms_error_m',
-            default_value='0.025',
-            description='Maximum RMS residual for front/rear axial wall fitting.',
-        ),
-        DeclareLaunchArgument(
-            'lidar_progress_axial_wall_max_abs_yaw_error_rad',
-            default_value='0.35',
-            description='Maximum axial wall yaw error accepted for LiDAR progress.',
-        ),
         Node(
             package=package_name,
             executable='control_node',
@@ -238,38 +174,6 @@ def generate_launch_description():
                     'translation_lidar_required_invalid_max_consecutive_samples': ParameterValue(
                         translation_lidar_required_invalid_max_consecutive_samples,
                         value_type=int,
-                    ),
-                    'lidar_progress_geometry_validation_enabled': ParameterValue(
-                        lidar_progress_geometry_validation_enabled,
-                        value_type=bool,
-                    ),
-                    'lidar_progress_axial_wall_min_distance_m': ParameterValue(
-                        lidar_progress_axial_wall_min_distance_m,
-                        value_type=float,
-                    ),
-                    'lidar_progress_axial_wall_max_distance_m': ParameterValue(
-                        lidar_progress_axial_wall_max_distance_m,
-                        value_type=float,
-                    ),
-                    'lidar_progress_axial_wall_max_abs_lateral_m': ParameterValue(
-                        lidar_progress_axial_wall_max_abs_lateral_m,
-                        value_type=float,
-                    ),
-                    'lidar_progress_axial_wall_min_points': ParameterValue(
-                        lidar_progress_axial_wall_min_points,
-                        value_type=int,
-                    ),
-                    'lidar_progress_axial_wall_min_span_y_m': ParameterValue(
-                        lidar_progress_axial_wall_min_span_y_m,
-                        value_type=float,
-                    ),
-                    'lidar_progress_axial_wall_max_rms_error_m': ParameterValue(
-                        lidar_progress_axial_wall_max_rms_error_m,
-                        value_type=float,
-                    ),
-                    'lidar_progress_axial_wall_max_abs_yaw_error_rad': ParameterValue(
-                        lidar_progress_axial_wall_max_abs_yaw_error_rad,
-                        value_type=float,
                     ),
                 },
             ],

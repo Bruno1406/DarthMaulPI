@@ -105,7 +105,6 @@ def validate_ros_maze(maze) -> Optional[str]:
 def validate_solver_parameters(
     maze_nr: int,
     cell_length_m: float,
-    max_cells_per_drive: int,
     max_commands_to_execute: int,
     motion_server_timeout_s: float,
     maze_service_timeout_s: float,
@@ -118,12 +117,6 @@ def validate_solver_parameters(
         return (
             f'cell_length_m={cell_length_m!r} is invalid; '
             'expected a finite value > 0.0'
-        )
-
-    if max_cells_per_drive <= 0:
-        return (
-            f'max_cells_per_drive={max_cells_per_drive} is invalid; '
-            'expected an integer >= 1'
         )
 
     if max_commands_to_execute < 0:
@@ -141,10 +134,13 @@ def validate_solver_parameters(
             'expected a finite value > 0.0'
         )
 
-    if not math.isfinite(maze_service_timeout_s):
+    if (
+        not math.isfinite(maze_service_timeout_s)
+        or maze_service_timeout_s <= 0.0
+    ):
         return (
             f'maze_service_timeout_s={maze_service_timeout_s!r} is invalid; '
-            'expected a finite value'
+            'expected a finite value > 0.0'
         )
 
     if not maze_service_name.strip():
@@ -187,24 +183,30 @@ def build_motion_commands(
     start_orientation: int,
     orientations: List[int],
     cell_length_m: float,
-    max_cells_per_drive: int,
 ) -> List[Tuple[str, float]]:
-    max_cells_per_drive = max(1, int(max_cells_per_drive))
+    """Build known-maze motion commands using maximal straight-run compression.
+
+    This function is for known complete paths. It emits one drive command for
+    each maximal same-orientation run and one rotate command only when the
+    planned direction changes. It intentionally does not split straight runs by
+    cell count. Future unknown-maze exploration should stop at semantic
+    perception/planning checkpoints, not via an arbitrary max-cells cap.
+    """
     commands: List[Tuple[str, float]] = []
 
     if not orientations:
         return commands
 
     current_orientation = int(start_orientation)
-    i = 0
+    index = 0
 
-    while i < len(orientations):
-        run_orientation = int(orientations[i])
+    while index < len(orientations):
+        run_orientation = int(orientations[index])
         run_length = 1
 
         while (
-            i + run_length < len(orientations)
-            and int(orientations[i + run_length]) == run_orientation
+            index + run_length < len(orientations)
+            and int(orientations[index + run_length]) == run_orientation
         ):
             run_length += 1
 
@@ -212,15 +214,11 @@ def build_motion_commands(
         if abs(turn) > 1.0e-6:
             commands.append(('rotate', turn))
 
-        remaining_cells = run_length
-        while remaining_cells > 0:
-            cells_this_command = min(remaining_cells, max_cells_per_drive)
-            distance_m = float(cells_this_command) * float(cell_length_m)
-            commands.append(('drive_forward', distance_m))
-            remaining_cells -= cells_this_command
+        distance_m = float(run_length) * float(cell_length_m)
+        commands.append(('drive_forward', distance_m))
 
         current_orientation = run_orientation
-        i += run_length
+        index += run_length
 
     return commands
 
@@ -233,7 +231,6 @@ class MazeSolverNode(Node):
 
         self.declare_parameter('maze_nr', 1)
         self.declare_parameter('cell_length_m', 0.254)
-        self.declare_parameter('max_cells_per_drive', 2)
         self.declare_parameter('max_commands_to_execute', 0)
         self.declare_parameter('execute_motions', True)
         self.declare_parameter('motion_server_timeout_s', 5.0)
@@ -243,9 +240,6 @@ class MazeSolverNode(Node):
 
         self.maze_nr = int(self.get_parameter('maze_nr').value)
         self.cell_length_m = float(self.get_parameter('cell_length_m').value)
-        self.max_cells_per_drive = int(
-            self.get_parameter('max_cells_per_drive').value
-        )
         self.max_commands_to_execute = int(
             self.get_parameter('max_commands_to_execute').value
         )
@@ -269,7 +263,6 @@ class MazeSolverNode(Node):
         parameter_error = validate_solver_parameters(
             maze_nr=self.maze_nr,
             cell_length_m=self.cell_length_m,
-            max_cells_per_drive=self.max_cells_per_drive,
             max_commands_to_execute=self.max_commands_to_execute,
             motion_server_timeout_s=self.motion_server_timeout_s,
             maze_service_timeout_s=self.maze_service_timeout_s,
@@ -281,7 +274,6 @@ class MazeSolverNode(Node):
         self.get_logger().info(
             f'maze_nr={self.maze_nr}, '
             f'cell_length_m={self.cell_length_m:.3f}, '
-            f'max_cells_per_drive={self.max_cells_per_drive}, '
             f'max_commands_to_execute={self.max_commands_to_execute}, '
             f'execute_motions={self.execute_motions}, '
             f'maze_service_name={self.maze_service_name}, '
@@ -407,12 +399,19 @@ class MazeSolverNode(Node):
                 f'{len(commands)} commands.'
             )
 
-        self.get_logger().info(f'Commands: {commands}')
         self.get_logger().info(f'Path cells: {len(path)}')
         self.get_logger().info(f'Path edges: {len(orientations)}')
-        self.get_logger().info(f'Motion commands after compression: {len(commands)}')
-        for idx, command in enumerate(commands, start=1):
-            self.get_logger().info(f'Command {idx}/{len(commands)}: {command}')
+        self.get_logger().info(
+            f'Built {len(commands)} motion commands using maximal straight-run compression'
+        )
+        for command_index, (command_name, command_value) in enumerate(
+            commands,
+            start=1,
+        ):
+            self.get_logger().info(
+                f'Motion command {command_index}/{len(commands)}: '
+                f'{command_name} {command_value:.3f}'
+            )
 
         if not self.execute_motions:
             self._finish_successfully('execute_motions=false; dry run complete.')
@@ -544,7 +543,6 @@ class MazeSolverNode(Node):
             int(start_orientation),
             list(orientations),
             self.cell_length_m,
-            self.max_cells_per_drive,
         )
 
     def _turn_between_orientations(self, current, target):

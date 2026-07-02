@@ -2,6 +2,10 @@ from pathlib import Path
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+GEOMETRY_VALIDATION_PARAM = 'lidar_progress_geometry_validation' + '_enabled'
+AXIAL_WALL_PARAM_PREFIX = 'lidar_progress_' + 'axial_wall'
+LONGITUDINAL_WALL_SNAPSHOT = 'Longitudinal' + 'WallSnapshot'
+LONGITUDINAL_WALL_PREFIX = 'longitudinal' + '_wall'
 
 
 def test_control_params_default_to_lidar_required():
@@ -11,18 +15,18 @@ def test_control_params_default_to_lidar_required():
     assert 'grid_alignment_control_enabled: true' in text
     assert 'grid_yaw_correction_enabled: true' in text
     assert 'pre_translation_grid_yaw_align_enabled: false' in text
-    assert 'lidar_progress_geometry_validation_enabled: true' in text
-    assert 'lidar_progress_axial_wall_min_span_y_m: 0.08' in text
+    assert GEOMETRY_VALIDATION_PARAM not in text
+    assert AXIAL_WALL_PARAM_PREFIX not in text
     assert 'pre_translation_grid_yaw_align_start_threshold_rad: 0.035' in text
     assert 'pre_translation_grid_yaw_align_target_rad: 0.015' in text
     assert 'pre_translation_grid_yaw_align_stable_samples: 3' in text
     assert 'pre_translation_grid_yaw_align_max_invalid_samples: 3' in text
     assert 'translation_lidar_required_invalid_max_consecutive_samples: 2' in text
     assert 'translation_lidar_required_invalid_grace_s' not in text
-    assert 'Odom is diagnostic only in this mode' in text
+    assert 'Odom is diagnostic only' in text
 
 
-def test_control_launch_default_to_lidar_required_with_debug_override():
+def test_control_launch_defaults_for_exam_mode():
     text = (PACKAGE_ROOT / 'launch' / 'control.launch.py').read_text()
 
     assert "'translation_progress_source'" in text
@@ -32,21 +36,8 @@ def test_control_launch_default_to_lidar_required_with_debug_override():
     assert "'grid_yaw_correction_enabled'" in text
     assert "'pre_translation_grid_yaw_align_enabled'" in text
     assert "default_value='false'" in text
-    assert "'lidar_progress_geometry_validation_enabled'" in text
-    assert "'lidar_progress_axial_wall_min_distance_m'" in text
-    assert "'lidar_progress_axial_wall_max_distance_m'" in text
-    assert "'lidar_progress_axial_wall_max_abs_lateral_m'" in text
-    assert "'lidar_progress_axial_wall_min_points'" in text
-    assert "'lidar_progress_axial_wall_min_span_y_m'" in text
-    assert "'lidar_progress_axial_wall_max_rms_error_m'" in text
-    assert "'lidar_progress_axial_wall_max_abs_yaw_error_rad'" in text
-    assert "default_value='true'" in text
-    assert "default_value='0.05'" in text
-    assert "default_value='2.00'" in text
-    assert "default_value='0.35'" in text
-    assert "default_value='8'" in text
-    assert "default_value='0.08'" in text
-    assert "default_value='0.025'" in text
+    assert GEOMETRY_VALIDATION_PARAM not in text
+    assert AXIAL_WALL_PARAM_PREFIX not in text
     assert "'pre_translation_grid_yaw_align_start_threshold_rad'" in text
     assert "default_value='0.035'" in text
     assert "'pre_translation_grid_yaw_align_target_rad'" in text
@@ -81,4 +72,15 @@ def test_control_node_defaults_to_grid_yaw_correction_enabled():
     assert "self._bool_param(\n            'grid_alignment_control_enabled',\n            True" in text
     assert "self._bool_param(\n            'grid_yaw_correction_enabled',\n            True" in text
     assert "self._bool_param(\n            'pre_translation_grid_yaw_align_enabled',\n            False" in text
-    assert "self._bool_param(\n            'lidar_progress_geometry_validation_enabled',\n            True" in text
+
+
+def test_control_node_has_no_4g_geometry_validation_runtime_path():
+    text = (
+        PACKAGE_ROOT
+        / 'darth_maul_control'
+        / 'control_node.py'
+    ).read_text()
+
+    assert GEOMETRY_VALIDATION_PARAM not in text
+    assert LONGITUDINAL_WALL_SNAPSHOT not in text
+    assert LONGITUDINAL_WALL_PREFIX not in text

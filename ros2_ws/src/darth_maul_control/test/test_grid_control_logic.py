@@ -1,6 +1,7 @@
 import pytest
 
 from darth_maul_control.scan_geometry import (
+    LidarProgressEstimate,
     choose_heading_validation_error,
     choose_lidar_progress,
     choose_translation_progress,
@@ -12,104 +13,79 @@ from darth_maul_control.scan_geometry import (
 )
 
 
-def test_geometry_qualified_front_rear_progress_is_averaged():
+def test_raw_lidar_progress_accepts_consistent_three_cell_measurement():
     lidar = choose_lidar_progress(
         front_valid=True,
-        front_progress_m=1.668 - 0.903,
+        front_progress_m=0.7610,
         rear_valid=True,
-        rear_progress_m=0.863 - 0.106,
+        rear_progress_m=0.7630,
         max_disagreement_m=0.025,
         min_progress_m=-0.010,
         allow_single_source=True,
-        front_reason='front axial wall valid',
-        rear_reason='rear axial wall valid',
     )
 
     assert lidar.valid
     assert lidar.source == 'front_rear'
-    assert lidar.disagreement_m == pytest.approx(0.008)
-    assert lidar.progress_m == pytest.approx(0.761)
+    assert lidar.progress_m == pytest.approx(0.7620)
+    assert lidar.disagreement_m == pytest.approx(0.0020)
 
 
-def test_lab_side_wall_alias_uses_rear_only_when_allowed():
+def test_raw_lidar_progress_rejects_side_wall_alias_by_front_rear_disagreement():
+    estimate = choose_lidar_progress(
+        front_valid=True,
+        front_progress_m=0.5065,
+        rear_valid=True,
+        rear_progress_m=0.0140,
+        max_disagreement_m=0.025,
+        min_progress_m=-0.010,
+        allow_single_source=True,
+    )
+
+    assert not estimate.valid
+    assert estimate.source == 'front_rear_rejected'
+    assert estimate.disagreement_m == pytest.approx(0.4925)
+    assert 'disagreement' in estimate.reason
+
+
+def test_raw_lidar_progress_allows_single_source_when_configured():
     lidar = choose_lidar_progress(
         front_valid=False,
         front_progress_m=0.0,
         rear_valid=True,
-        rear_progress_m=0.014,
+        rear_progress_m=0.757,
         max_disagreement_m=0.025,
         min_progress_m=-0.010,
         allow_single_source=True,
-        front_reason='front axial wall invalid: y-span too small; side-wall-like geometry',
-        rear_reason='rear axial wall valid',
     )
 
     assert lidar.valid
     assert lidar.source == 'rear'
-    assert lidar.progress_m == pytest.approx(0.014)
-    assert 'front rejected' in lidar.reason
-    assert 'side-wall-like' in lidar.reason
+    assert lidar.progress_m == pytest.approx(0.757)
 
 
-def test_lab_side_wall_alias_never_selects_raw_front_jump():
-    lidar = choose_lidar_progress(
-        front_valid=False,
-        front_progress_m=0.506,
-        rear_valid=False,
-        rear_progress_m=0.014,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=True,
-        front_reason='front axial wall invalid: y-span too small; side-wall-like geometry',
-        rear_reason='rear axial wall invalid: not enough candidate points',
-    )
-
-    selection = choose_translation_progress(
-        odom_progress_m=0.029,
-        lidar_estimate=lidar,
-        mode='lidar_required',
-        max_lidar_ahead_of_odom_m=0.060,
-    )
-
-    assert not lidar.valid
-    assert lidar.progress_m == pytest.approx(0.0)
-    assert not selection.valid
-    assert selection.source == 'lidar_required_unavailable'
-    assert selection.progress_m == pytest.approx(0.0)
-    assert 'no valid LiDAR progress source' in selection.reason
-    assert 'side-wall-like' in selection.reason
-    assert 'odom progress 0.029 m ignored' in selection.reason
-
-
-def test_raw_cardinal_progress_fallback_is_explicit_geometry_disabled_path():
-    lidar = choose_lidar_progress(
-        front_valid=True,
-        front_progress_m=0.506,
-        rear_valid=True,
-        rear_progress_m=0.500,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=True,
-        front_reason='raw cardinal front range valid',
-        rear_reason='raw cardinal rear range valid',
-    )
-
-    assert lidar.valid
-    assert lidar.source == 'front_rear'
-    assert lidar.progress_m == pytest.approx(0.503)
-
-
-def test_lidar_required_invalid_geometry_never_falls_back_to_odom():
+def test_raw_lidar_progress_rejects_single_source_if_disabled():
     lidar = choose_lidar_progress(
         front_valid=False,
         front_progress_m=0.0,
-        rear_valid=False,
-        rear_progress_m=0.0,
+        rear_valid=True,
+        rear_progress_m=0.757,
         max_disagreement_m=0.025,
         min_progress_m=-0.010,
-        allow_single_source=True,
-        front_reason='front axial wall invalid',
-        rear_reason='rear axial wall invalid',
+        allow_single_source=False,
+    )
+
+    assert not lidar.valid
+    assert lidar.source == 'none'
+    assert 'single-source LiDAR progress disabled' in lidar.reason
+
+
+def test_lidar_required_rejects_invalid_lidar_even_when_odom_progress_exists():
+    lidar = LidarProgressEstimate(
+        valid=False,
+        progress_m=0.0,
+        source='front_rear_rejected',
+        disagreement_m=0.49,
+        reason='front/rear progress disagreement',
     )
 
     selection = choose_translation_progress(
@@ -121,44 +97,7 @@ def test_lidar_required_invalid_geometry_never_falls_back_to_odom():
 
     assert not selection.valid
     assert selection.source == 'lidar_required_unavailable'
-    assert selection.progress_m == pytest.approx(0.0)
     assert 'odom progress 0.250 m ignored' in selection.reason
-
-
-def test_geometry_single_source_rear_allowed():
-    lidar = choose_lidar_progress(
-        front_valid=False,
-        front_progress_m=0.0,
-        rear_valid=True,
-        rear_progress_m=0.757,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=True,
-        front_reason='front axial wall invalid',
-        rear_reason='rear axial wall valid',
-    )
-
-    assert lidar.valid
-    assert lidar.source == 'rear'
-    assert lidar.progress_m == pytest.approx(0.757)
-
-
-def test_geometry_single_source_disabled_rejects_rear_only():
-    lidar = choose_lidar_progress(
-        front_valid=False,
-        front_progress_m=0.0,
-        rear_valid=True,
-        rear_progress_m=0.757,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=False,
-        front_reason='front axial wall invalid',
-        rear_reason='rear axial wall valid',
-    )
-
-    assert not lidar.valid
-    assert lidar.source == 'none'
-    assert 'single-source LiDAR progress disabled' in lidar.reason
 
 
 def test_lateral_drift_computes_signed_drift_per_meter():
