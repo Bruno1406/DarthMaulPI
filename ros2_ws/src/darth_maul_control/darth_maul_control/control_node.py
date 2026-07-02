@@ -379,6 +379,14 @@ class DarthMaulControlNode(Node):
             'grid_alignment_expected_half_width_m',
             0.125,
         )
+        self.grid_alignment_adjacent_wall_tolerance_m = self._positive_float_param(
+            'grid_alignment_adjacent_wall_tolerance_m',
+            0.080,
+        )
+        self.grid_alignment_pair_width_tolerance_m = self._positive_float_param(
+            'grid_alignment_pair_width_tolerance_m',
+            0.080,
+        )
         self.grid_alignment_min_x_m = self._float_param(
             'grid_alignment_min_x_m',
             -0.18,
@@ -445,10 +453,10 @@ class DarthMaulControlNode(Node):
             'grid_yaw_correction_enabled',
             False,
         )
-        self.k_grid_yaw = self._nonnegative_float_param('k_grid_yaw', 0.70)
+        self.k_grid_yaw = self._nonnegative_float_param('k_grid_yaw', 1.20)
         self.max_grid_yaw_correction_radps = self._nonnegative_float_param(
             'max_grid_yaw_correction_radps',
-            0.045,
+            0.060,
         )
         self.grid_yaw_min_confidence_for_control = self._nonnegative_float_param(
             'grid_yaw_min_confidence_for_control',
@@ -1413,6 +1421,8 @@ class DarthMaulControlNode(Node):
             max_abs_yaw_error_rad=self.grid_alignment_max_abs_yaw_error_rad,
             max_reported_error_m=self.grid_alignment_max_reported_error_m,
             max_reported_yaw_rad=self.grid_alignment_max_reported_yaw_rad,
+            adjacent_wall_tolerance_m=self.grid_alignment_adjacent_wall_tolerance_m,
+            pair_width_tolerance_m=self.grid_alignment_pair_width_tolerance_m,
         )
 
     def _grid_alignment_snapshot(self) -> GridAlignmentEstimate:

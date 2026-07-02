@@ -291,6 +291,77 @@ def grid_lateral_drift(
     )
 
 
+def expected_side_offset_m(side: str, expected_half_width_m: float) -> float:
+    if side == 'left':
+        return float(expected_half_width_m)
+    if side == 'right':
+        return -float(expected_half_width_m)
+    raise ValueError(f'Unsupported side {side!r}')
+
+
+def wall_offset_error_m(
+    wall: WallLineEstimate,
+    expected_half_width_m: float,
+) -> float:
+    if not wall.valid:
+        return 0.0
+    return float(wall.offset_m) - expected_side_offset_m(
+        wall.side,
+        expected_half_width_m,
+    )
+
+
+def is_adjacent_wall_line(
+    wall: WallLineEstimate,
+    expected_half_width_m: float,
+    adjacent_wall_tolerance_m: float,
+) -> bool:
+    return bool(
+        wall.valid
+        and abs(wall_offset_error_m(wall, expected_half_width_m))
+        <= float(adjacent_wall_tolerance_m)
+    )
+
+
+def wall_quality_key(wall: WallLineEstimate) -> Tuple[float, int, float]:
+    """Sort key for choosing the more reliable single-wall estimate.
+
+    Lower RMS is best. If tied, more support and more x-span are better.
+    """
+    return (
+        float(wall.rms_error_m),
+        -int(wall.support_count),
+        -float(wall.span_x_m),
+    )
+
+
+def choose_better_wall(
+    left: WallLineEstimate,
+    right: WallLineEstimate,
+) -> WallLineEstimate:
+    candidates = [wall for wall in (left, right) if wall.valid]
+    if not candidates:
+        return invalid_wall_line('none', 'no valid walls to choose from')
+    return min(candidates, key=wall_quality_key)
+
+
+def wall_adjacency_reason(
+    wall: WallLineEstimate,
+    expected_half_width_m: float,
+    adjacent_wall_tolerance_m: float,
+) -> str:
+    if not wall.valid:
+        return f'{wall.side}=invalid({wall.reason})'
+    error = wall_offset_error_m(wall, expected_half_width_m)
+    expected = expected_side_offset_m(wall.side, expected_half_width_m)
+    return (
+        f'{wall.side}=offset {wall.offset_m:.3f} m, '
+        f'expected {expected:.3f} m, '
+        f'error {error:.3f} m, '
+        f'tolerance {float(adjacent_wall_tolerance_m):.3f} m'
+    )
+
+
 def estimate_grid_alignment(
     scan,
     expected_half_width_m: float,
@@ -304,6 +375,8 @@ def estimate_grid_alignment(
     max_abs_yaw_error_rad: float,
     max_reported_error_m: float,
     max_reported_yaw_rad: float,
+    adjacent_wall_tolerance_m: float = 0.080,
+    pair_width_tolerance_m: float = 0.080,
 ) -> GridAlignmentEstimate:
     if scan is None:
         return invalid_grid_alignment('no scan')
@@ -348,24 +421,87 @@ def estimate_grid_alignment(
             reason=f'no valid wall lines: left={left.reason}; right={right.reason}',
         )
 
-    if left.valid and right.valid:
-        yaw_error = (left.yaw_error_rad + right.yaw_error_rad) / 2.0
-        lateral_error = (left.offset_m + right.offset_m) / 2.0
-        source = 'left_right'
-        confidence = 1.0
-        reason = 'left and right wall lines valid'
-    elif left.valid:
-        yaw_error = left.yaw_error_rad
-        lateral_error = left.offset_m - float(expected_half_width_m)
+    left_adjacent = is_adjacent_wall_line(
+        left,
+        expected_half_width_m=expected_half_width_m,
+        adjacent_wall_tolerance_m=adjacent_wall_tolerance_m,
+    )
+    right_adjacent = is_adjacent_wall_line(
+        right,
+        expected_half_width_m=expected_half_width_m,
+        adjacent_wall_tolerance_m=adjacent_wall_tolerance_m,
+    )
+
+    if left_adjacent and right_adjacent:
+        observed_width = float(left.offset_m) - float(right.offset_m)
+        expected_width = 2.0 * float(expected_half_width_m)
+        width_error = observed_width - expected_width
+        pair_width_valid = abs(width_error) <= float(pair_width_tolerance_m)
+
+        if pair_width_valid:
+            yaw_error = (float(left.yaw_error_rad) + float(right.yaw_error_rad)) / 2.0
+            lateral_error = (float(left.offset_m) + float(right.offset_m)) / 2.0
+            source = 'left_right'
+            confidence = 1.0
+            reason = (
+                'left and right adjacent wall lines valid: '
+                f'observed_width={observed_width:.3f} m, '
+                f'expected_width={expected_width:.3f} m'
+            )
+        else:
+            chosen = choose_better_wall(left, right)
+            yaw_error = float(chosen.yaw_error_rad)
+            lateral_error = wall_offset_error_m(chosen, expected_half_width_m)
+            source = chosen.side
+            confidence = 0.6
+            reason = (
+                'left/right pair rejected by width; '
+                f'observed_width={observed_width:.3f} m, '
+                f'expected_width={expected_width:.3f} m, '
+                f'width_error={width_error:.3f} m, '
+                f'tolerance={float(pair_width_tolerance_m):.3f} m; '
+                f'using adjacent {chosen.side} wall only'
+            )
+
+    elif left_adjacent:
+        yaw_error = float(left.yaw_error_rad)
+        lateral_error = wall_offset_error_m(left, expected_half_width_m)
         source = 'left'
         confidence = 0.6
-        reason = 'left wall line valid'
-    else:
-        yaw_error = right.yaw_error_rad
-        lateral_error = right.offset_m + float(expected_half_width_m)
+        reason = (
+            'using adjacent left wall only; '
+            f'right not adjacent or invalid: '
+            f'{wall_adjacency_reason(right, expected_half_width_m, adjacent_wall_tolerance_m)}'
+        )
+
+    elif right_adjacent:
+        yaw_error = float(right.yaw_error_rad)
+        lateral_error = wall_offset_error_m(right, expected_half_width_m)
         source = 'right'
         confidence = 0.6
-        reason = 'right wall line valid'
+        reason = (
+            'using adjacent right wall only; '
+            f'left not adjacent or invalid: '
+            f'{wall_adjacency_reason(left, expected_half_width_m, adjacent_wall_tolerance_m)}'
+        )
+
+    else:
+        return GridAlignmentEstimate(
+            valid=False,
+            yaw_valid=False,
+            yaw_error_rad=0.0,
+            lateral_valid=False,
+            lateral_error_m=0.0,
+            source='none',
+            confidence=0.0,
+            left=left,
+            right=right,
+            reason=(
+                'no adjacent side walls: '
+                f'{wall_adjacency_reason(left, expected_half_width_m, adjacent_wall_tolerance_m)}; '
+                f'{wall_adjacency_reason(right, expected_half_width_m, adjacent_wall_tolerance_m)}'
+            ),
+        )
 
     yaw_error = max(
         -float(max_reported_yaw_rad),

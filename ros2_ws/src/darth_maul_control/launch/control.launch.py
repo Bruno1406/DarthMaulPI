@@ -43,12 +43,12 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'k_grid_yaw',
-            default_value='0.70',
+            default_value='1.20',
             description='Grid yaw correction proportional gain.',
         ),
         DeclareLaunchArgument(
             'max_grid_yaw_correction_radps',
-            default_value='0.045',
+            default_value='0.060',
             description='Absolute cap for grid yaw correction in rad/s.',
         ),
         Node(

@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 258
-Skipped files: 12245
+Skipped files: 12278
 
 # Included File Index
 
@@ -270,7 +270,7 @@ Skipped files: 12245
 - binary, media, generated, or not useful as text: 57
 - not UTF-8 text: 1
 - previous merged output: 1
-- skipped directory: 12186
+- skipped directory: 12219
 
 # File Contents
 
@@ -3189,6 +3189,24 @@ darth_maul_control:
     # This is used only for one-wall lateral error diagnostics.
     grid_alignment_expected_half_width_m: 0.125
 
+    # A geometrically valid side-wall line is only an adjacent current-cell wall
+    # if its fitted offset is close to the expected centered side-wall offset.
+    #
+    # Expected centered offsets:
+    #   left adjacent wall:  +grid_alignment_expected_half_width_m
+    #   right adjacent wall: -grid_alignment_expected_half_width_m
+    #
+    # Example from lab:
+    #   right offset -0.142 is adjacent for expected -0.125
+    #   left offset +0.350 is not adjacent for expected +0.125
+    grid_alignment_adjacent_wall_tolerance_m: 0.080
+
+    # If both side-wall lines are individually adjacent, they are only used as
+    # a paired left_right corridor if their observed width is plausible.
+    # observed_width = left.offset_m - right.offset_m
+    # expected_width = 2 * grid_alignment_expected_half_width_m
+    grid_alignment_pair_width_tolerance_m: 0.080
+
     # Side wall candidate filter in robot base frame.
     # x is forward, y is left. A useful side wall must have enough points
     # beside the robot over a longitudinal span.
@@ -3217,8 +3235,10 @@ darth_maul_control:
     # It does not command lateral strafe and it does not replace front/rear LiDAR distance stopping.
     grid_alignment_control_enabled: false
     grid_yaw_correction_enabled: false
-    k_grid_yaw: 0.70
-    max_grid_yaw_correction_radps: 0.045
+    # Lab-tuned on 2026-07-02:
+    # k=0.70 corrected weakly; k=1.20 visibly corrected more strongly without observed snaking.
+    k_grid_yaw: 1.20
+    max_grid_yaw_correction_radps: 0.060
     grid_yaw_min_confidence_for_control: 0.60
     grid_yaw_max_abs_error_for_control_rad: 0.20
     grid_yaw_memory_timeout_s: 0.35
@@ -3629,6 +3649,14 @@ class DarthMaulControlNode(Node):
             'grid_alignment_expected_half_width_m',
             0.125,
         )
+        self.grid_alignment_adjacent_wall_tolerance_m = self._positive_float_param(
+            'grid_alignment_adjacent_wall_tolerance_m',
+            0.080,
+        )
+        self.grid_alignment_pair_width_tolerance_m = self._positive_float_param(
+            'grid_alignment_pair_width_tolerance_m',
+            0.080,
+        )
         self.grid_alignment_min_x_m = self._float_param(
             'grid_alignment_min_x_m',
             -0.18,
@@ -3695,10 +3723,10 @@ class DarthMaulControlNode(Node):
             'grid_yaw_correction_enabled',
             False,
         )
-        self.k_grid_yaw = self._nonnegative_float_param('k_grid_yaw', 0.70)
+        self.k_grid_yaw = self._nonnegative_float_param('k_grid_yaw', 1.20)
         self.max_grid_yaw_correction_radps = self._nonnegative_float_param(
             'max_grid_yaw_correction_radps',
-            0.045,
+            0.060,
         )
         self.grid_yaw_min_confidence_for_control = self._nonnegative_float_param(
             'grid_yaw_min_confidence_for_control',
@@ -4663,6 +4691,8 @@ class DarthMaulControlNode(Node):
             max_abs_yaw_error_rad=self.grid_alignment_max_abs_yaw_error_rad,
             max_reported_error_m=self.grid_alignment_max_reported_error_m,
             max_reported_yaw_rad=self.grid_alignment_max_reported_yaw_rad,
+            adjacent_wall_tolerance_m=self.grid_alignment_adjacent_wall_tolerance_m,
+            pair_width_tolerance_m=self.grid_alignment_pair_width_tolerance_m,
         )
 
     def _grid_alignment_snapshot(self) -> GridAlignmentEstimate:
@@ -5812,6 +5842,77 @@ def grid_lateral_drift(
     )
 
 
+def expected_side_offset_m(side: str, expected_half_width_m: float) -> float:
+    if side == 'left':
+        return float(expected_half_width_m)
+    if side == 'right':
+        return -float(expected_half_width_m)
+    raise ValueError(f'Unsupported side {side!r}')
+
+
+def wall_offset_error_m(
+    wall: WallLineEstimate,
+    expected_half_width_m: float,
+) -> float:
+    if not wall.valid:
+        return 0.0
+    return float(wall.offset_m) - expected_side_offset_m(
+        wall.side,
+        expected_half_width_m,
+    )
+
+
+def is_adjacent_wall_line(
+    wall: WallLineEstimate,
+    expected_half_width_m: float,
+    adjacent_wall_tolerance_m: float,
+) -> bool:
+    return bool(
+        wall.valid
+        and abs(wall_offset_error_m(wall, expected_half_width_m))
+        <= float(adjacent_wall_tolerance_m)
+    )
+
+
+def wall_quality_key(wall: WallLineEstimate) -> Tuple[float, int, float]:
+    """Sort key for choosing the more reliable single-wall estimate.
+
+    Lower RMS is best. If tied, more support and more x-span are better.
+    """
+    return (
+        float(wall.rms_error_m),
+        -int(wall.support_count),
+        -float(wall.span_x_m),
+    )
+
+
+def choose_better_wall(
+    left: WallLineEstimate,
+    right: WallLineEstimate,
+) -> WallLineEstimate:
+    candidates = [wall for wall in (left, right) if wall.valid]
+    if not candidates:
+        return invalid_wall_line('none', 'no valid walls to choose from')
+    return min(candidates, key=wall_quality_key)
+
+
+def wall_adjacency_reason(
+    wall: WallLineEstimate,
+    expected_half_width_m: float,
+    adjacent_wall_tolerance_m: float,
+) -> str:
+    if not wall.valid:
+        return f'{wall.side}=invalid({wall.reason})'
+    error = wall_offset_error_m(wall, expected_half_width_m)
+    expected = expected_side_offset_m(wall.side, expected_half_width_m)
+    return (
+        f'{wall.side}=offset {wall.offset_m:.3f} m, '
+        f'expected {expected:.3f} m, '
+        f'error {error:.3f} m, '
+        f'tolerance {float(adjacent_wall_tolerance_m):.3f} m'
+    )
+
+
 def estimate_grid_alignment(
     scan,
     expected_half_width_m: float,
@@ -5825,6 +5926,8 @@ def estimate_grid_alignment(
     max_abs_yaw_error_rad: float,
     max_reported_error_m: float,
     max_reported_yaw_rad: float,
+    adjacent_wall_tolerance_m: float = 0.080,
+    pair_width_tolerance_m: float = 0.080,
 ) -> GridAlignmentEstimate:
     if scan is None:
         return invalid_grid_alignment('no scan')
@@ -5869,24 +5972,87 @@ def estimate_grid_alignment(
             reason=f'no valid wall lines: left={left.reason}; right={right.reason}',
         )
 
-    if left.valid and right.valid:
-        yaw_error = (left.yaw_error_rad + right.yaw_error_rad) / 2.0
-        lateral_error = (left.offset_m + right.offset_m) / 2.0
-        source = 'left_right'
-        confidence = 1.0
-        reason = 'left and right wall lines valid'
-    elif left.valid:
-        yaw_error = left.yaw_error_rad
-        lateral_error = left.offset_m - float(expected_half_width_m)
+    left_adjacent = is_adjacent_wall_line(
+        left,
+        expected_half_width_m=expected_half_width_m,
+        adjacent_wall_tolerance_m=adjacent_wall_tolerance_m,
+    )
+    right_adjacent = is_adjacent_wall_line(
+        right,
+        expected_half_width_m=expected_half_width_m,
+        adjacent_wall_tolerance_m=adjacent_wall_tolerance_m,
+    )
+
+    if left_adjacent and right_adjacent:
+        observed_width = float(left.offset_m) - float(right.offset_m)
+        expected_width = 2.0 * float(expected_half_width_m)
+        width_error = observed_width - expected_width
+        pair_width_valid = abs(width_error) <= float(pair_width_tolerance_m)
+
+        if pair_width_valid:
+            yaw_error = (float(left.yaw_error_rad) + float(right.yaw_error_rad)) / 2.0
+            lateral_error = (float(left.offset_m) + float(right.offset_m)) / 2.0
+            source = 'left_right'
+            confidence = 1.0
+            reason = (
+                'left and right adjacent wall lines valid: '
+                f'observed_width={observed_width:.3f} m, '
+                f'expected_width={expected_width:.3f} m'
+            )
+        else:
+            chosen = choose_better_wall(left, right)
+            yaw_error = float(chosen.yaw_error_rad)
+            lateral_error = wall_offset_error_m(chosen, expected_half_width_m)
+            source = chosen.side
+            confidence = 0.6
+            reason = (
+                'left/right pair rejected by width; '
+                f'observed_width={observed_width:.3f} m, '
+                f'expected_width={expected_width:.3f} m, '
+                f'width_error={width_error:.3f} m, '
+                f'tolerance={float(pair_width_tolerance_m):.3f} m; '
+                f'using adjacent {chosen.side} wall only'
+            )
+
+    elif left_adjacent:
+        yaw_error = float(left.yaw_error_rad)
+        lateral_error = wall_offset_error_m(left, expected_half_width_m)
         source = 'left'
         confidence = 0.6
-        reason = 'left wall line valid'
-    else:
-        yaw_error = right.yaw_error_rad
-        lateral_error = right.offset_m + float(expected_half_width_m)
+        reason = (
+            'using adjacent left wall only; '
+            f'right not adjacent or invalid: '
+            f'{wall_adjacency_reason(right, expected_half_width_m, adjacent_wall_tolerance_m)}'
+        )
+
+    elif right_adjacent:
+        yaw_error = float(right.yaw_error_rad)
+        lateral_error = wall_offset_error_m(right, expected_half_width_m)
         source = 'right'
         confidence = 0.6
-        reason = 'right wall line valid'
+        reason = (
+            'using adjacent right wall only; '
+            f'left not adjacent or invalid: '
+            f'{wall_adjacency_reason(left, expected_half_width_m, adjacent_wall_tolerance_m)}'
+        )
+
+    else:
+        return GridAlignmentEstimate(
+            valid=False,
+            yaw_valid=False,
+            yaw_error_rad=0.0,
+            lateral_valid=False,
+            lateral_error_m=0.0,
+            source='none',
+            confidence=0.0,
+            left=left,
+            right=right,
+            reason=(
+                'no adjacent side walls: '
+                f'{wall_adjacency_reason(left, expected_half_width_m, adjacent_wall_tolerance_m)}; '
+                f'{wall_adjacency_reason(right, expected_half_width_m, adjacent_wall_tolerance_m)}'
+            ),
+        )
 
     yaw_error = max(
         -float(max_reported_yaw_rad),
@@ -6256,12 +6422,12 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'k_grid_yaw',
-            default_value='0.70',
+            default_value='1.20',
             description='Grid yaw correction proportional gain.',
         ),
         DeclareLaunchArgument(
             'max_grid_yaw_correction_radps',
-            default_value='0.045',
+            default_value='0.060',
             description='Absolute cap for grid yaw correction in rad/s.',
         ),
         Node(
@@ -6864,6 +7030,116 @@ def test_estimate_grid_alignment_reports_wall_yaw():
 
     assert estimate.valid
     assert estimate.yaw_error_rad == pytest.approx(math.atan(0.10), abs=0.03)
+
+
+def estimate_grid_alignment_default(
+    scan,
+    expected_half_width_m=0.125,
+    adjacent_wall_tolerance_m=0.080,
+    pair_width_tolerance_m=0.080,
+):
+    return estimate_grid_alignment(
+        scan,
+        expected_half_width_m=expected_half_width_m,
+        min_x_m=-0.18,
+        max_x_m=0.45,
+        min_side_distance_m=0.06,
+        max_side_distance_m=0.45,
+        min_points=8,
+        min_span_x_m=0.12,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+        max_reported_error_m=0.30,
+        max_reported_yaw_rad=0.50,
+        adjacent_wall_tolerance_m=adjacent_wall_tolerance_m,
+        pair_width_tolerance_m=pair_width_tolerance_m,
+    )
+
+
+def test_estimate_grid_alignment_uses_direct_right_not_far_left_pair():
+    # Lab geometry:
+    # - far/open left wall around +0.350 m
+    # - adjacent right wall around -0.142 m
+    # The raw left line may be geometrically valid, but it must not be paired
+    # with the adjacent right wall as the current-cell corridor.
+    scan = make_line_scan([
+        (0.08, 0.350, -0.20, 0.45),
+        (-0.03, -0.142, -0.20, 0.45),
+    ])
+
+    estimate = estimate_grid_alignment_default(scan)
+
+    assert estimate.left.valid
+    assert estimate.right.valid
+    assert estimate.valid
+    assert estimate.source == 'right'
+    assert estimate.confidence == pytest.approx(0.6)
+    assert estimate.yaw_error_rad == pytest.approx(math.atan(-0.03), abs=0.03)
+    assert estimate.lateral_error_m == pytest.approx(-0.017, abs=0.02)
+    assert 'left not adjacent' in estimate.reason
+
+
+def test_estimate_grid_alignment_right_adjacent_lateral_error_sign():
+    scan = make_line_scan([
+        (0.0, -0.142, -0.20, 0.45),
+    ])
+
+    estimate = estimate_grid_alignment_default(scan)
+
+    assert estimate.valid
+    assert estimate.source == 'right'
+    assert estimate.lateral_valid
+    # right.offset + expected_half_width = -0.142 + 0.125 = -0.017.
+    # Negative means desired centerline is to the robot's right.
+    assert estimate.lateral_error_m == pytest.approx(-0.017, abs=0.02)
+
+
+def test_estimate_grid_alignment_far_left_only_is_not_current_cell_alignment():
+    scan = make_line_scan([
+        (0.0, 0.350, -0.20, 0.45),
+    ])
+
+    estimate = estimate_grid_alignment_default(scan)
+
+    assert estimate.left.valid
+    assert not estimate.right.valid
+    assert not estimate.valid
+    assert not estimate.yaw_valid
+    assert not estimate.lateral_valid
+    assert estimate.source == 'none'
+    assert 'no adjacent side walls' in estimate.reason
+
+
+def test_estimate_grid_alignment_direct_pair_still_left_right():
+    scan = make_line_scan([
+        (0.0, 0.125, -0.20, 0.45),
+        (0.0, -0.125, -0.20, 0.45),
+    ])
+
+    estimate = estimate_grid_alignment_default(scan)
+
+    assert estimate.valid
+    assert estimate.source == 'left_right'
+    assert estimate.confidence == pytest.approx(1.0)
+    assert estimate.yaw_error_rad == pytest.approx(0.0, abs=0.02)
+    assert estimate.lateral_error_m == pytest.approx(0.0, abs=0.02)
+
+
+def test_estimate_grid_alignment_rejects_bad_pair_width_and_uses_better_wall():
+    # Both walls are barely individually adjacent, but together imply a corridor
+    # much wider than the current cell. This must not become left_right.
+    # Left has fewer points/span and worse geometry; right should be selected.
+    scan = make_line_scan([
+        (0.05, 0.204, -0.05, 0.20),
+        (-0.02, -0.204, -0.20, 0.45),
+    ])
+
+    estimate = estimate_grid_alignment_default(scan)
+
+    assert estimate.valid
+    assert estimate.source in {'left', 'right'}
+    assert estimate.source != 'left_right'
+    assert 'pair rejected by width' in estimate.reason
 
 
 # ================== FILE 53: ros2_ws/src/darth_maul_control_interfaces/CMakeLists.txt ==================

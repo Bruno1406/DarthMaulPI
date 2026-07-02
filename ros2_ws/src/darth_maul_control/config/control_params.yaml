@@ -90,6 +90,24 @@ darth_maul_control:
     # This is used only for one-wall lateral error diagnostics.
     grid_alignment_expected_half_width_m: 0.125
 
+    # A geometrically valid side-wall line is only an adjacent current-cell wall
+    # if its fitted offset is close to the expected centered side-wall offset.
+    #
+    # Expected centered offsets:
+    #   left adjacent wall:  +grid_alignment_expected_half_width_m
+    #   right adjacent wall: -grid_alignment_expected_half_width_m
+    #
+    # Example from lab:
+    #   right offset -0.142 is adjacent for expected -0.125
+    #   left offset +0.350 is not adjacent for expected +0.125
+    grid_alignment_adjacent_wall_tolerance_m: 0.080
+
+    # If both side-wall lines are individually adjacent, they are only used as
+    # a paired left_right corridor if their observed width is plausible.
+    # observed_width = left.offset_m - right.offset_m
+    # expected_width = 2 * grid_alignment_expected_half_width_m
+    grid_alignment_pair_width_tolerance_m: 0.080
+
     # Side wall candidate filter in robot base frame.
     # x is forward, y is left. A useful side wall must have enough points
     # beside the robot over a longitudinal span.
@@ -118,8 +136,10 @@ darth_maul_control:
     # It does not command lateral strafe and it does not replace front/rear LiDAR distance stopping.
     grid_alignment_control_enabled: false
     grid_yaw_correction_enabled: false
-    k_grid_yaw: 0.70
-    max_grid_yaw_correction_radps: 0.045
+    # Lab-tuned on 2026-07-02:
+    # k=0.70 corrected weakly; k=1.20 visibly corrected more strongly without observed snaking.
+    k_grid_yaw: 1.20
+    max_grid_yaw_correction_radps: 0.060
     grid_yaw_min_confidence_for_control: 0.60
     grid_yaw_max_abs_error_for_control_rad: 0.20
     grid_yaw_memory_timeout_s: 0.35

@@ -487,3 +487,113 @@ def test_estimate_grid_alignment_reports_wall_yaw():
 
     assert estimate.valid
     assert estimate.yaw_error_rad == pytest.approx(math.atan(0.10), abs=0.03)
+
+
+def estimate_grid_alignment_default(
+    scan,
+    expected_half_width_m=0.125,
+    adjacent_wall_tolerance_m=0.080,
+    pair_width_tolerance_m=0.080,
+):
+    return estimate_grid_alignment(
+        scan,
+        expected_half_width_m=expected_half_width_m,
+        min_x_m=-0.18,
+        max_x_m=0.45,
+        min_side_distance_m=0.06,
+        max_side_distance_m=0.45,
+        min_points=8,
+        min_span_x_m=0.12,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+        max_reported_error_m=0.30,
+        max_reported_yaw_rad=0.50,
+        adjacent_wall_tolerance_m=adjacent_wall_tolerance_m,
+        pair_width_tolerance_m=pair_width_tolerance_m,
+    )
+
+
+def test_estimate_grid_alignment_uses_direct_right_not_far_left_pair():
+    # Lab geometry:
+    # - far/open left wall around +0.350 m
+    # - adjacent right wall around -0.142 m
+    # The raw left line may be geometrically valid, but it must not be paired
+    # with the adjacent right wall as the current-cell corridor.
+    scan = make_line_scan([
+        (0.08, 0.350, -0.20, 0.45),
+        (-0.03, -0.142, -0.20, 0.45),
+    ])
+
+    estimate = estimate_grid_alignment_default(scan)
+
+    assert estimate.left.valid
+    assert estimate.right.valid
+    assert estimate.valid
+    assert estimate.source == 'right'
+    assert estimate.confidence == pytest.approx(0.6)
+    assert estimate.yaw_error_rad == pytest.approx(math.atan(-0.03), abs=0.03)
+    assert estimate.lateral_error_m == pytest.approx(-0.017, abs=0.02)
+    assert 'left not adjacent' in estimate.reason
+
+
+def test_estimate_grid_alignment_right_adjacent_lateral_error_sign():
+    scan = make_line_scan([
+        (0.0, -0.142, -0.20, 0.45),
+    ])
+
+    estimate = estimate_grid_alignment_default(scan)
+
+    assert estimate.valid
+    assert estimate.source == 'right'
+    assert estimate.lateral_valid
+    # right.offset + expected_half_width = -0.142 + 0.125 = -0.017.
+    # Negative means desired centerline is to the robot's right.
+    assert estimate.lateral_error_m == pytest.approx(-0.017, abs=0.02)
+
+
+def test_estimate_grid_alignment_far_left_only_is_not_current_cell_alignment():
+    scan = make_line_scan([
+        (0.0, 0.350, -0.20, 0.45),
+    ])
+
+    estimate = estimate_grid_alignment_default(scan)
+
+    assert estimate.left.valid
+    assert not estimate.right.valid
+    assert not estimate.valid
+    assert not estimate.yaw_valid
+    assert not estimate.lateral_valid
+    assert estimate.source == 'none'
+    assert 'no adjacent side walls' in estimate.reason
+
+
+def test_estimate_grid_alignment_direct_pair_still_left_right():
+    scan = make_line_scan([
+        (0.0, 0.125, -0.20, 0.45),
+        (0.0, -0.125, -0.20, 0.45),
+    ])
+
+    estimate = estimate_grid_alignment_default(scan)
+
+    assert estimate.valid
+    assert estimate.source == 'left_right'
+    assert estimate.confidence == pytest.approx(1.0)
+    assert estimate.yaw_error_rad == pytest.approx(0.0, abs=0.02)
+    assert estimate.lateral_error_m == pytest.approx(0.0, abs=0.02)
+
+
+def test_estimate_grid_alignment_rejects_bad_pair_width_and_uses_better_wall():
+    # Both walls are barely individually adjacent, but together imply a corridor
+    # much wider than the current cell. This must not become left_right.
+    # Left has fewer points/span and worse geometry; right should be selected.
+    scan = make_line_scan([
+        (0.05, 0.204, -0.05, 0.20),
+        (-0.02, -0.204, -0.20, 0.45),
+    ])
+
+    estimate = estimate_grid_alignment_default(scan)
+
+    assert estimate.valid
+    assert estimate.source in {'left', 'right'}
+    assert estimate.source != 'left_right'
+    assert 'pair rejected by width' in estimate.reason
