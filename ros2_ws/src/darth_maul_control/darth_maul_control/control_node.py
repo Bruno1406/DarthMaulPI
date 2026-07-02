@@ -21,6 +21,7 @@ from darth_maul_control.scan_geometry import (
     WallLineEstimate,
     cardinal_sector_ranges,
     choose_lidar_progress,
+    choose_heading_validation_error,
     choose_translation_progress,
     compose_angular_command,
     estimate_grid_alignment,
@@ -1005,18 +1006,40 @@ class DarthMaulControlNode(Node):
                     final_position_error = abs(remaining)
                     final_heading_error = abs(heading_error)
 
+                final_alignment_for_validation = self._grid_alignment_snapshot()
+                (
+                    final_heading_validation_error,
+                    final_heading_validation_source,
+                ) = choose_heading_validation_error(
+                    odom_heading_error_rad=final_heading_error,
+                    grid_yaw_error_rad=final_alignment_for_validation.yaw_error_rad,
+                    grid_yaw_valid=(
+                        final_alignment_for_validation.valid
+                        and final_alignment_for_validation.yaw_valid
+                    ),
+                    grid_yaw_correction_used=grid_yaw_correction_ever_used,
+                    grid_alignment_confidence=final_alignment_for_validation.confidence,
+                    min_grid_confidence=self.grid_yaw_min_confidence_for_control,
+                    max_grid_yaw_abs_error_rad=(
+                        self.grid_yaw_max_abs_error_for_control_rad
+                    ),
+                    grid_alignment_source=final_alignment_for_validation.source,
+                )
+
                 if (
                     self.enforce_final_error
                     and (
                         final_position_error > position_tol * 1.5
-                        or final_heading_error > heading_tol * 1.5
+                        or final_heading_validation_error > heading_tol * 1.5
                     )
                 ):
                     result_code = ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
                     result_message = (
                         f'{name} final error too large: '
                         f'pos={final_position_error:.3f} m, '
-                        f'heading={final_heading_error:.3f} rad'
+                        f'heading={final_heading_validation_error:.3f} rad '
+                        f'({final_heading_validation_source}; '
+                        f'odom_heading={final_heading_error:.3f} rad)'
                     )
                     break
 
@@ -1025,7 +1048,9 @@ class DarthMaulControlNode(Node):
                 result_message = (
                     f'{name} succeeded: '
                     f'pos_error={final_position_error:.3f} m, '
-                    f'heading_error={final_heading_error:.3f} rad'
+                    f'heading_error={final_heading_validation_error:.3f} rad '
+                    f'({final_heading_validation_source}; '
+                    f'odom_heading={final_heading_error:.3f} rad)'
                 )
                 break
 

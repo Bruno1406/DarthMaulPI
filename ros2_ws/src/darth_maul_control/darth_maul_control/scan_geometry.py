@@ -261,6 +261,29 @@ def compose_angular_command(
     )
 
 
+def choose_heading_validation_error(
+    odom_heading_error_rad: float,
+    grid_yaw_error_rad: float,
+    grid_yaw_valid: bool,
+    grid_yaw_correction_used: bool,
+    grid_alignment_confidence: float,
+    min_grid_confidence: float,
+    max_grid_yaw_abs_error_rad: float,
+    grid_alignment_source: str = 'grid',
+) -> Tuple[float, str]:
+    grid_error = abs(float(grid_yaw_error_rad))
+    if (
+        grid_yaw_correction_used
+        and grid_yaw_valid
+        and float(grid_alignment_confidence) >= float(min_grid_confidence)
+        and grid_error <= float(max_grid_yaw_abs_error_rad)
+    ):
+        source = str(grid_alignment_source) if grid_alignment_source else 'grid'
+        return grid_error, f'grid_yaw/{source}'
+
+    return abs(float(odom_heading_error_rad)), 'odom'
+
+
 def grid_lateral_drift(
     start_valid: bool,
     start_error_m: float,

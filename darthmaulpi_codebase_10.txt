@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 258
-Skipped files: 12340
+Skipped files: 12365
 
 # Included File Index
 
@@ -270,7 +270,7 @@ Skipped files: 12340
 - binary, media, generated, or not useful as text: 57
 - not UTF-8 text: 1
 - previous merged output: 1
-- skipped directory: 12281
+- skipped directory: 12306
 
 # File Contents
 
@@ -3295,6 +3295,7 @@ from darth_maul_control.scan_geometry import (
     WallLineEstimate,
     cardinal_sector_ranges,
     choose_lidar_progress,
+    choose_heading_validation_error,
     choose_translation_progress,
     compose_angular_command,
     estimate_grid_alignment,
@@ -4279,18 +4280,40 @@ class DarthMaulControlNode(Node):
                     final_position_error = abs(remaining)
                     final_heading_error = abs(heading_error)
 
+                final_alignment_for_validation = self._grid_alignment_snapshot()
+                (
+                    final_heading_validation_error,
+                    final_heading_validation_source,
+                ) = choose_heading_validation_error(
+                    odom_heading_error_rad=final_heading_error,
+                    grid_yaw_error_rad=final_alignment_for_validation.yaw_error_rad,
+                    grid_yaw_valid=(
+                        final_alignment_for_validation.valid
+                        and final_alignment_for_validation.yaw_valid
+                    ),
+                    grid_yaw_correction_used=grid_yaw_correction_ever_used,
+                    grid_alignment_confidence=final_alignment_for_validation.confidence,
+                    min_grid_confidence=self.grid_yaw_min_confidence_for_control,
+                    max_grid_yaw_abs_error_rad=(
+                        self.grid_yaw_max_abs_error_for_control_rad
+                    ),
+                    grid_alignment_source=final_alignment_for_validation.source,
+                )
+
                 if (
                     self.enforce_final_error
                     and (
                         final_position_error > position_tol * 1.5
-                        or final_heading_error > heading_tol * 1.5
+                        or final_heading_validation_error > heading_tol * 1.5
                     )
                 ):
                     result_code = ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
                     result_message = (
                         f'{name} final error too large: '
                         f'pos={final_position_error:.3f} m, '
-                        f'heading={final_heading_error:.3f} rad'
+                        f'heading={final_heading_validation_error:.3f} rad '
+                        f'({final_heading_validation_source}; '
+                        f'odom_heading={final_heading_error:.3f} rad)'
                     )
                     break
 
@@ -4299,7 +4322,9 @@ class DarthMaulControlNode(Node):
                 result_message = (
                     f'{name} succeeded: '
                     f'pos_error={final_position_error:.3f} m, '
-                    f'heading_error={final_heading_error:.3f} rad'
+                    f'heading_error={final_heading_validation_error:.3f} rad '
+                    f'({final_heading_validation_source}; '
+                    f'odom_heading={final_heading_error:.3f} rad)'
                 )
                 break
 
@@ -5837,6 +5862,29 @@ def compose_angular_command(
     )
 
 
+def choose_heading_validation_error(
+    odom_heading_error_rad: float,
+    grid_yaw_error_rad: float,
+    grid_yaw_valid: bool,
+    grid_yaw_correction_used: bool,
+    grid_alignment_confidence: float,
+    min_grid_confidence: float,
+    max_grid_yaw_abs_error_rad: float,
+    grid_alignment_source: str = 'grid',
+) -> Tuple[float, str]:
+    grid_error = abs(float(grid_yaw_error_rad))
+    if (
+        grid_yaw_correction_used
+        and grid_yaw_valid
+        and float(grid_alignment_confidence) >= float(min_grid_confidence)
+        and grid_error <= float(max_grid_yaw_abs_error_rad)
+    ):
+        source = str(grid_alignment_source) if grid_alignment_source else 'grid'
+        return grid_error, f'grid_yaw/{source}'
+
+    return abs(float(odom_heading_error_rad)), 'odom'
+
+
 def grid_lateral_drift(
     start_valid: bool,
     start_error_m: float,
@@ -6522,6 +6570,7 @@ def generate_launch_description():
 import pytest
 
 from darth_maul_control.scan_geometry import (
+    choose_heading_validation_error,
     compose_angular_command,
     grid_lateral_drift,
     grid_yaw_correction_radps,
@@ -6626,6 +6675,86 @@ def test_compose_angular_command_clamps_heading_hold_scale():
         grid_yaw_active=True,
         grid_yaw_active_heading_hold_scale=2.0,
     ) == pytest.approx(-0.02)
+
+
+def test_heading_validation_uses_odom_when_grid_correction_unused():
+    error, source = choose_heading_validation_error(
+        odom_heading_error_rad=0.073,
+        grid_yaw_error_rad=0.001,
+        grid_yaw_valid=True,
+        grid_yaw_correction_used=False,
+        grid_alignment_confidence=0.6,
+        min_grid_confidence=0.5,
+        max_grid_yaw_abs_error_rad=0.10,
+        grid_alignment_source='right',
+    )
+
+    assert error == pytest.approx(0.073)
+    assert source == 'odom'
+
+
+def test_heading_validation_uses_valid_confident_grid_yaw():
+    error, source = choose_heading_validation_error(
+        odom_heading_error_rad=0.073,
+        grid_yaw_error_rad=-0.001,
+        grid_yaw_valid=True,
+        grid_yaw_correction_used=True,
+        grid_alignment_confidence=0.6,
+        min_grid_confidence=0.5,
+        max_grid_yaw_abs_error_rad=0.10,
+        grid_alignment_source='right',
+    )
+
+    assert error == pytest.approx(0.001)
+    assert source == 'grid_yaw/right'
+
+
+def test_heading_validation_uses_odom_when_grid_confidence_low():
+    error, source = choose_heading_validation_error(
+        odom_heading_error_rad=0.073,
+        grid_yaw_error_rad=0.001,
+        grid_yaw_valid=True,
+        grid_yaw_correction_used=True,
+        grid_alignment_confidence=0.4,
+        min_grid_confidence=0.5,
+        max_grid_yaw_abs_error_rad=0.10,
+        grid_alignment_source='right',
+    )
+
+    assert error == pytest.approx(0.073)
+    assert source == 'odom'
+
+
+def test_heading_validation_uses_odom_when_grid_invalid():
+    error, source = choose_heading_validation_error(
+        odom_heading_error_rad=0.073,
+        grid_yaw_error_rad=0.001,
+        grid_yaw_valid=False,
+        grid_yaw_correction_used=True,
+        grid_alignment_confidence=0.6,
+        min_grid_confidence=0.5,
+        max_grid_yaw_abs_error_rad=0.10,
+        grid_alignment_source='right',
+    )
+
+    assert error == pytest.approx(0.073)
+    assert source == 'odom'
+
+
+def test_heading_validation_uses_odom_when_grid_yaw_too_large():
+    error, source = choose_heading_validation_error(
+        odom_heading_error_rad=0.073,
+        grid_yaw_error_rad=0.12,
+        grid_yaw_valid=True,
+        grid_yaw_correction_used=True,
+        grid_alignment_confidence=0.6,
+        min_grid_confidence=0.5,
+        max_grid_yaw_abs_error_rad=0.10,
+        grid_alignment_source='right',
+    )
+
+    assert error == pytest.approx(0.073)
+    assert source == 'odom'
 
 
 # ================== FILE 52: ros2_ws/src/darth_maul_control/test/test_scan_geometry.py ==================
