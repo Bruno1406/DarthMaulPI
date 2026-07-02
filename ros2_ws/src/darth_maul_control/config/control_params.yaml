@@ -53,15 +53,17 @@ darth_maul_control:
     lidar_diagnostic_sector_width_deg: 10.0
     lidar_diagnostic_min_samples: 3
 
-    # Translation progress source for DRIVE_FORWARD, DRIVE_BACKWARD, and ADVANCE_CELL.
-    #   odom_only:
-    #     old behavior; use odom progress for stopping.
-    #   lidar_when_consistent:
-    #     use LiDAR front/rear progress when valid and consistent;
-    #     fall back to odom otherwise.
-    #   lidar_required:
-    #     require valid and consistent LiDAR progress; abort translation if unavailable.
-    translation_progress_source: lidar_when_consistent
+    # Final maze mode requires LiDAR front/rear progress for straight distance.
+    # Odom is diagnostic only in this mode because /odom is command-integrated and
+    # can be wrong by 50-70 mm over a 3-cell move.
+    # Debug alternatives:
+    #   lidar_when_consistent: use LiDAR when valid, otherwise fall back to odom
+    #   odom_only: use odom only
+    translation_progress_source: lidar_required
+
+    # Grace window for noisy/missing LiDAR progress in lidar_required mode.
+    # During this window the robot holds still and odom remains diagnostic only.
+    translation_lidar_required_invalid_grace_s: 0.20
 
     # Maximum allowed disagreement between front and rear LiDAR progress.
     # If both are valid and disagree more than this, reject LiDAR progress.

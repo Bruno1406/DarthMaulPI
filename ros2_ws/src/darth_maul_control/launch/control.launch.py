@@ -27,6 +27,7 @@ def generate_launch_description():
     grid_yaw_active_heading_hold_scale = LaunchConfiguration(
         'grid_yaw_active_heading_hold_scale'
     )
+    translation_progress_source = LaunchConfiguration('translation_progress_source')
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -59,6 +60,14 @@ def generate_launch_description():
             default_value='0.0',
             description='Heading-hold scale while grid yaw correction is active.',
         ),
+        DeclareLaunchArgument(
+            'translation_progress_source',
+            default_value='lidar_required',
+            description=(
+                'Translation distance authority: lidar_required, '
+                'lidar_when_consistent, or odom_only.'
+            ),
+        ),
         Node(
             package=package_name,
             executable='control_node',
@@ -85,6 +94,10 @@ def generate_launch_description():
                     'grid_yaw_active_heading_hold_scale': ParameterValue(
                         grid_yaw_active_heading_hold_scale,
                         value_type=float,
+                    ),
+                    'translation_progress_source': ParameterValue(
+                        translation_progress_source,
+                        value_type=str,
                     ),
                 },
             ],

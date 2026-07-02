@@ -339,7 +339,7 @@ class DarthMaulControlNode(Node):
         )
         self.translation_progress_source = self._string_param(
             'translation_progress_source',
-            'lidar_when_consistent',
+            'lidar_required',
         )
         if self.translation_progress_source not in (
             'odom_only',
@@ -351,6 +351,12 @@ class DarthMaulControlNode(Node):
                 'falling back to odom_only'
             )
             self.translation_progress_source = 'odom_only'
+        self.translation_lidar_required_invalid_grace_s = (
+            self._nonnegative_float_param(
+                'translation_lidar_required_invalid_grace_s',
+                0.20,
+            )
+        )
 
         self.lidar_progress_max_disagreement_m = self._positive_float_param(
             'lidar_progress_max_disagreement_m',
@@ -812,14 +818,16 @@ class DarthMaulControlNode(Node):
         max_speed = max(max_speed, self.min_linear_x_mps)
 
         timeout_s = self._translation_timeout(request.timeout_s, target_distance, max_speed)
+        lidar_required_mode = self.translation_progress_source == 'lidar_required'
 
         if direction > 0.0 and bool(request.collision_check_enabled):
             if self.require_scan_for_forward and not self._is_scan_fresh():
-                return self._fail_goal(
-                    goal_handle,
-                    ExecuteMotionPrimitive.Result.OBSTACLE_TOO_CLOSE,
-                    f'{name} requires fresh LiDAR scan',
-                )
+                if not lidar_required_mode:
+                    return self._fail_goal(
+                        goal_handle,
+                        ExecuteMotionPrimitive.Result.OBSTACLE_TOO_CLOSE,
+                        f'{name} requires fresh LiDAR scan',
+                    )
 
             clearance = self._front_clearance()
             if clearance < self.front_stop_distance_m:
@@ -837,6 +845,20 @@ class DarthMaulControlNode(Node):
         start_ranges = self._cardinal_range_snapshot()
         start_alignment = self._grid_alignment_snapshot()
         start_time = time.monotonic()
+        lidar_required_start_acquired = True
+        if lidar_required_mode:
+            start_diagnostics = self._translation_diagnostics(
+                direction=direction,
+                odom_progress_m=0.0,
+                start_ranges=start_ranges,
+                end_ranges=start_ranges,
+            )
+            start_selection = self._select_translation_progress(
+                odom_progress_m=0.0,
+                diagnostics=start_diagnostics,
+            )
+            lidar_required_start_acquired = start_selection.valid
+
         self._begin_grid_yaw_control_memory(
             start_alignment,
             accept_updates=direction > 0.0,
@@ -863,7 +885,11 @@ class DarthMaulControlNode(Node):
         final_heading_error = 0.0
         final_odom_progress = 0.0
         final_control_progress = 0.0
-        final_progress_source_used = 'odom'
+        final_progress_source_used = (
+            'lidar_required_unavailable'
+            if lidar_required_mode
+            else 'odom'
+        )
         final_control_progress_reason = ''
         translation_diagnostics = TranslationDiagnostics()
         final_grid_yaw_correction = GridYawCorrection(
@@ -874,6 +900,9 @@ class DarthMaulControlNode(Node):
             using_memory=False,
         )
         grid_yaw_correction_ever_used = False
+        lidar_required_invalid_started_s: Optional[float] = None
+        lidar_required_invalid_elapsed_s = 0.0
+        preserve_failure_progress_diagnostics = False
 
         while True:
             if self._cancel_or_stop_requested(goal_handle):
@@ -904,18 +933,107 @@ class DarthMaulControlNode(Node):
 
             current_ranges = self._cardinal_range_snapshot()
             current_alignment = self._grid_alignment_snapshot()
-            current_diagnostics = self._translation_diagnostics(
-                direction=direction,
-                odom_progress_m=odom_progress,
-                start_ranges=start_ranges,
-                end_ranges=current_ranges,
-            )
-            progress_selection = self._select_translation_progress(
-                odom_progress_m=odom_progress,
-                diagnostics=current_diagnostics,
-            )
+            if lidar_required_mode and not lidar_required_start_acquired:
+                current_diagnostics = self._translation_diagnostics(
+                    direction=direction,
+                    odom_progress_m=0.0,
+                    start_ranges=current_ranges,
+                    end_ranges=current_ranges,
+                )
+                progress_selection = self._select_translation_progress(
+                    odom_progress_m=0.0,
+                    diagnostics=current_diagnostics,
+                )
+                if progress_selection.valid:
+                    start = current
+                    start_ranges = current_ranges
+                    start_alignment = current_alignment
+                    odom_progress = 0.0
+                    final_odom_progress = 0.0
+                    lidar_required_start_acquired = True
+                    self._begin_grid_yaw_control_memory(
+                        start_alignment,
+                        accept_updates=direction > 0.0,
+                    )
+            else:
+                current_diagnostics = self._translation_diagnostics(
+                    direction=direction,
+                    odom_progress_m=odom_progress,
+                    start_ranges=start_ranges,
+                    end_ranges=current_ranges,
+                )
+                progress_selection = self._select_translation_progress(
+                    odom_progress_m=odom_progress,
+                    diagnostics=current_diagnostics,
+                )
 
             if not progress_selection.valid:
+                if lidar_required_mode:
+                    now_ros_s = self._ros_time_seconds()
+                    if lidar_required_invalid_started_s is None:
+                        lidar_required_invalid_started_s = now_ros_s
+                    lidar_required_invalid_elapsed_s = max(
+                        0.0,
+                        now_ros_s - lidar_required_invalid_started_s,
+                    )
+                    final_progress_source_used = progress_selection.source
+                    final_control_progress_reason = progress_selection.reason
+                    translation_diagnostics = replace(
+                        current_diagnostics,
+                        final_control_progress_m=final_control_progress,
+                        progress_source_used=final_progress_source_used,
+                        control_progress_reason=final_control_progress_reason,
+                    )
+                    self.publish_zero_twist()
+
+                    if (
+                        lidar_required_invalid_elapsed_s
+                        >= self.translation_lidar_required_invalid_grace_s
+                    ):
+                        result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
+                        preserve_failure_progress_diagnostics = True
+                        result_message = (
+                            f'{name} failed: LiDAR progress required but '
+                            'unavailable/inconsistent for '
+                            f'{lidar_required_invalid_elapsed_s:.2f} s; '
+                            f'{current_diagnostics.lidar_progress_reason}; '
+                            f'odom progress {odom_progress:.3f} m ignored'
+                        )
+                        break
+
+                    self._update_motion_state(
+                        distance_remaining=max(
+                            0.0,
+                            target_distance - final_control_progress,
+                        ),
+                        distance_traveled=max(0.0, final_control_progress),
+                        heading_error=0.0,
+                        status=(
+                            f'{name}: waiting for required LiDAR progress; '
+                            f'invalid_for={lidar_required_invalid_elapsed_s:.2f} s, '
+                            f'grace={self.translation_lidar_required_invalid_grace_s:.2f} s, '
+                            f'odom_progress={odom_progress:.3f} m ignored, '
+                            f'control_progress={final_control_progress:.3f} m, '
+                            f'reason={progress_selection.reason}'
+                        ),
+                    )
+                    self._publish_feedback(
+                        goal_handle,
+                        progress=clamp(
+                            final_control_progress / max(target_distance, 1e-6),
+                            0.0,
+                            1.0,
+                        ),
+                        distance_remaining=max(
+                            0.0,
+                            target_distance - final_control_progress,
+                        ),
+                        heading_remaining=0.0,
+                        state=name,
+                    )
+                    time.sleep(1.0 / self.control_rate_hz)
+                    continue
+
                 result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
                 result_message = (
                     f'{name} aborted: invalid translation progress source: '
@@ -929,6 +1047,8 @@ class DarthMaulControlNode(Node):
                 )
                 break
 
+            lidar_required_invalid_started_s = None
+            lidar_required_invalid_elapsed_s = 0.0
             control_progress = max(0.0, progress_selection.progress_m)
             final_control_progress = control_progress
             final_progress_source_used = progress_selection.source
@@ -985,15 +1105,20 @@ class DarthMaulControlNode(Node):
 
                     if not final_selection.valid:
                         result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
+                        preserve_failure_progress_diagnostics = True
+                        final_progress_source_used = final_selection.source
+                        final_control_progress_reason = final_selection.reason
                         result_message = (
-                            f'{name} final progress invalid: '
-                            f'{final_selection.reason}'
+                            f'{name} failed: final LiDAR progress required '
+                            'but unavailable/inconsistent; '
+                            f'{final_diagnostics.lidar_progress_reason}; '
+                            f'odom progress {odom_progress:.3f} m ignored'
                         )
                         translation_diagnostics = replace(
                             final_diagnostics,
-                            final_control_progress_m=final_selection.progress_m,
-                            progress_source_used=final_selection.source,
-                            control_progress_reason=final_selection.reason,
+                            final_control_progress_m=final_control_progress,
+                            progress_source_used=final_progress_source_used,
+                            control_progress_reason=final_control_progress_reason,
                         )
                         break
 
@@ -1050,7 +1175,9 @@ class DarthMaulControlNode(Node):
                     f'pos_error={final_position_error:.3f} m, '
                     f'heading_error={final_heading_validation_error:.3f} rad '
                     f'({final_heading_validation_source}; '
-                    f'odom_heading={final_heading_error:.3f} rad)'
+                    f'odom_heading={final_heading_error:.3f} rad), '
+                    f'progress={final_control_progress:.3f} m '
+                    f'from {final_progress_source_used}'
                 )
                 break
 
@@ -1148,7 +1275,7 @@ class DarthMaulControlNode(Node):
             diagnostics=translation_diagnostics,
         )
 
-        if final_selection.valid:
+        if final_selection.valid and not preserve_failure_progress_diagnostics:
             final_control_progress = max(0.0, final_selection.progress_m)
             final_progress_source_used = final_selection.source
             final_control_progress_reason = final_selection.reason
@@ -1685,7 +1812,12 @@ class DarthMaulControlNode(Node):
         end_ranges: Optional[LidarRangeSnapshot],
     ) -> TranslationDiagnostics:
         if start_ranges is None or end_ranges is None:
-            return TranslationDiagnostics(odom_progress_m=float(max(0.0, odom_progress_m)))
+            return TranslationDiagnostics(
+                odom_progress_m=float(max(0.0, odom_progress_m)),
+                lidar_progress_valid=False,
+                lidar_progress_source='none',
+                lidar_progress_reason='LiDAR range snapshot unavailable or stale',
+            )
 
         front_valid = start_ranges.front.valid and end_ranges.front.valid
         rear_valid = start_ranges.rear.valid and end_ranges.rear.valid
@@ -1904,6 +2036,9 @@ class DarthMaulControlNode(Node):
         fallback = abs(angle) / max(abs(speed), 1e-3) + self.timeout_margin_sec
         fallback = max(fallback, 3.0)
         return self._goal_timeout(requested, fallback)
+
+    def _ros_time_seconds(self) -> float:
+        return float(self.get_clock().now().nanoseconds) * 1e-9
 
     def _apply_acceleration_limits(self, desired: Twist) -> Twist:
         now = time.monotonic()

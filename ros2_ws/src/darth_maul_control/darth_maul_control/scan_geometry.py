@@ -745,9 +745,12 @@ def choose_translation_progress(
             if mode == 'lidar_required':
                 return TranslationProgressSelection(
                     valid=False,
-                    progress_m=odom_progress,
-                    source='none',
-                    reason=reason,
+                    progress_m=0.0,
+                    source='lidar_required_unavailable',
+                    reason=(
+                        'LiDAR progress required but rejected: '
+                        f'{reason}; odom progress {odom_progress:.3f} m ignored'
+                    ),
                 )
 
             return TranslationProgressSelection(
@@ -768,9 +771,13 @@ def choose_translation_progress(
     if mode == 'lidar_required':
         return TranslationProgressSelection(
             valid=False,
-            progress_m=odom_progress,
-            source='none',
-            reason='LiDAR progress required but invalid: ' + lidar_estimate.reason,
+            progress_m=0.0,
+            source='lidar_required_unavailable',
+            reason=(
+                'LiDAR progress required but unavailable/inconsistent: '
+                f'{lidar_estimate.reason}; '
+                f'odom progress {odom_progress:.3f} m ignored'
+            ),
         )
 
     return TranslationProgressSelection(

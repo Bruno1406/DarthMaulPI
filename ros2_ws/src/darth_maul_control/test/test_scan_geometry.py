@@ -223,6 +223,29 @@ def test_choose_translation_progress_uses_lidar_when_consistent():
     assert selection.progress_m == pytest.approx(0.2145)
 
 
+def test_choose_translation_progress_lidar_required_uses_valid_lidar():
+    lidar = choose_lidar_progress(
+        True,
+        0.770,
+        True,
+        0.754,
+        max_disagreement_m=0.025,
+        min_progress_m=-0.010,
+        allow_single_source=True,
+    )
+
+    selection = choose_translation_progress(
+        odom_progress_m=0.822,
+        lidar_estimate=lidar,
+        mode='lidar_required',
+        max_lidar_ahead_of_odom_m=0.060,
+    )
+
+    assert selection.valid
+    assert selection.source == 'lidar'
+    assert selection.progress_m == pytest.approx(0.762)
+
+
 def test_choose_translation_progress_falls_back_to_odom_when_lidar_invalid():
     lidar = choose_lidar_progress(
         True,
@@ -244,6 +267,7 @@ def test_choose_translation_progress_falls_back_to_odom_when_lidar_invalid():
     assert selection.valid
     assert selection.source == 'odom'
     assert selection.progress_m == pytest.approx(0.249)
+    assert 'falling back to odom' in selection.reason
 
 
 def test_choose_translation_progress_rejects_when_lidar_required_and_invalid():
@@ -265,7 +289,37 @@ def test_choose_translation_progress_rejects_when_lidar_required_and_invalid():
     )
 
     assert not selection.valid
-    assert selection.source == 'none'
+    assert selection.source != 'odom'
+    assert selection.source == 'lidar_required_unavailable'
+    assert selection.progress_m == pytest.approx(0.0)
+    assert 'LiDAR progress required' in selection.reason
+    assert 'odom progress 0.249 m ignored' in selection.reason
+
+
+def test_choose_translation_progress_lidar_required_rejects_lab_disagreement():
+    lidar = choose_lidar_progress(
+        True,
+        0.731,
+        True,
+        0.689,
+        max_disagreement_m=0.025,
+        min_progress_m=-0.010,
+        allow_single_source=True,
+    )
+
+    selection = choose_translation_progress(
+        odom_progress_m=0.759,
+        lidar_estimate=lidar,
+        mode='lidar_required',
+        max_lidar_ahead_of_odom_m=0.060,
+    )
+
+    assert not selection.valid
+    assert selection.source == 'lidar_required_unavailable'
+    assert selection.source != 'odom'
+    assert selection.progress_m == pytest.approx(0.0)
+    assert 'front/rear progress disagreement 0.042 m > 0.025 m' in selection.reason
+    assert 'odom progress 0.759 m ignored' in selection.reason
 
 
 def test_choose_translation_progress_rejects_lidar_implausibly_ahead_of_odom():

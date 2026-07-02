@@ -1,8 +1,8 @@
 # DarthMaulPI Codebase Text Snapshot
 
 Project root: /home/dtdav/Development/DarthMaulPI
-Included files: 258
-Skipped files: 12365
+Included files: 259
+Skipped files: 12426
 
 # Included File Index
 
@@ -56,221 +56,222 @@ Skipped files: 12365
 48. ros2_ws/src/darth_maul_control/darth_maul_control/velocity_limiter.py
 49. ros2_ws/src/darth_maul_control/launch/control.launch.py
 50. ros2_ws/src/darth_maul_control/resource/darth_maul_control
-51. ros2_ws/src/darth_maul_control/test/test_grid_control_logic.py
-52. ros2_ws/src/darth_maul_control/test/test_scan_geometry.py
-53. ros2_ws/src/darth_maul_control_interfaces/CMakeLists.txt
-54. ros2_ws/src/darth_maul_control_interfaces/package.xml
-55. ros2_ws/src/darth_maul_control_interfaces/action/ExecuteMotionPrimitive.action
-56. ros2_ws/src/darth_maul_control_interfaces/msg/ControlStatus.msg
-57. ros2_ws/src/driver/controller/package.xml
-58. ros2_ws/src/driver/controller/setup.cfg
-59. ros2_ws/src/driver/controller/setup.py
-60. ros2_ws/src/driver/controller/config/calibrate_params.yaml
-61. ros2_ws/src/driver/controller/config/ekf.yaml
-62. ros2_ws/src/driver/controller/config/init_pose.yaml
-63. ros2_ws/src/driver/controller/config/servo_config.yaml
-64. ros2_ws/src/driver/controller/controller/__init__.py
-65. ros2_ws/src/driver/controller/controller/ackermann.py
-66. ros2_ws/src/driver/controller/controller/init_pose.py
-67. ros2_ws/src/driver/controller/controller/mecanum.py
-68. ros2_ws/src/driver/controller/controller/odom_publisher_node.py
-69. ros2_ws/src/driver/controller/launch/controller.launch.py
-70. ros2_ws/src/driver/controller/launch/init_pose.launch.py
-71. ros2_ws/src/driver/controller/launch/odom_publisher.launch.py
-72. ros2_ws/src/driver/controller/launch/rf2o_laser_odometry.launch.py
-73. ros2_ws/src/driver/controller/resource/controller
-74. ros2_ws/src/driver/controller/test/test_copyright.py
-75. ros2_ws/src/driver/controller/test/test_flake8.py
-76. ros2_ws/src/driver/controller/test/test_pep257.py
-77. ros2_ws/src/driver/ros_robot_controller/package.xml
-78. ros2_ws/src/driver/ros_robot_controller/setup.cfg
-79. ros2_ws/src/driver/ros_robot_controller/setup.py
-80. ros2_ws/src/driver/ros_robot_controller/launch/ros_robot_controller.launch.py
-81. ros2_ws/src/driver/ros_robot_controller/resource/ros_robot_controller
-82. ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/__init__.py
-83. ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/ros_robot_controller_node.py
-84. ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/ros_robot_controller_sdk.py
-85. ros2_ws/src/driver/ros_robot_controller/scripts/99-ttyACM0.rules
-86. ros2_ws/src/driver/ros_robot_controller/scripts/create_udev_rules.sh
-87. ros2_ws/src/driver/ros_robot_controller/test/test_copyright.py
-88. ros2_ws/src/driver/ros_robot_controller/test/test_flake8.py
-89. ros2_ws/src/driver/ros_robot_controller/test/test_pep257.py
-90. ros2_ws/src/driver/ros_robot_controller_msgs/CMakeLists.txt
-91. ros2_ws/src/driver/ros_robot_controller_msgs/package.xml
-92. ros2_ws/src/driver/ros_robot_controller_msgs/msg/BusServoState.msg
-93. ros2_ws/src/driver/ros_robot_controller_msgs/msg/ButtonState.msg
-94. ros2_ws/src/driver/ros_robot_controller_msgs/msg/BuzzerState.msg
-95. ros2_ws/src/driver/ros_robot_controller_msgs/msg/GetBusServoCmd.msg
-96. ros2_ws/src/driver/ros_robot_controller_msgs/msg/GetPWMServoCmd.msg
-97. ros2_ws/src/driver/ros_robot_controller_msgs/msg/LedState.msg
-98. ros2_ws/src/driver/ros_robot_controller_msgs/msg/MotorsState.msg
-99. ros2_ws/src/driver/ros_robot_controller_msgs/msg/MotorState.msg
-100. ros2_ws/src/driver/ros_robot_controller_msgs/msg/OLEDState.msg
-101. ros2_ws/src/driver/ros_robot_controller_msgs/msg/PWMServoState.msg
-102. ros2_ws/src/driver/ros_robot_controller_msgs/msg/RGBState.msg
-103. ros2_ws/src/driver/ros_robot_controller_msgs/msg/RGBStates.msg
-104. ros2_ws/src/driver/ros_robot_controller_msgs/msg/Sbus.msg
-105. ros2_ws/src/driver/ros_robot_controller_msgs/msg/ServoPosition.msg
-106. ros2_ws/src/driver/ros_robot_controller_msgs/msg/ServosPosition.msg
-107. ros2_ws/src/driver/ros_robot_controller_msgs/msg/SetBusServoState.msg
-108. ros2_ws/src/driver/ros_robot_controller_msgs/msg/SetPWMServoState.msg
-109. ros2_ws/src/driver/ros_robot_controller_msgs/srv/GetBusServoState.srv
-110. ros2_ws/src/driver/ros_robot_controller_msgs/srv/GetPWMServoState.srv
-111. ros2_ws/src/driver/sdk/package.xml
-112. ros2_ws/src/driver/sdk/setup.cfg
-113. ros2_ws/src/driver/sdk/setup.py
-114. ros2_ws/src/driver/sdk/resource/sdk
-115. ros2_ws/src/driver/sdk/sdk/__init__.py
-116. ros2_ws/src/driver/sdk/sdk/common.py
-117. ros2_ws/src/driver/sdk/sdk/fps.py
-118. ros2_ws/src/driver/sdk/sdk/led.py
-119. ros2_ws/src/driver/sdk/sdk/pid.py
-120. ros2_ws/src/driver/sdk/test/test_copyright.py
-121. ros2_ws/src/driver/sdk/test/test_flake8.py
-122. ros2_ws/src/driver/sdk/test/test_pep257.py
-123. ros2_ws/src/imu_calib/CMakeLists.txt
-124. ros2_ws/src/imu_calib/package.xml
-125. ros2_ws/src/imu_calib/include/imu_calib/accel_calib.h
-126. ros2_ws/src/imu_calib/include/imu_calib/apply_calib.h
-127. ros2_ws/src/imu_calib/include/imu_calib/do_calib.h
-128. ros2_ws/src/imu_calib/src/accel_calib.cpp
-129. ros2_ws/src/imu_calib/src/apply_calib.cpp
-130. ros2_ws/src/imu_calib/src/apply_calib_node.cpp
-131. ros2_ws/src/imu_calib/src/do_calib.cpp
-132. ros2_ws/src/imu_calib/src/do_calib_node.cpp
-133. ros2_ws/src/ldrobot-lidar-ros2/CHANGELOG.md
-134. ros2_ws/src/ldrobot-lidar-ros2/CODE_OF_CONDUCT.md
-135. ros2_ws/src/ldrobot-lidar-ros2/CONTRIBUTING.md
-136. ros2_ws/src/ldrobot-lidar-ros2/LICENSE
-137. ros2_ws/src/ldrobot-lidar-ros2/README.md
-138. ros2_ws/src/ldrobot-lidar-ros2/ldlidar/CMakeLists.txt
-139. ros2_ws/src/ldrobot-lidar-ros2/ldlidar/package.xml
-140. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/CMakeLists.txt
-141. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/package.xml
-142. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/cmake-modules/FindUDEV.cmake
-143. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/include/defines.hpp
-144. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/include/ldlidar_component.hpp
-145. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/src/ldlidar_component.cpp
-146. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/include/visibility_control.hpp
-147. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/CMakeLists.txt
-148. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/core/ldlidar_datatype.h
-149. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/core/ldlidar_driver.h
-150. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/dataprocess/lipkg.h
-151. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/filter/tofbf.h
-152. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/logger/log_module.h
-153. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/networkcom/network_socket_interface_linux.h
-154. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/serialcom/serial_interface_linux.h
-155. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/core/ldlidar_driver.cpp
-156. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/dataprocess/lipkg.cpp
-157. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/filter/tofbf.cpp
-158. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/logger/log_module.cpp
-159. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/networkcom/network_socket_interface_linux.cpp
-160. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/serialcom/serial_interface_linux.cpp
-161. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/tools/include/ldlidar_tools.hpp
-162. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/tools/src/ldlidar_tools.cpp
-163. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/CMakeLists.txt
-164. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/package.xml
-165. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/config/ldlidar.rviz
-166. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/config/ldlidar_slam.rviz
-167. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar.launch.py
-168. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_rviz2.launch.py
-169. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_slam.launch.py
-170. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_slam_only.launch.py
-171. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_with_mgr.launch.py
-172. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/ldlidar.yaml
-173. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/lifecycle_mgr.yaml
-174. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/lifecycle_mgr_slam.yaml
-175. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/slam_toolbox.yaml
-176. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/src/ldlidar_container_node.cpp
-177. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/test/ldlidar_benchmark.py
-178. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/urdf/ldlidar_descr.urdf.xml
-179. ros2_ws/src/ldrobot-lidar-ros2/rules/ldlidar.rules
-180. ros2_ws/src/ldrobot-lidar-ros2/scripts/create_udev_rules.sh
-181. ros2_ws/src/ldrobot-lidar-ros2/scripts/delete_udev_rules.sh
-182. ros2_ws/src/maze_grading_node/CMakeLists.txt
-183. ros2_ws/src/maze_grading_node/package.xml
-184. ros2_ws/src/maze_grading_node/mazes/1.maze
-185. ros2_ws/src/maze_grading_node/src/grade_maze_server.cpp
-186. ros2_ws/src/maze_interface/CMakeLists.txt
-187. ros2_ws/src/maze_interface/package.xml
-188. ros2_ws/src/maze_interface/msg/RosMaze.msg
-189. ros2_ws/src/maze_interface/srv/GetRosMaze.srv
-190. ros2_ws/src/maze_interface/srv/GradeCubes.srv
-191. ros2_ws/src/maze_interface/srv/GradeMaze.srv
-192. ros2_ws/src/maze_publisher_node/CMakeLists.txt
-193. ros2_ws/src/maze_publisher_node/LICENSE
-194. ros2_ws/src/maze_publisher_node/package.xml
-195. ros2_ws/src/maze_publisher_node/mazes/1.maze
-196. ros2_ws/src/maze_publisher_node/src/maze_publisher_node.cpp
-197. ros2_ws/src/maze_solver/maze_solver_node.py
-198. ros2_ws/src/maze_solver/package.xml
-199. ros2_ws/src/maze_solver/setup.cfg
-200. ros2_ws/src/maze_solver/setup.py
-201. ros2_ws/src/maze_solver/launch/exam_task1.launch.py
-202. ros2_ws/src/maze_solver/resource/maze_solver
-203. ros2_ws/src/maze_solver/test/test_motion_command_compression.py
-204. ros2_ws/src/orchestrator_launch/CMakeLists.txt
-205. ros2_ws/src/orchestrator_launch/package.xml
-206. ros2_ws/src/orchestrator_launch/config/mapper_params_online_async.yaml
-207. ros2_ws/src/orchestrator_launch/launch/launch_full_slam_stack.launch.py
-208. ros2_ws/src/orchestrator_launch/launch/slam_toolbox.launch.py
-209. ros2_ws/src/peripherals/package.xml
-210. ros2_ws/src/peripherals/setup.cfg
-211. ros2_ws/src/peripherals/setup.py
-212. ros2_ws/src/peripherals/config/apriltag_config.yaml
-213. ros2_ws/src/peripherals/config/camera_info.yaml
-214. ros2_ws/src/peripherals/config/usb_cam_param.yaml
-215. ros2_ws/src/peripherals/launch/apriltag.launch.py
-216. ros2_ws/src/peripherals/launch/image_pipeline.launch.py
-217. ros2_ws/src/peripherals/launch/imu_filter.launch.py
-218. ros2_ws/src/peripherals/launch/imu_view.launch.py
-219. ros2_ws/src/peripherals/launch/joystick_control.launch.py
-220. ros2_ws/src/peripherals/launch/teleop_key_control.launch.py
-221. ros2_ws/src/peripherals/launch/usb_cam.launch.py
-222. ros2_ws/src/peripherals/launch/include/ascamera.launch.py
-223. ros2_ws/src/peripherals/peripherals/__init__.py
-224. ros2_ws/src/peripherals/peripherals/demo.py
-225. ros2_ws/src/peripherals/peripherals/joystick_control.py
-226. ros2_ws/src/peripherals/peripherals/teleop_key_control.py
-227. ros2_ws/src/peripherals/peripherals/tf_broadcaster_imu.py
-228. ros2_ws/src/peripherals/resource/peripherals
-229. ros2_ws/src/peripherals/rviz/imu_view.rviz
-230. ros2_ws/src/peripherals/rviz/lidar_view.rviz
-231. ros2_ws/src/peripherals/scripts/99-obsensor-libusb.rules
-232. ros2_ws/src/peripherals/scripts/99-ttyACM0.rules
-233. ros2_ws/src/peripherals/scripts/99-usb-cam.rules
-234. ros2_ws/src/peripherals/scripts/create_udev_rules.sh
-235. ros2_ws/src/peripherals/scripts/lidar.rules
-236. ros2_ws/src/peripherals/scripts/xf_mic.rules
-237. ros2_ws/src/peripherals/test/test_copyright.py
-238. ros2_ws/src/peripherals/test/test_flake8.py
-239. ros2_ws/src/peripherals/test/test_pep257.py
-240. ros2_ws/src/simulations/mentorpi_description/package.xml
-241. ros2_ws/src/simulations/mentorpi_description/setup.cfg
-242. ros2_ws/src/simulations/mentorpi_description/setup.py
-243. ros2_ws/src/simulations/mentorpi_description/launch/display.launch.py
-244. ros2_ws/src/simulations/mentorpi_description/launch/robot_description.launch.py
-245. ros2_ws/src/simulations/mentorpi_description/launch/rviz.launch.py
-246. ros2_ws/src/simulations/mentorpi_description/mentorpi_description/__init__.py
-247. ros2_ws/src/simulations/mentorpi_description/resource/mentorpi_description
-248. ros2_ws/src/simulations/mentorpi_description/rviz/view.rviz
-249. ros2_ws/src/simulations/mentorpi_description/test/test_copyright.py
-250. ros2_ws/src/simulations/mentorpi_description/test/test_flake8.py
-251. ros2_ws/src/simulations/mentorpi_description/test/test_pep257.py
-252. ros2_ws/src/simulations/mentorpi_description/urdf/ack.xacro
-253. ros2_ws/src/simulations/mentorpi_description/urdf/imu.urdf.xacro
-254. ros2_ws/src/simulations/mentorpi_description/urdf/inertial_matrix.xacro
-255. ros2_ws/src/simulations/mentorpi_description/urdf/lidar.urdf.xacro
-256. ros2_ws/src/simulations/mentorpi_description/urdf/materials.xacro
-257. ros2_ws/src/simulations/mentorpi_description/urdf/mecanum.xacro
-258. ros2_ws/src/simulations/mentorpi_description/urdf/mentorpi.xacro
+51. ros2_ws/src/darth_maul_control/test/test_control_defaults.py
+52. ros2_ws/src/darth_maul_control/test/test_grid_control_logic.py
+53. ros2_ws/src/darth_maul_control/test/test_scan_geometry.py
+54. ros2_ws/src/darth_maul_control_interfaces/CMakeLists.txt
+55. ros2_ws/src/darth_maul_control_interfaces/package.xml
+56. ros2_ws/src/darth_maul_control_interfaces/action/ExecuteMotionPrimitive.action
+57. ros2_ws/src/darth_maul_control_interfaces/msg/ControlStatus.msg
+58. ros2_ws/src/driver/controller/package.xml
+59. ros2_ws/src/driver/controller/setup.cfg
+60. ros2_ws/src/driver/controller/setup.py
+61. ros2_ws/src/driver/controller/config/calibrate_params.yaml
+62. ros2_ws/src/driver/controller/config/ekf.yaml
+63. ros2_ws/src/driver/controller/config/init_pose.yaml
+64. ros2_ws/src/driver/controller/config/servo_config.yaml
+65. ros2_ws/src/driver/controller/controller/__init__.py
+66. ros2_ws/src/driver/controller/controller/ackermann.py
+67. ros2_ws/src/driver/controller/controller/init_pose.py
+68. ros2_ws/src/driver/controller/controller/mecanum.py
+69. ros2_ws/src/driver/controller/controller/odom_publisher_node.py
+70. ros2_ws/src/driver/controller/launch/controller.launch.py
+71. ros2_ws/src/driver/controller/launch/init_pose.launch.py
+72. ros2_ws/src/driver/controller/launch/odom_publisher.launch.py
+73. ros2_ws/src/driver/controller/launch/rf2o_laser_odometry.launch.py
+74. ros2_ws/src/driver/controller/resource/controller
+75. ros2_ws/src/driver/controller/test/test_copyright.py
+76. ros2_ws/src/driver/controller/test/test_flake8.py
+77. ros2_ws/src/driver/controller/test/test_pep257.py
+78. ros2_ws/src/driver/ros_robot_controller/package.xml
+79. ros2_ws/src/driver/ros_robot_controller/setup.cfg
+80. ros2_ws/src/driver/ros_robot_controller/setup.py
+81. ros2_ws/src/driver/ros_robot_controller/launch/ros_robot_controller.launch.py
+82. ros2_ws/src/driver/ros_robot_controller/resource/ros_robot_controller
+83. ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/__init__.py
+84. ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/ros_robot_controller_node.py
+85. ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/ros_robot_controller_sdk.py
+86. ros2_ws/src/driver/ros_robot_controller/scripts/99-ttyACM0.rules
+87. ros2_ws/src/driver/ros_robot_controller/scripts/create_udev_rules.sh
+88. ros2_ws/src/driver/ros_robot_controller/test/test_copyright.py
+89. ros2_ws/src/driver/ros_robot_controller/test/test_flake8.py
+90. ros2_ws/src/driver/ros_robot_controller/test/test_pep257.py
+91. ros2_ws/src/driver/ros_robot_controller_msgs/CMakeLists.txt
+92. ros2_ws/src/driver/ros_robot_controller_msgs/package.xml
+93. ros2_ws/src/driver/ros_robot_controller_msgs/msg/BusServoState.msg
+94. ros2_ws/src/driver/ros_robot_controller_msgs/msg/ButtonState.msg
+95. ros2_ws/src/driver/ros_robot_controller_msgs/msg/BuzzerState.msg
+96. ros2_ws/src/driver/ros_robot_controller_msgs/msg/GetBusServoCmd.msg
+97. ros2_ws/src/driver/ros_robot_controller_msgs/msg/GetPWMServoCmd.msg
+98. ros2_ws/src/driver/ros_robot_controller_msgs/msg/LedState.msg
+99. ros2_ws/src/driver/ros_robot_controller_msgs/msg/MotorsState.msg
+100. ros2_ws/src/driver/ros_robot_controller_msgs/msg/MotorState.msg
+101. ros2_ws/src/driver/ros_robot_controller_msgs/msg/OLEDState.msg
+102. ros2_ws/src/driver/ros_robot_controller_msgs/msg/PWMServoState.msg
+103. ros2_ws/src/driver/ros_robot_controller_msgs/msg/RGBState.msg
+104. ros2_ws/src/driver/ros_robot_controller_msgs/msg/RGBStates.msg
+105. ros2_ws/src/driver/ros_robot_controller_msgs/msg/Sbus.msg
+106. ros2_ws/src/driver/ros_robot_controller_msgs/msg/ServoPosition.msg
+107. ros2_ws/src/driver/ros_robot_controller_msgs/msg/ServosPosition.msg
+108. ros2_ws/src/driver/ros_robot_controller_msgs/msg/SetBusServoState.msg
+109. ros2_ws/src/driver/ros_robot_controller_msgs/msg/SetPWMServoState.msg
+110. ros2_ws/src/driver/ros_robot_controller_msgs/srv/GetBusServoState.srv
+111. ros2_ws/src/driver/ros_robot_controller_msgs/srv/GetPWMServoState.srv
+112. ros2_ws/src/driver/sdk/package.xml
+113. ros2_ws/src/driver/sdk/setup.cfg
+114. ros2_ws/src/driver/sdk/setup.py
+115. ros2_ws/src/driver/sdk/resource/sdk
+116. ros2_ws/src/driver/sdk/sdk/__init__.py
+117. ros2_ws/src/driver/sdk/sdk/common.py
+118. ros2_ws/src/driver/sdk/sdk/fps.py
+119. ros2_ws/src/driver/sdk/sdk/led.py
+120. ros2_ws/src/driver/sdk/sdk/pid.py
+121. ros2_ws/src/driver/sdk/test/test_copyright.py
+122. ros2_ws/src/driver/sdk/test/test_flake8.py
+123. ros2_ws/src/driver/sdk/test/test_pep257.py
+124. ros2_ws/src/imu_calib/CMakeLists.txt
+125. ros2_ws/src/imu_calib/package.xml
+126. ros2_ws/src/imu_calib/include/imu_calib/accel_calib.h
+127. ros2_ws/src/imu_calib/include/imu_calib/apply_calib.h
+128. ros2_ws/src/imu_calib/include/imu_calib/do_calib.h
+129. ros2_ws/src/imu_calib/src/accel_calib.cpp
+130. ros2_ws/src/imu_calib/src/apply_calib.cpp
+131. ros2_ws/src/imu_calib/src/apply_calib_node.cpp
+132. ros2_ws/src/imu_calib/src/do_calib.cpp
+133. ros2_ws/src/imu_calib/src/do_calib_node.cpp
+134. ros2_ws/src/ldrobot-lidar-ros2/CHANGELOG.md
+135. ros2_ws/src/ldrobot-lidar-ros2/CODE_OF_CONDUCT.md
+136. ros2_ws/src/ldrobot-lidar-ros2/CONTRIBUTING.md
+137. ros2_ws/src/ldrobot-lidar-ros2/LICENSE
+138. ros2_ws/src/ldrobot-lidar-ros2/README.md
+139. ros2_ws/src/ldrobot-lidar-ros2/ldlidar/CMakeLists.txt
+140. ros2_ws/src/ldrobot-lidar-ros2/ldlidar/package.xml
+141. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/CMakeLists.txt
+142. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/package.xml
+143. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/cmake-modules/FindUDEV.cmake
+144. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/include/defines.hpp
+145. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/include/ldlidar_component.hpp
+146. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/src/ldlidar_component.cpp
+147. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/include/visibility_control.hpp
+148. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/CMakeLists.txt
+149. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/core/ldlidar_datatype.h
+150. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/core/ldlidar_driver.h
+151. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/dataprocess/lipkg.h
+152. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/filter/tofbf.h
+153. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/logger/log_module.h
+154. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/networkcom/network_socket_interface_linux.h
+155. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/serialcom/serial_interface_linux.h
+156. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/core/ldlidar_driver.cpp
+157. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/dataprocess/lipkg.cpp
+158. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/filter/tofbf.cpp
+159. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/logger/log_module.cpp
+160. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/networkcom/network_socket_interface_linux.cpp
+161. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/serialcom/serial_interface_linux.cpp
+162. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/tools/include/ldlidar_tools.hpp
+163. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/tools/src/ldlidar_tools.cpp
+164. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/CMakeLists.txt
+165. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/package.xml
+166. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/config/ldlidar.rviz
+167. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/config/ldlidar_slam.rviz
+168. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar.launch.py
+169. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_rviz2.launch.py
+170. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_slam.launch.py
+171. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_slam_only.launch.py
+172. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_with_mgr.launch.py
+173. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/ldlidar.yaml
+174. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/lifecycle_mgr.yaml
+175. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/lifecycle_mgr_slam.yaml
+176. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/slam_toolbox.yaml
+177. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/src/ldlidar_container_node.cpp
+178. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/test/ldlidar_benchmark.py
+179. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/urdf/ldlidar_descr.urdf.xml
+180. ros2_ws/src/ldrobot-lidar-ros2/rules/ldlidar.rules
+181. ros2_ws/src/ldrobot-lidar-ros2/scripts/create_udev_rules.sh
+182. ros2_ws/src/ldrobot-lidar-ros2/scripts/delete_udev_rules.sh
+183. ros2_ws/src/maze_grading_node/CMakeLists.txt
+184. ros2_ws/src/maze_grading_node/package.xml
+185. ros2_ws/src/maze_grading_node/mazes/1.maze
+186. ros2_ws/src/maze_grading_node/src/grade_maze_server.cpp
+187. ros2_ws/src/maze_interface/CMakeLists.txt
+188. ros2_ws/src/maze_interface/package.xml
+189. ros2_ws/src/maze_interface/msg/RosMaze.msg
+190. ros2_ws/src/maze_interface/srv/GetRosMaze.srv
+191. ros2_ws/src/maze_interface/srv/GradeCubes.srv
+192. ros2_ws/src/maze_interface/srv/GradeMaze.srv
+193. ros2_ws/src/maze_publisher_node/CMakeLists.txt
+194. ros2_ws/src/maze_publisher_node/LICENSE
+195. ros2_ws/src/maze_publisher_node/package.xml
+196. ros2_ws/src/maze_publisher_node/mazes/1.maze
+197. ros2_ws/src/maze_publisher_node/src/maze_publisher_node.cpp
+198. ros2_ws/src/maze_solver/maze_solver_node.py
+199. ros2_ws/src/maze_solver/package.xml
+200. ros2_ws/src/maze_solver/setup.cfg
+201. ros2_ws/src/maze_solver/setup.py
+202. ros2_ws/src/maze_solver/launch/exam_task1.launch.py
+203. ros2_ws/src/maze_solver/resource/maze_solver
+204. ros2_ws/src/maze_solver/test/test_motion_command_compression.py
+205. ros2_ws/src/orchestrator_launch/CMakeLists.txt
+206. ros2_ws/src/orchestrator_launch/package.xml
+207. ros2_ws/src/orchestrator_launch/config/mapper_params_online_async.yaml
+208. ros2_ws/src/orchestrator_launch/launch/launch_full_slam_stack.launch.py
+209. ros2_ws/src/orchestrator_launch/launch/slam_toolbox.launch.py
+210. ros2_ws/src/peripherals/package.xml
+211. ros2_ws/src/peripherals/setup.cfg
+212. ros2_ws/src/peripherals/setup.py
+213. ros2_ws/src/peripherals/config/apriltag_config.yaml
+214. ros2_ws/src/peripherals/config/camera_info.yaml
+215. ros2_ws/src/peripherals/config/usb_cam_param.yaml
+216. ros2_ws/src/peripherals/launch/apriltag.launch.py
+217. ros2_ws/src/peripherals/launch/image_pipeline.launch.py
+218. ros2_ws/src/peripherals/launch/imu_filter.launch.py
+219. ros2_ws/src/peripherals/launch/imu_view.launch.py
+220. ros2_ws/src/peripherals/launch/joystick_control.launch.py
+221. ros2_ws/src/peripherals/launch/teleop_key_control.launch.py
+222. ros2_ws/src/peripherals/launch/usb_cam.launch.py
+223. ros2_ws/src/peripherals/launch/include/ascamera.launch.py
+224. ros2_ws/src/peripherals/peripherals/__init__.py
+225. ros2_ws/src/peripherals/peripherals/demo.py
+226. ros2_ws/src/peripherals/peripherals/joystick_control.py
+227. ros2_ws/src/peripherals/peripherals/teleop_key_control.py
+228. ros2_ws/src/peripherals/peripherals/tf_broadcaster_imu.py
+229. ros2_ws/src/peripherals/resource/peripherals
+230. ros2_ws/src/peripherals/rviz/imu_view.rviz
+231. ros2_ws/src/peripherals/rviz/lidar_view.rviz
+232. ros2_ws/src/peripherals/scripts/99-obsensor-libusb.rules
+233. ros2_ws/src/peripherals/scripts/99-ttyACM0.rules
+234. ros2_ws/src/peripherals/scripts/99-usb-cam.rules
+235. ros2_ws/src/peripherals/scripts/create_udev_rules.sh
+236. ros2_ws/src/peripherals/scripts/lidar.rules
+237. ros2_ws/src/peripherals/scripts/xf_mic.rules
+238. ros2_ws/src/peripherals/test/test_copyright.py
+239. ros2_ws/src/peripherals/test/test_flake8.py
+240. ros2_ws/src/peripherals/test/test_pep257.py
+241. ros2_ws/src/simulations/mentorpi_description/package.xml
+242. ros2_ws/src/simulations/mentorpi_description/setup.cfg
+243. ros2_ws/src/simulations/mentorpi_description/setup.py
+244. ros2_ws/src/simulations/mentorpi_description/launch/display.launch.py
+245. ros2_ws/src/simulations/mentorpi_description/launch/robot_description.launch.py
+246. ros2_ws/src/simulations/mentorpi_description/launch/rviz.launch.py
+247. ros2_ws/src/simulations/mentorpi_description/mentorpi_description/__init__.py
+248. ros2_ws/src/simulations/mentorpi_description/resource/mentorpi_description
+249. ros2_ws/src/simulations/mentorpi_description/rviz/view.rviz
+250. ros2_ws/src/simulations/mentorpi_description/test/test_copyright.py
+251. ros2_ws/src/simulations/mentorpi_description/test/test_flake8.py
+252. ros2_ws/src/simulations/mentorpi_description/test/test_pep257.py
+253. ros2_ws/src/simulations/mentorpi_description/urdf/ack.xacro
+254. ros2_ws/src/simulations/mentorpi_description/urdf/imu.urdf.xacro
+255. ros2_ws/src/simulations/mentorpi_description/urdf/inertial_matrix.xacro
+256. ros2_ws/src/simulations/mentorpi_description/urdf/lidar.urdf.xacro
+257. ros2_ws/src/simulations/mentorpi_description/urdf/materials.xacro
+258. ros2_ws/src/simulations/mentorpi_description/urdf/mecanum.xacro
+259. ros2_ws/src/simulations/mentorpi_description/urdf/mentorpi.xacro
 
 # Skipped File Summary
 
 - binary, media, generated, or not useful as text: 57
 - not UTF-8 text: 1
 - previous merged output: 1
-- skipped directory: 12306
+- skipped directory: 12367
 
 # File Contents
 
@@ -3152,15 +3153,17 @@ darth_maul_control:
     lidar_diagnostic_sector_width_deg: 10.0
     lidar_diagnostic_min_samples: 3
 
-    # Translation progress source for DRIVE_FORWARD, DRIVE_BACKWARD, and ADVANCE_CELL.
-    #   odom_only:
-    #     old behavior; use odom progress for stopping.
-    #   lidar_when_consistent:
-    #     use LiDAR front/rear progress when valid and consistent;
-    #     fall back to odom otherwise.
-    #   lidar_required:
-    #     require valid and consistent LiDAR progress; abort translation if unavailable.
-    translation_progress_source: lidar_when_consistent
+    # Final maze mode requires LiDAR front/rear progress for straight distance.
+    # Odom is diagnostic only in this mode because /odom is command-integrated and
+    # can be wrong by 50-70 mm over a 3-cell move.
+    # Debug alternatives:
+    #   lidar_when_consistent: use LiDAR when valid, otherwise fall back to odom
+    #   odom_only: use odom only
+    translation_progress_source: lidar_required
+
+    # Grace window for noisy/missing LiDAR progress in lidar_required mode.
+    # During this window the robot holds still and odom remains diagnostic only.
+    translation_lidar_required_invalid_grace_s: 0.20
 
     # Maximum allowed disagreement between front and rear LiDAR progress.
     # If both are valid and disagree more than this, reject LiDAR progress.
@@ -3613,7 +3616,7 @@ class DarthMaulControlNode(Node):
         )
         self.translation_progress_source = self._string_param(
             'translation_progress_source',
-            'lidar_when_consistent',
+            'lidar_required',
         )
         if self.translation_progress_source not in (
             'odom_only',
@@ -3625,6 +3628,12 @@ class DarthMaulControlNode(Node):
                 'falling back to odom_only'
             )
             self.translation_progress_source = 'odom_only'
+        self.translation_lidar_required_invalid_grace_s = (
+            self._nonnegative_float_param(
+                'translation_lidar_required_invalid_grace_s',
+                0.20,
+            )
+        )
 
         self.lidar_progress_max_disagreement_m = self._positive_float_param(
             'lidar_progress_max_disagreement_m',
@@ -4086,14 +4095,16 @@ class DarthMaulControlNode(Node):
         max_speed = max(max_speed, self.min_linear_x_mps)
 
         timeout_s = self._translation_timeout(request.timeout_s, target_distance, max_speed)
+        lidar_required_mode = self.translation_progress_source == 'lidar_required'
 
         if direction > 0.0 and bool(request.collision_check_enabled):
             if self.require_scan_for_forward and not self._is_scan_fresh():
-                return self._fail_goal(
-                    goal_handle,
-                    ExecuteMotionPrimitive.Result.OBSTACLE_TOO_CLOSE,
-                    f'{name} requires fresh LiDAR scan',
-                )
+                if not lidar_required_mode:
+                    return self._fail_goal(
+                        goal_handle,
+                        ExecuteMotionPrimitive.Result.OBSTACLE_TOO_CLOSE,
+                        f'{name} requires fresh LiDAR scan',
+                    )
 
             clearance = self._front_clearance()
             if clearance < self.front_stop_distance_m:
@@ -4111,6 +4122,20 @@ class DarthMaulControlNode(Node):
         start_ranges = self._cardinal_range_snapshot()
         start_alignment = self._grid_alignment_snapshot()
         start_time = time.monotonic()
+        lidar_required_start_acquired = True
+        if lidar_required_mode:
+            start_diagnostics = self._translation_diagnostics(
+                direction=direction,
+                odom_progress_m=0.0,
+                start_ranges=start_ranges,
+                end_ranges=start_ranges,
+            )
+            start_selection = self._select_translation_progress(
+                odom_progress_m=0.0,
+                diagnostics=start_diagnostics,
+            )
+            lidar_required_start_acquired = start_selection.valid
+
         self._begin_grid_yaw_control_memory(
             start_alignment,
             accept_updates=direction > 0.0,
@@ -4137,7 +4162,11 @@ class DarthMaulControlNode(Node):
         final_heading_error = 0.0
         final_odom_progress = 0.0
         final_control_progress = 0.0
-        final_progress_source_used = 'odom'
+        final_progress_source_used = (
+            'lidar_required_unavailable'
+            if lidar_required_mode
+            else 'odom'
+        )
         final_control_progress_reason = ''
         translation_diagnostics = TranslationDiagnostics()
         final_grid_yaw_correction = GridYawCorrection(
@@ -4148,6 +4177,9 @@ class DarthMaulControlNode(Node):
             using_memory=False,
         )
         grid_yaw_correction_ever_used = False
+        lidar_required_invalid_started_s: Optional[float] = None
+        lidar_required_invalid_elapsed_s = 0.0
+        preserve_failure_progress_diagnostics = False
 
         while True:
             if self._cancel_or_stop_requested(goal_handle):
@@ -4178,18 +4210,107 @@ class DarthMaulControlNode(Node):
 
             current_ranges = self._cardinal_range_snapshot()
             current_alignment = self._grid_alignment_snapshot()
-            current_diagnostics = self._translation_diagnostics(
-                direction=direction,
-                odom_progress_m=odom_progress,
-                start_ranges=start_ranges,
-                end_ranges=current_ranges,
-            )
-            progress_selection = self._select_translation_progress(
-                odom_progress_m=odom_progress,
-                diagnostics=current_diagnostics,
-            )
+            if lidar_required_mode and not lidar_required_start_acquired:
+                current_diagnostics = self._translation_diagnostics(
+                    direction=direction,
+                    odom_progress_m=0.0,
+                    start_ranges=current_ranges,
+                    end_ranges=current_ranges,
+                )
+                progress_selection = self._select_translation_progress(
+                    odom_progress_m=0.0,
+                    diagnostics=current_diagnostics,
+                )
+                if progress_selection.valid:
+                    start = current
+                    start_ranges = current_ranges
+                    start_alignment = current_alignment
+                    odom_progress = 0.0
+                    final_odom_progress = 0.0
+                    lidar_required_start_acquired = True
+                    self._begin_grid_yaw_control_memory(
+                        start_alignment,
+                        accept_updates=direction > 0.0,
+                    )
+            else:
+                current_diagnostics = self._translation_diagnostics(
+                    direction=direction,
+                    odom_progress_m=odom_progress,
+                    start_ranges=start_ranges,
+                    end_ranges=current_ranges,
+                )
+                progress_selection = self._select_translation_progress(
+                    odom_progress_m=odom_progress,
+                    diagnostics=current_diagnostics,
+                )
 
             if not progress_selection.valid:
+                if lidar_required_mode:
+                    now_ros_s = self._ros_time_seconds()
+                    if lidar_required_invalid_started_s is None:
+                        lidar_required_invalid_started_s = now_ros_s
+                    lidar_required_invalid_elapsed_s = max(
+                        0.0,
+                        now_ros_s - lidar_required_invalid_started_s,
+                    )
+                    final_progress_source_used = progress_selection.source
+                    final_control_progress_reason = progress_selection.reason
+                    translation_diagnostics = replace(
+                        current_diagnostics,
+                        final_control_progress_m=final_control_progress,
+                        progress_source_used=final_progress_source_used,
+                        control_progress_reason=final_control_progress_reason,
+                    )
+                    self.publish_zero_twist()
+
+                    if (
+                        lidar_required_invalid_elapsed_s
+                        >= self.translation_lidar_required_invalid_grace_s
+                    ):
+                        result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
+                        preserve_failure_progress_diagnostics = True
+                        result_message = (
+                            f'{name} failed: LiDAR progress required but '
+                            'unavailable/inconsistent for '
+                            f'{lidar_required_invalid_elapsed_s:.2f} s; '
+                            f'{current_diagnostics.lidar_progress_reason}; '
+                            f'odom progress {odom_progress:.3f} m ignored'
+                        )
+                        break
+
+                    self._update_motion_state(
+                        distance_remaining=max(
+                            0.0,
+                            target_distance - final_control_progress,
+                        ),
+                        distance_traveled=max(0.0, final_control_progress),
+                        heading_error=0.0,
+                        status=(
+                            f'{name}: waiting for required LiDAR progress; '
+                            f'invalid_for={lidar_required_invalid_elapsed_s:.2f} s, '
+                            f'grace={self.translation_lidar_required_invalid_grace_s:.2f} s, '
+                            f'odom_progress={odom_progress:.3f} m ignored, '
+                            f'control_progress={final_control_progress:.3f} m, '
+                            f'reason={progress_selection.reason}'
+                        ),
+                    )
+                    self._publish_feedback(
+                        goal_handle,
+                        progress=clamp(
+                            final_control_progress / max(target_distance, 1e-6),
+                            0.0,
+                            1.0,
+                        ),
+                        distance_remaining=max(
+                            0.0,
+                            target_distance - final_control_progress,
+                        ),
+                        heading_remaining=0.0,
+                        state=name,
+                    )
+                    time.sleep(1.0 / self.control_rate_hz)
+                    continue
+
                 result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
                 result_message = (
                     f'{name} aborted: invalid translation progress source: '
@@ -4203,6 +4324,8 @@ class DarthMaulControlNode(Node):
                 )
                 break
 
+            lidar_required_invalid_started_s = None
+            lidar_required_invalid_elapsed_s = 0.0
             control_progress = max(0.0, progress_selection.progress_m)
             final_control_progress = control_progress
             final_progress_source_used = progress_selection.source
@@ -4259,15 +4382,20 @@ class DarthMaulControlNode(Node):
 
                     if not final_selection.valid:
                         result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
+                        preserve_failure_progress_diagnostics = True
+                        final_progress_source_used = final_selection.source
+                        final_control_progress_reason = final_selection.reason
                         result_message = (
-                            f'{name} final progress invalid: '
-                            f'{final_selection.reason}'
+                            f'{name} failed: final LiDAR progress required '
+                            'but unavailable/inconsistent; '
+                            f'{final_diagnostics.lidar_progress_reason}; '
+                            f'odom progress {odom_progress:.3f} m ignored'
                         )
                         translation_diagnostics = replace(
                             final_diagnostics,
-                            final_control_progress_m=final_selection.progress_m,
-                            progress_source_used=final_selection.source,
-                            control_progress_reason=final_selection.reason,
+                            final_control_progress_m=final_control_progress,
+                            progress_source_used=final_progress_source_used,
+                            control_progress_reason=final_control_progress_reason,
                         )
                         break
 
@@ -4324,7 +4452,9 @@ class DarthMaulControlNode(Node):
                     f'pos_error={final_position_error:.3f} m, '
                     f'heading_error={final_heading_validation_error:.3f} rad '
                     f'({final_heading_validation_source}; '
-                    f'odom_heading={final_heading_error:.3f} rad)'
+                    f'odom_heading={final_heading_error:.3f} rad), '
+                    f'progress={final_control_progress:.3f} m '
+                    f'from {final_progress_source_used}'
                 )
                 break
 
@@ -4422,7 +4552,7 @@ class DarthMaulControlNode(Node):
             diagnostics=translation_diagnostics,
         )
 
-        if final_selection.valid:
+        if final_selection.valid and not preserve_failure_progress_diagnostics:
             final_control_progress = max(0.0, final_selection.progress_m)
             final_progress_source_used = final_selection.source
             final_control_progress_reason = final_selection.reason
@@ -4959,7 +5089,12 @@ class DarthMaulControlNode(Node):
         end_ranges: Optional[LidarRangeSnapshot],
     ) -> TranslationDiagnostics:
         if start_ranges is None or end_ranges is None:
-            return TranslationDiagnostics(odom_progress_m=float(max(0.0, odom_progress_m)))
+            return TranslationDiagnostics(
+                odom_progress_m=float(max(0.0, odom_progress_m)),
+                lidar_progress_valid=False,
+                lidar_progress_source='none',
+                lidar_progress_reason='LiDAR range snapshot unavailable or stale',
+            )
 
         front_valid = start_ranges.front.valid and end_ranges.front.valid
         rear_valid = start_ranges.rear.valid and end_ranges.rear.valid
@@ -5178,6 +5313,9 @@ class DarthMaulControlNode(Node):
         fallback = abs(angle) / max(abs(speed), 1e-3) + self.timeout_margin_sec
         fallback = max(fallback, 3.0)
         return self._goal_timeout(requested, fallback)
+
+    def _ros_time_seconds(self) -> float:
+        return float(self.get_clock().now().nanoseconds) * 1e-9
 
     def _apply_acceleration_limits(self, desired: Twist) -> Twist:
         now = time.monotonic()
@@ -6346,9 +6484,12 @@ def choose_translation_progress(
             if mode == 'lidar_required':
                 return TranslationProgressSelection(
                     valid=False,
-                    progress_m=odom_progress,
-                    source='none',
-                    reason=reason,
+                    progress_m=0.0,
+                    source='lidar_required_unavailable',
+                    reason=(
+                        'LiDAR progress required but rejected: '
+                        f'{reason}; odom progress {odom_progress:.3f} m ignored'
+                    ),
                 )
 
             return TranslationProgressSelection(
@@ -6369,9 +6510,13 @@ def choose_translation_progress(
     if mode == 'lidar_required':
         return TranslationProgressSelection(
             valid=False,
-            progress_m=odom_progress,
-            source='none',
-            reason='LiDAR progress required but invalid: ' + lidar_estimate.reason,
+            progress_m=0.0,
+            source='lidar_required_unavailable',
+            reason=(
+                'LiDAR progress required but unavailable/inconsistent: '
+                f'{lidar_estimate.reason}; '
+                f'odom progress {odom_progress:.3f} m ignored'
+            ),
         )
 
     return TranslationProgressSelection(
@@ -6494,6 +6639,7 @@ def generate_launch_description():
     grid_yaw_active_heading_hold_scale = LaunchConfiguration(
         'grid_yaw_active_heading_hold_scale'
     )
+    translation_progress_source = LaunchConfiguration('translation_progress_source')
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -6526,6 +6672,14 @@ def generate_launch_description():
             default_value='0.0',
             description='Heading-hold scale while grid yaw correction is active.',
         ),
+        DeclareLaunchArgument(
+            'translation_progress_source',
+            default_value='lidar_required',
+            description=(
+                'Translation distance authority: lidar_required, '
+                'lidar_when_consistent, or odom_only.'
+            ),
+        ),
         Node(
             package=package_name,
             executable='control_node',
@@ -6553,6 +6707,10 @@ def generate_launch_description():
                         grid_yaw_active_heading_hold_scale,
                         value_type=float,
                     ),
+                    'translation_progress_source': ParameterValue(
+                        translation_progress_source,
+                        value_type=str,
+                    ),
                 },
             ],
             output='screen',
@@ -6565,7 +6723,31 @@ def generate_launch_description():
 
 
 
-# ================== FILE 51: ros2_ws/src/darth_maul_control/test/test_grid_control_logic.py ==================
+# ================== FILE 51: ros2_ws/src/darth_maul_control/test/test_control_defaults.py ==================
+
+from pathlib import Path
+
+
+PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_control_params_default_to_lidar_required():
+    text = (PACKAGE_ROOT / 'config' / 'control_params.yaml').read_text()
+
+    assert 'translation_progress_source: lidar_required' in text
+    assert 'translation_lidar_required_invalid_grace_s: 0.20' in text
+    assert 'Odom is diagnostic only in this mode' in text
+
+
+def test_control_launch_default_to_lidar_required_with_debug_override():
+    text = (PACKAGE_ROOT / 'launch' / 'control.launch.py').read_text()
+
+    assert "'translation_progress_source'" in text
+    assert "default_value='lidar_required'" in text
+    assert "'translation_progress_source': ParameterValue(" in text
+
+
+# ================== FILE 52: ros2_ws/src/darth_maul_control/test/test_grid_control_logic.py ==================
 
 import pytest
 
@@ -6757,7 +6939,7 @@ def test_heading_validation_uses_odom_when_grid_yaw_too_large():
     assert source == 'odom'
 
 
-# ================== FILE 52: ros2_ws/src/darth_maul_control/test/test_scan_geometry.py ==================
+# ================== FILE 53: ros2_ws/src/darth_maul_control/test/test_scan_geometry.py ==================
 
 from types import SimpleNamespace
 import math
@@ -6984,6 +7166,29 @@ def test_choose_translation_progress_uses_lidar_when_consistent():
     assert selection.progress_m == pytest.approx(0.2145)
 
 
+def test_choose_translation_progress_lidar_required_uses_valid_lidar():
+    lidar = choose_lidar_progress(
+        True,
+        0.770,
+        True,
+        0.754,
+        max_disagreement_m=0.025,
+        min_progress_m=-0.010,
+        allow_single_source=True,
+    )
+
+    selection = choose_translation_progress(
+        odom_progress_m=0.822,
+        lidar_estimate=lidar,
+        mode='lidar_required',
+        max_lidar_ahead_of_odom_m=0.060,
+    )
+
+    assert selection.valid
+    assert selection.source == 'lidar'
+    assert selection.progress_m == pytest.approx(0.762)
+
+
 def test_choose_translation_progress_falls_back_to_odom_when_lidar_invalid():
     lidar = choose_lidar_progress(
         True,
@@ -7005,6 +7210,7 @@ def test_choose_translation_progress_falls_back_to_odom_when_lidar_invalid():
     assert selection.valid
     assert selection.source == 'odom'
     assert selection.progress_m == pytest.approx(0.249)
+    assert 'falling back to odom' in selection.reason
 
 
 def test_choose_translation_progress_rejects_when_lidar_required_and_invalid():
@@ -7026,7 +7232,37 @@ def test_choose_translation_progress_rejects_when_lidar_required_and_invalid():
     )
 
     assert not selection.valid
-    assert selection.source == 'none'
+    assert selection.source != 'odom'
+    assert selection.source == 'lidar_required_unavailable'
+    assert selection.progress_m == pytest.approx(0.0)
+    assert 'LiDAR progress required' in selection.reason
+    assert 'odom progress 0.249 m ignored' in selection.reason
+
+
+def test_choose_translation_progress_lidar_required_rejects_lab_disagreement():
+    lidar = choose_lidar_progress(
+        True,
+        0.731,
+        True,
+        0.689,
+        max_disagreement_m=0.025,
+        min_progress_m=-0.010,
+        allow_single_source=True,
+    )
+
+    selection = choose_translation_progress(
+        odom_progress_m=0.759,
+        lidar_estimate=lidar,
+        mode='lidar_required',
+        max_lidar_ahead_of_odom_m=0.060,
+    )
+
+    assert not selection.valid
+    assert selection.source == 'lidar_required_unavailable'
+    assert selection.source != 'odom'
+    assert selection.progress_m == pytest.approx(0.0)
+    assert 'front/rear progress disagreement 0.042 m > 0.025 m' in selection.reason
+    assert 'odom progress 0.759 m ignored' in selection.reason
 
 
 def test_choose_translation_progress_rejects_lidar_implausibly_ahead_of_odom():
@@ -7360,7 +7596,7 @@ def test_estimate_grid_alignment_rejects_bad_pair_width_and_uses_better_wall():
     assert 'pair rejected by width' in estimate.reason
 
 
-# ================== FILE 53: ros2_ws/src/darth_maul_control_interfaces/CMakeLists.txt ==================
+# ================== FILE 54: ros2_ws/src/darth_maul_control_interfaces/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.8)
 project(darth_maul_control_interfaces)
@@ -7386,7 +7622,7 @@ ament_export_dependencies(rosidl_default_runtime)
 ament_package()
 
 
-# ================== FILE 54: ros2_ws/src/darth_maul_control_interfaces/package.xml ==================
+# ================== FILE 55: ros2_ws/src/darth_maul_control_interfaces/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -7419,7 +7655,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 55: ros2_ws/src/darth_maul_control_interfaces/action/ExecuteMotionPrimitive.action ==================
+# ================== FILE 56: ros2_ws/src/darth_maul_control_interfaces/action/ExecuteMotionPrimitive.action ==================
 
 # Goal
 # Execute one simple odom/LiDAR-based motion primitive.
@@ -7570,7 +7806,7 @@ float32 front_clearance_m
 string state
 
 
-# ================== FILE 56: ros2_ws/src/darth_maul_control_interfaces/msg/ControlStatus.msg ==================
+# ================== FILE 57: ros2_ws/src/darth_maul_control_interfaces/msg/ControlStatus.msg ==================
 
 builtin_interfaces/Time stamp
 
@@ -7631,7 +7867,7 @@ float64 right_wall_span_x_m
 uint16 right_wall_support_count
 
 
-# ================== FILE 57: ros2_ws/src/driver/controller/package.xml ==================
+# ================== FILE 58: ros2_ws/src/driver/controller/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -7653,7 +7889,7 @@ uint16 right_wall_support_count
 </package>
 
 
-# ================== FILE 58: ros2_ws/src/driver/controller/setup.cfg ==================
+# ================== FILE 59: ros2_ws/src/driver/controller/setup.cfg ==================
 
 [develop]
 script_dir=$base/lib/controller
@@ -7661,7 +7897,7 @@ script_dir=$base/lib/controller
 install_scripts=$base/lib/controller
 
 
-# ================== FILE 59: ros2_ws/src/driver/controller/setup.py ==================
+# ================== FILE 60: ros2_ws/src/driver/controller/setup.py ==================
 
 import os
 from glob import glob
@@ -7695,7 +7931,7 @@ setup(
 )
 
 
-# ================== FILE 60: ros2_ws/src/driver/controller/config/calibrate_params.yaml ==================
+# ================== FILE 61: ros2_ws/src/driver/controller/config/calibrate_params.yaml ==================
 
 /**:
   ros__parameters:
@@ -7703,7 +7939,7 @@ setup(
     angular_correction_factor: 1.01
 
 
-# ================== FILE 61: ros2_ws/src/driver/controller/config/ekf.yaml ==================
+# ================== FILE 62: ros2_ws/src/driver/controller/config/ekf.yaml ==================
 
 ### ekf config file ###
 /**:
@@ -7971,7 +8207,7 @@ setup(
                                    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1e-9]
 
 
-# ================== FILE 62: ros2_ws/src/driver/controller/config/init_pose.yaml ==================
+# ================== FILE 63: ros2_ws/src/driver/controller/config/init_pose.yaml ==================
 
 init_pose:
   ros__parameters:
@@ -7983,7 +8219,7 @@ init_pose:
 
 
 
-# ================== FILE 63: ros2_ws/src/driver/controller/config/servo_config.yaml ==================
+# ================== FILE 64: ros2_ws/src/driver/controller/config/servo_config.yaml ==================
 
 1: 0
 2: 0
@@ -7991,12 +8227,12 @@ init_pose:
 4: 0
 
 
-# ================== FILE 64: ros2_ws/src/driver/controller/controller/__init__.py ==================
+# ================== FILE 65: ros2_ws/src/driver/controller/controller/__init__.py ==================
 
 
 
 
-# ================== FILE 65: ros2_ws/src/driver/controller/controller/ackermann.py ==================
+# ================== FILE 66: ros2_ws/src/driver/controller/controller/ackermann.py ==================
 
 #!/usr/bin/python3
 # coding=utf8
@@ -8066,7 +8302,7 @@ class AckermannChassis:
 
 
 
-# ================== FILE 66: ros2_ws/src/driver/controller/controller/init_pose.py ==================
+# ================== FILE 67: ros2_ws/src/driver/controller/controller/init_pose.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8
@@ -8124,7 +8360,7 @@ if __name__ == "__main__":
 
 
 
-# ================== FILE 67: ros2_ws/src/driver/controller/controller/mecanum.py ==================
+# ================== FILE 68: ros2_ws/src/driver/controller/controller/mecanum.py ==================
 
 #!/usr/bin/python3
 # coding=utf8
@@ -8188,7 +8424,7 @@ class MecanumChassis:
         return msg
 
 
-# ================== FILE 68: ros2_ws/src/driver/controller/controller/odom_publisher_node.py ==================
+# ================== FILE 69: ros2_ws/src/driver/controller/controller/odom_publisher_node.py ==================
 
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
@@ -8501,7 +8737,7 @@ if __name__ == "__main__":
     main()
 
 
-# ================== FILE 69: ros2_ws/src/driver/controller/launch/controller.launch.py ==================
+# ================== FILE 70: ros2_ws/src/driver/controller/launch/controller.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -8611,7 +8847,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 70: ros2_ws/src/driver/controller/launch/init_pose.launch.py ==================
+# ================== FILE 71: ros2_ws/src/driver/controller/launch/init_pose.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -8663,7 +8899,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 71: ros2_ws/src/driver/controller/launch/odom_publisher.launch.py ==================
+# ================== FILE 72: ros2_ws/src/driver/controller/launch/odom_publisher.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -8753,7 +8989,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 72: ros2_ws/src/driver/controller/launch/rf2o_laser_odometry.launch.py ==================
+# ================== FILE 73: ros2_ws/src/driver/controller/launch/rf2o_laser_odometry.launch.py ==================
 
 from launch_ros.actions import Node
 from launch import LaunchDescription, LaunchService
@@ -8786,12 +9022,12 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 73: ros2_ws/src/driver/controller/resource/controller ==================
+# ================== FILE 74: ros2_ws/src/driver/controller/resource/controller ==================
 
 
 
 
-# ================== FILE 74: ros2_ws/src/driver/controller/test/test_copyright.py ==================
+# ================== FILE 75: ros2_ws/src/driver/controller/test/test_copyright.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -8818,7 +9054,7 @@ def test_copyright():
     assert rc == 0, 'Found errors'
 
 
-# ================== FILE 75: ros2_ws/src/driver/controller/test/test_flake8.py ==================
+# ================== FILE 76: ros2_ws/src/driver/controller/test/test_flake8.py ==================
 
 # Copyright 2017 Open Source Robotics Foundation, Inc.
 #
@@ -8847,7 +9083,7 @@ def test_flake8():
         '\n'.join(errors)
 
 
-# ================== FILE 76: ros2_ws/src/driver/controller/test/test_pep257.py ==================
+# ================== FILE 77: ros2_ws/src/driver/controller/test/test_pep257.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -8874,7 +9110,7 @@ def test_pep257():
     assert rc == 0, 'Found code style errors / warnings'
 
 
-# ================== FILE 77: ros2_ws/src/driver/ros_robot_controller/package.xml ==================
+# ================== FILE 78: ros2_ws/src/driver/ros_robot_controller/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -8896,7 +9132,7 @@ def test_pep257():
 </package>
 
 
-# ================== FILE 78: ros2_ws/src/driver/ros_robot_controller/setup.cfg ==================
+# ================== FILE 79: ros2_ws/src/driver/ros_robot_controller/setup.cfg ==================
 
 [develop]
 script_dir=$base/lib/ros_robot_controller
@@ -8904,7 +9140,7 @@ script_dir=$base/lib/ros_robot_controller
 install_scripts=$base/lib/ros_robot_controller
 
 
-# ================== FILE 79: ros2_ws/src/driver/ros_robot_controller/setup.py ==================
+# ================== FILE 80: ros2_ws/src/driver/ros_robot_controller/setup.py ==================
 
 import os
 from glob import glob
@@ -8936,7 +9172,7 @@ setup(
 )
 
 
-# ================== FILE 80: ros2_ws/src/driver/ros_robot_controller/launch/ros_robot_controller.launch.py ==================
+# ================== FILE 81: ros2_ws/src/driver/ros_robot_controller/launch/ros_robot_controller.launch.py ==================
 
 from launch_ros.actions import Node
 from launch import LaunchDescription, LaunchService
@@ -8968,17 +9204,17 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 81: ros2_ws/src/driver/ros_robot_controller/resource/ros_robot_controller ==================
+# ================== FILE 82: ros2_ws/src/driver/ros_robot_controller/resource/ros_robot_controller ==================
 
 
 
 
-# ================== FILE 82: ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/__init__.py ==================
+# ================== FILE 83: ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/__init__.py ==================
 
 
 
 
-# ================== FILE 83: ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/ros_robot_controller_node.py ==================
+# ================== FILE 84: ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/ros_robot_controller_node.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8
@@ -9335,7 +9571,7 @@ if __name__ == '__main__':
     main()
 
 
-# ================== FILE 84: ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/ros_robot_controller_sdk.py ==================
+# ================== FILE 85: ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/ros_robot_controller_sdk.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8
@@ -9982,14 +10218,14 @@ if __name__ == "__main__":
             break
 
 
-# ================== FILE 85: ros2_ws/src/driver/ros_robot_controller/scripts/99-ttyACM0.rules ==================
+# ================== FILE 86: ros2_ws/src/driver/ros_robot_controller/scripts/99-ttyACM0.rules ==================
 
 # Ignore ModemManager for ttyACM0 device
 KERNEL=="ttyACM0", SUBSYSTEM=="tty", GROUP="ubuntu", MODE="0777"
 ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55d4", ENV{ID_MM_PORT_IGNORE}="1"
 
 
-# ================== FILE 86: ros2_ws/src/driver/ros_robot_controller/scripts/create_udev_rules.sh ==================
+# ================== FILE 87: ros2_ws/src/driver/ros_robot_controller/scripts/create_udev_rules.sh ==================
 
 #!/bin/bash
 
@@ -10002,7 +10238,7 @@ sudo service udev restart
 echo "finish "
 
 
-# ================== FILE 87: ros2_ws/src/driver/ros_robot_controller/test/test_copyright.py ==================
+# ================== FILE 88: ros2_ws/src/driver/ros_robot_controller/test/test_copyright.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -10029,7 +10265,7 @@ def test_copyright():
     assert rc == 0, 'Found errors'
 
 
-# ================== FILE 88: ros2_ws/src/driver/ros_robot_controller/test/test_flake8.py ==================
+# ================== FILE 89: ros2_ws/src/driver/ros_robot_controller/test/test_flake8.py ==================
 
 # Copyright 2017 Open Source Robotics Foundation, Inc.
 #
@@ -10058,7 +10294,7 @@ def test_flake8():
         '\n'.join(errors)
 
 
-# ================== FILE 89: ros2_ws/src/driver/ros_robot_controller/test/test_pep257.py ==================
+# ================== FILE 90: ros2_ws/src/driver/ros_robot_controller/test/test_pep257.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -10085,7 +10321,7 @@ def test_pep257():
     assert rc == 0, 'Found code style errors / warnings'
 
 
-# ================== FILE 90: ros2_ws/src/driver/ros_robot_controller_msgs/CMakeLists.txt ==================
+# ================== FILE 91: ros2_ws/src/driver/ros_robot_controller_msgs/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.8)
 project(ros_robot_controller_msgs)
@@ -10143,7 +10379,7 @@ endif()
 ament_package()
 
 
-# ================== FILE 91: ros2_ws/src/driver/ros_robot_controller_msgs/package.xml ==================
+# ================== FILE 92: ros2_ws/src/driver/ros_robot_controller_msgs/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -10171,7 +10407,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 92: ros2_ws/src/driver/ros_robot_controller_msgs/msg/BusServoState.msg ==================
+# ================== FILE 93: ros2_ws/src/driver/ros_robot_controller_msgs/msg/BusServoState.msg ==================
 
 uint16[] present_id
 uint16[] target_id
@@ -10187,13 +10423,13 @@ uint16[] save_offset
 uint16[] stop
 
 
-# ================== FILE 93: ros2_ws/src/driver/ros_robot_controller_msgs/msg/ButtonState.msg ==================
+# ================== FILE 94: ros2_ws/src/driver/ros_robot_controller_msgs/msg/ButtonState.msg ==================
 
 uint8 id
 uint8 state
 
 
-# ================== FILE 94: ros2_ws/src/driver/ros_robot_controller_msgs/msg/BuzzerState.msg ==================
+# ================== FILE 95: ros2_ws/src/driver/ros_robot_controller_msgs/msg/BuzzerState.msg ==================
 
 uint16 freq
 float32 on_time
@@ -10201,7 +10437,7 @@ float32 off_time
 uint16 repeat
 
 
-# ================== FILE 95: ros2_ws/src/driver/ros_robot_controller_msgs/msg/GetBusServoCmd.msg ==================
+# ================== FILE 96: ros2_ws/src/driver/ros_robot_controller_msgs/msg/GetBusServoCmd.msg ==================
 
 uint8 id
 uint8 get_id
@@ -10215,14 +10451,14 @@ uint8 get_max_temperature_limit
 uint8 get_torque_state
 
 
-# ================== FILE 96: ros2_ws/src/driver/ros_robot_controller_msgs/msg/GetPWMServoCmd.msg ==================
+# ================== FILE 97: ros2_ws/src/driver/ros_robot_controller_msgs/msg/GetPWMServoCmd.msg ==================
 
 uint8 id
 uint8 get_position
 uint8 get_offset
 
 
-# ================== FILE 97: ros2_ws/src/driver/ros_robot_controller_msgs/msg/LedState.msg ==================
+# ================== FILE 98: ros2_ws/src/driver/ros_robot_controller_msgs/msg/LedState.msg ==================
 
 uint8 id
 float32 on_time
@@ -10230,31 +10466,31 @@ float32 off_time
 uint16 repeat
 
 
-# ================== FILE 98: ros2_ws/src/driver/ros_robot_controller_msgs/msg/MotorsState.msg ==================
+# ================== FILE 99: ros2_ws/src/driver/ros_robot_controller_msgs/msg/MotorsState.msg ==================
 
 ros_robot_controller_msgs/MotorState[] data
 
 
-# ================== FILE 99: ros2_ws/src/driver/ros_robot_controller_msgs/msg/MotorState.msg ==================
+# ================== FILE 100: ros2_ws/src/driver/ros_robot_controller_msgs/msg/MotorState.msg ==================
 
 uint16 id
 float64 rps
 
 
-# ================== FILE 100: ros2_ws/src/driver/ros_robot_controller_msgs/msg/OLEDState.msg ==================
+# ================== FILE 101: ros2_ws/src/driver/ros_robot_controller_msgs/msg/OLEDState.msg ==================
 
 uint8 index
 string text
 
 
-# ================== FILE 101: ros2_ws/src/driver/ros_robot_controller_msgs/msg/PWMServoState.msg ==================
+# ================== FILE 102: ros2_ws/src/driver/ros_robot_controller_msgs/msg/PWMServoState.msg ==================
 
 uint16[] id
 uint16[] position
 int16[] offset
 
 
-# ================== FILE 102: ros2_ws/src/driver/ros_robot_controller_msgs/msg/RGBState.msg ==================
+# ================== FILE 103: ros2_ws/src/driver/ros_robot_controller_msgs/msg/RGBState.msg ==================
 
 int32 index
 uint8 red
@@ -10263,43 +10499,43 @@ uint8 blue
 
 
 
-# ================== FILE 103: ros2_ws/src/driver/ros_robot_controller_msgs/msg/RGBStates.msg ==================
+# ================== FILE 104: ros2_ws/src/driver/ros_robot_controller_msgs/msg/RGBStates.msg ==================
 
 RGBState[] states
 
 
-# ================== FILE 104: ros2_ws/src/driver/ros_robot_controller_msgs/msg/Sbus.msg ==================
+# ================== FILE 105: ros2_ws/src/driver/ros_robot_controller_msgs/msg/Sbus.msg ==================
 
 std_msgs/Header header
 float32[] channel
 
 
-# ================== FILE 105: ros2_ws/src/driver/ros_robot_controller_msgs/msg/ServoPosition.msg ==================
+# ================== FILE 106: ros2_ws/src/driver/ros_robot_controller_msgs/msg/ServoPosition.msg ==================
 
 uint16 id
 uint16 position
 
 
-# ================== FILE 106: ros2_ws/src/driver/ros_robot_controller_msgs/msg/ServosPosition.msg ==================
+# ================== FILE 107: ros2_ws/src/driver/ros_robot_controller_msgs/msg/ServosPosition.msg ==================
 
 float64 duration
 ros_robot_controller_msgs/ServoPosition[] position
 
 
-# ================== FILE 107: ros2_ws/src/driver/ros_robot_controller_msgs/msg/SetBusServoState.msg ==================
+# ================== FILE 108: ros2_ws/src/driver/ros_robot_controller_msgs/msg/SetBusServoState.msg ==================
 
 ros_robot_controller_msgs/BusServoState[] state
 
 float64 duration
 
 
-# ================== FILE 108: ros2_ws/src/driver/ros_robot_controller_msgs/msg/SetPWMServoState.msg ==================
+# ================== FILE 109: ros2_ws/src/driver/ros_robot_controller_msgs/msg/SetPWMServoState.msg ==================
 
 ros_robot_controller_msgs/PWMServoState[] state
 float64 duration
 
 
-# ================== FILE 109: ros2_ws/src/driver/ros_robot_controller_msgs/srv/GetBusServoState.srv ==================
+# ================== FILE 110: ros2_ws/src/driver/ros_robot_controller_msgs/srv/GetBusServoState.srv ==================
 
 ros_robot_controller_msgs/GetBusServoCmd[] cmd
 ---
@@ -10307,7 +10543,7 @@ bool success
 ros_robot_controller_msgs/BusServoState[] state
 
 
-# ================== FILE 110: ros2_ws/src/driver/ros_robot_controller_msgs/srv/GetPWMServoState.srv ==================
+# ================== FILE 111: ros2_ws/src/driver/ros_robot_controller_msgs/srv/GetPWMServoState.srv ==================
 
 ros_robot_controller_msgs/GetPWMServoCmd[] cmd
 ---
@@ -10315,7 +10551,7 @@ bool success
 ros_robot_controller_msgs/PWMServoState[] state
 
 
-# ================== FILE 111: ros2_ws/src/driver/sdk/package.xml ==================
+# ================== FILE 112: ros2_ws/src/driver/sdk/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -10337,7 +10573,7 @@ ros_robot_controller_msgs/PWMServoState[] state
 </package>
 
 
-# ================== FILE 112: ros2_ws/src/driver/sdk/setup.cfg ==================
+# ================== FILE 113: ros2_ws/src/driver/sdk/setup.cfg ==================
 
 [develop]
 script_dir=$base/lib/sdk
@@ -10345,7 +10581,7 @@ script_dir=$base/lib/sdk
 install_scripts=$base/lib/sdk
 
 
-# ================== FILE 113: ros2_ws/src/driver/sdk/setup.py ==================
+# ================== FILE 114: ros2_ws/src/driver/sdk/setup.py ==================
 
 from setuptools import setup
 
@@ -10374,17 +10610,17 @@ setup(
 )
 
 
-# ================== FILE 114: ros2_ws/src/driver/sdk/resource/sdk ==================
+# ================== FILE 115: ros2_ws/src/driver/sdk/resource/sdk ==================
 
 
 
 
-# ================== FILE 115: ros2_ws/src/driver/sdk/sdk/__init__.py ==================
+# ================== FILE 116: ros2_ws/src/driver/sdk/sdk/__init__.py ==================
 
 
 
 
-# ================== FILE 116: ros2_ws/src/driver/sdk/sdk/common.py ==================
+# ================== FILE 117: ros2_ws/src/driver/sdk/sdk/common.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8
@@ -10643,7 +10879,7 @@ def mat_to_xyz_euler(mat, degrees=True):
     return t, euler
 
 
-# ================== FILE 117: ros2_ws/src/driver/sdk/sdk/fps.py ==================
+# ================== FILE 118: ros2_ws/src/driver/sdk/sdk/fps.py ==================
 
 #!/usr/bin/python3
 # coding=utf8
@@ -10677,7 +10913,7 @@ class FPS:
 
 
 
-# ================== FILE 118: ros2_ws/src/driver/sdk/sdk/led.py ==================
+# ================== FILE 119: ros2_ws/src/driver/sdk/sdk/led.py ==================
 
 #!/usr/bin/python3
 # coding=utf8
@@ -10711,7 +10947,7 @@ if __name__ == "__main__":
         time.sleep(1)
 
 
-# ================== FILE 119: ros2_ws/src/driver/sdk/sdk/pid.py ==================
+# ================== FILE 120: ros2_ws/src/driver/sdk/sdk/pid.py ==================
 
 """Ivmech PID Controller is simple implementation of a Proportional-Integral-Derivative (PID) Controller in the Python Programming Language.
 More information about PID Controller: http://en.wikipedia.org/wiki/PID_controller
@@ -10821,7 +11057,7 @@ if __name__ == '__main__':
     print(out)
 
 
-# ================== FILE 120: ros2_ws/src/driver/sdk/test/test_copyright.py ==================
+# ================== FILE 121: ros2_ws/src/driver/sdk/test/test_copyright.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -10848,7 +11084,7 @@ def test_copyright():
     assert rc == 0, 'Found errors'
 
 
-# ================== FILE 121: ros2_ws/src/driver/sdk/test/test_flake8.py ==================
+# ================== FILE 122: ros2_ws/src/driver/sdk/test/test_flake8.py ==================
 
 # Copyright 2017 Open Source Robotics Foundation, Inc.
 #
@@ -10877,7 +11113,7 @@ def test_flake8():
         '\n'.join(errors)
 
 
-# ================== FILE 122: ros2_ws/src/driver/sdk/test/test_pep257.py ==================
+# ================== FILE 123: ros2_ws/src/driver/sdk/test/test_pep257.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -10904,7 +11140,7 @@ def test_pep257():
     assert rc == 0, 'Found code style errors / warnings'
 
 
-# ================== FILE 123: ros2_ws/src/imu_calib/CMakeLists.txt ==================
+# ================== FILE 124: ros2_ws/src/imu_calib/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.8)
 project(imu_calib)
@@ -10981,7 +11217,7 @@ ament_export_include_directories(include)
 ament_package()
 
 
-# ================== FILE 124: ros2_ws/src/imu_calib/package.xml ==================
+# ================== FILE 125: ros2_ws/src/imu_calib/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -11008,7 +11244,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 125: ros2_ws/src/imu_calib/include/imu_calib/accel_calib.h ==================
+# ================== FILE 126: ros2_ws/src/imu_calib/include/imu_calib/accel_calib.h ==================
 
 #include <Eigen/Dense>
 
@@ -11064,7 +11300,7 @@ protected:
 } // namespace accel_calib
 
 
-# ================== FILE 126: ros2_ws/src/imu_calib/include/imu_calib/apply_calib.h ==================
+# ================== FILE 127: ros2_ws/src/imu_calib/include/imu_calib/apply_calib.h ==================
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
@@ -11099,7 +11335,7 @@ private:
 } // namespace imu_calib
 
 
-# ================== FILE 127: ros2_ws/src/imu_calib/include/imu_calib/do_calib.h ==================
+# ================== FILE 128: ros2_ws/src/imu_calib/include/imu_calib/do_calib.h ==================
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
@@ -11145,7 +11381,7 @@ private:
 } // namespace accel_calib
 
 
-# ================== FILE 128: ros2_ws/src/imu_calib/src/accel_calib.cpp ==================
+# ================== FILE 129: ros2_ws/src/imu_calib/src/accel_calib.cpp ==================
 
 #include "imu_calib/accel_calib.h"
 
@@ -11331,7 +11567,7 @@ void AccelCalib::applyCalib(double raw_x, double raw_y, double raw_z, double *co
 } // namespace imu_calib
 
 
-# ================== FILE 129: ros2_ws/src/imu_calib/src/apply_calib.cpp ==================
+# ================== FILE 130: ros2_ws/src/imu_calib/src/apply_calib.cpp ==================
 
 #include "imu_calib/apply_calib.h"
 
@@ -11404,7 +11640,7 @@ void ApplyCalib::rawImuCallback(sensor_msgs::msg::Imu::SharedPtr raw)
 } // namespace accel_calib
 
 
-# ================== FILE 130: ros2_ws/src/imu_calib/src/apply_calib_node.cpp ==================
+# ================== FILE 131: ros2_ws/src/imu_calib/src/apply_calib_node.cpp ==================
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -11424,7 +11660,7 @@ int main(int argc, char** argv)
 }
 
 
-# ================== FILE 131: ros2_ws/src/imu_calib/src/do_calib.cpp ==================
+# ================== FILE 132: ros2_ws/src/imu_calib/src/do_calib.cpp ==================
 
 #include "imu_calib/do_calib.h"
 #include "rclcpp/rclcpp.hpp"
@@ -11547,7 +11783,7 @@ void DoCalib::imuCallback(const sensor_msgs::msg::Imu::SharedPtr imu)
 } // namespace accel_calib
 
 
-# ================== FILE 132: ros2_ws/src/imu_calib/src/do_calib_node.cpp ==================
+# ================== FILE 133: ros2_ws/src/imu_calib/src/do_calib_node.cpp ==================
 
 #include "rclcpp/rclcpp.hpp"
 #include "imu_calib/do_calib.h"
@@ -11567,7 +11803,7 @@ int main(int argc, char** argv)
 }
 
 
-# ================== FILE 133: ros2_ws/src/ldrobot-lidar-ros2/CHANGELOG.md ==================
+# ================== FILE 134: ros2_ws/src/ldrobot-lidar-ros2/CHANGELOG.md ==================
 
 CHANGELOG
 =========
@@ -11612,7 +11848,7 @@ v0.1.0
 * Examples
 
 
-# ================== FILE 134: ros2_ws/src/ldrobot-lidar-ros2/CODE_OF_CONDUCT.md ==================
+# ================== FILE 135: ros2_ws/src/ldrobot-lidar-ros2/CODE_OF_CONDUCT.md ==================
 
 # Contributor Covenant Code of Conduct
 
@@ -11744,7 +11980,7 @@ https://www.contributor-covenant.org/faq. Translations are available at
 https://www.contributor-covenant.org/translations.
 
 
-# ================== FILE 135: ros2_ws/src/ldrobot-lidar-ros2/CONTRIBUTING.md ==================
+# ================== FILE 136: ros2_ws/src/ldrobot-lidar-ros2/CONTRIBUTING.md ==================
 
 
 ## Submitting your code changes
@@ -11796,7 +12032,7 @@ the code they are contributing to the project according to the
 [Developer Certificate of Origin (DCO)](https://developercertificate.org/).
 
 
-# ================== FILE 136: ros2_ws/src/ldrobot-lidar-ros2/LICENSE ==================
+# ================== FILE 137: ros2_ws/src/ldrobot-lidar-ros2/LICENSE ==================
 
                                  Apache License
                            Version 2.0, January 2004
@@ -12001,7 +12237,7 @@ the code they are contributing to the project according to the
    limitations under the License.
 
 
-# ================== FILE 137: ros2_ws/src/ldrobot-lidar-ros2/README.md ==================
+# ================== FILE 138: ros2_ws/src/ldrobot-lidar-ros2/README.md ==================
 
 <h1 align="center">
   ldrobot-lidar-ros2
@@ -12225,7 +12461,7 @@ the final result should be similar to
 
 
 
-# ================== FILE 138: ros2_ws/src/ldrobot-lidar-ros2/ldlidar/CMakeLists.txt ==================
+# ================== FILE 139: ros2_ws/src/ldrobot-lidar-ros2/ldlidar/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.5)
 
@@ -12243,7 +12479,7 @@ add_custom_target(all_${PROJECT_NAME}_files SOURCES ${all_files})
 ament_package()
 
 
-# ================== FILE 139: ros2_ws/src/ldrobot-lidar-ros2/ldlidar/package.xml ==================
+# ================== FILE 140: ros2_ws/src/ldrobot-lidar-ros2/ldlidar/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model
@@ -12271,7 +12507,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 140: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/CMakeLists.txt ==================
+# ================== FILE 141: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.5)
 project(ldlidar_component)
@@ -12485,7 +12721,7 @@ ament_export_dependencies(${DEPENDENCIES})
 ament_package()
 
 
-# ================== FILE 141: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/package.xml ==================
+# ================== FILE 142: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format2.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -12521,7 +12757,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 142: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/cmake-modules/FindUDEV.cmake ==================
+# ================== FILE 143: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/cmake-modules/FindUDEV.cmake ==================
 
 # - try to find the udev library
 #
@@ -12622,7 +12858,7 @@ mark_as_advanced(UDEV_INCLUDE_DIR
 
 
 
-# ================== FILE 143: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/include/defines.hpp ==================
+# ================== FILE 144: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/include/defines.hpp ==================
 
 #ifndef DEFINES_HPP
 #define DEFINES_HPP
@@ -12635,7 +12871,7 @@ namespace ldlidar
 #endif // DEFINES_HPP
 
 
-# ================== FILE 144: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/include/ldlidar_component.hpp ==================
+# ================== FILE 145: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/include/ldlidar_component.hpp ==================
 
 //  Copyright 2022 Walter Lucetti
 //
@@ -12809,7 +13045,7 @@ private:
 #endif  // LDLIDAR_COMPONENT_HPP_
 
 
-# ================== FILE 145: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/src/ldlidar_component.cpp ==================
+# ================== FILE 146: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/src/ldlidar_component.cpp ==================
 
 //  Copyright 2022 Walter Lucetti
 //
@@ -13446,7 +13682,7 @@ void LdLidarComponent::callback_updateDiagnostic(diagnostic_updater::DiagnosticS
 RCLCPP_COMPONENTS_REGISTER_NODE(ldlidar::LdLidarComponent)
 
 
-# ================== FILE 146: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/include/visibility_control.hpp ==================
+# ================== FILE 147: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/include/visibility_control.hpp ==================
 
 //  Copyright 2022 Walter Lucetti
 //
@@ -13509,7 +13745,7 @@ extern "C"
 #endif  // VISIBILITY_CONTROL_HPP_
 
 
-# ================== FILE 147: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/CMakeLists.txt ==================
+# ================== FILE 148: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.5)
 project(ldlidar)
@@ -13546,7 +13782,7 @@ target_include_directories( ldlidar PUBLIC
 )
 
 
-# ================== FILE 148: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/core/ldlidar_datatype.h ==================
+# ================== FILE 149: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/core/ldlidar_datatype.h ==================
 
 /**
  * @file pointdata.h
@@ -13649,7 +13885,7 @@ namespace ldlidar {
  * FILE ********/
 
 
-# ================== FILE 149: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/core/ldlidar_driver.h ==================
+# ================== FILE 150: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/core/ldlidar_driver.h ==================
 
 /**
  * @file ldlidar_driver.h
@@ -13821,7 +14057,7 @@ private:
  * FILE ********/
 
 
-# ================== FILE 150: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/dataprocess/lipkg.h ==================
+# ================== FILE 151: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/dataprocess/lipkg.h ==================
 
 /**
  * @file lipkg.h
@@ -13963,7 +14199,7 @@ private:
  * FILE ********/
 
 
-# ================== FILE 151: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/filter/tofbf.h ==================
+# ================== FILE 152: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/filter/tofbf.h ==================
 
 /**
  * @file tofbf.h
@@ -14038,7 +14274,7 @@ private:
  * FILE ********/
 
 
-# ================== FILE 152: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/logger/log_module.h ==================
+# ================== FILE 153: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/logger/log_module.h ==================
 
 /**
 * @file         ldlidar_logger.h
@@ -14257,7 +14493,7 @@ private:
 /********************* (C) COPYRIGHT SHENZHEN LDROBOT CO., LTD *******END OF FILE ********/
 
 
-# ================== FILE 153: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/networkcom/network_socket_interface_linux.h ==================
+# ================== FILE 154: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/networkcom/network_socket_interface_linux.h ==================
 
 /**
  * @file network_socket_interface_linux.h
@@ -14385,7 +14621,7 @@ private:
  * FILE ********/
 
 
-# ================== FILE 154: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/serialcom/serial_interface_linux.h ==================
+# ================== FILE 155: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/serialcom/serial_interface_linux.h ==================
 
 /**
  * @file cmd_interface_linux.h
@@ -14471,7 +14707,7 @@ private:
  * FILE ********/
 
 
-# ================== FILE 155: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/core/ldlidar_driver.cpp ==================
+# ================== FILE 156: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/core/ldlidar_driver.cpp ==================
 
 /**
  * @file ldlidar_driver.cpp
@@ -14829,7 +15065,7 @@ void LDLidarDriver::EnableFilterAlgorithnmProcess(bool is_enable)
  * FILE ********/
 
 
-# ================== FILE 156: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/dataprocess/lipkg.cpp ==================
+# ================== FILE 157: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/dataprocess/lipkg.cpp ==================
 
 /**
  * @file lipkg.cpp
@@ -15185,7 +15421,7 @@ void LiPkg::CommReadCallback(const char * byte, size_t len)
  * FILE ********/
 
 
-# ================== FILE 157: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/filter/tofbf.cpp ==================
+# ================== FILE 158: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/filter/tofbf.cpp ==================
 
 ﻿/**
  * @file tofbf.cpp
@@ -15472,7 +15708,7 @@ std::vector<PointData> Tofbf::NoiseFilter(
  * FILE ********/
 
 
-# ================== FILE 158: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/logger/log_module.cpp ==================
+# ================== FILE 159: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/logger/log_module.cpp ==================
 
 /**
 * @file         ldlidar_logger.cpp
@@ -15780,7 +16016,7 @@ void LogPrint::LogPrintInf(const char * str)
 /********************* (C) COPYRIGHT SHENZHEN LDROBOT CO., LTD *******END OF FILE ********/
 
 
-# ================== FILE 159: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/networkcom/network_socket_interface_linux.cpp ==================
+# ================== FILE 160: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/networkcom/network_socket_interface_linux.cpp ==================
 
 /**
  * @file network_socket_interface_linux.cpp
@@ -16274,7 +16510,7 @@ void TCPSocketInterfaceLinux::RecvThreadProc(void * param)
  * FILE ********/
 
 
-# ================== FILE 160: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/serialcom/serial_interface_linux.cpp ==================
+# ================== FILE 161: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/serialcom/serial_interface_linux.cpp ==================
 
 /**
  * @file cmd_interface_linux.cpp
@@ -16482,7 +16718,7 @@ void SerialInterfaceLinux::RxThreadProc(void * param)
  * FILE ********/
 
 
-# ================== FILE 161: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/tools/include/ldlidar_tools.hpp ==================
+# ================== FILE 162: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/tools/include/ldlidar_tools.hpp ==================
 
 //  Copyright 2022 Walter Lucetti
 //
@@ -16538,7 +16774,7 @@ uint64_t GetSystemTimeStamp(void);
 #endif  // LDLIDAR_TOOLS_HPP_
 
 
-# ================== FILE 162: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/tools/src/ldlidar_tools.cpp ==================
+# ================== FILE 163: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/tools/src/ldlidar_tools.cpp ==================
 
 //  Copyright 2022 Walter Lucetti
 //
@@ -16646,7 +16882,7 @@ uint64_t GetSystemTimeStamp(void)
 }  // namespace tools
 
 
-# ================== FILE 163: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/CMakeLists.txt ==================
+# ================== FILE 164: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.5)
 project(ldlidar_node)
@@ -16803,7 +17039,7 @@ endif()
 ament_package()
 
 
-# ================== FILE 164: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/package.xml ==================
+# ================== FILE 165: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format2.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -16848,7 +17084,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 165: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/config/ldlidar.rviz ==================
+# ================== FILE 166: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/config/ldlidar.rviz ==================
 
 Panels:
   - Class: rviz_common/Displays
@@ -17084,7 +17320,7 @@ Window Geometry:
   Y: 27
 
 
-# ================== FILE 166: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/config/ldlidar_slam.rviz ==================
+# ================== FILE 167: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/config/ldlidar_slam.rviz ==================
 
 Panels:
   - Class: rviz_common/Displays
@@ -17353,7 +17589,7 @@ Window Geometry:
   Y: 27
 
 
-# ================== FILE 167: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar.launch.py ==================
+# ================== FILE 168: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -17432,7 +17668,7 @@ def generate_launch_description():
     return ld
 
 
-# ================== FILE 168: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_rviz2.launch.py ==================
+# ================== FILE 169: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_rviz2.launch.py ==================
 
 # Copyright 2022 Walter Lucetti
 #
@@ -17512,7 +17748,7 @@ def generate_launch_description():
     return ld
 
 
-# ================== FILE 169: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_slam.launch.py ==================
+# ================== FILE 170: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_slam.launch.py ==================
 
 # Copyright 2022 Walter Lucetti
 #
@@ -17642,7 +17878,7 @@ def generate_launch_description():
     return ld
 
 
-# ================== FILE 170: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_slam_only.launch.py ==================
+# ================== FILE 171: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_slam_only.launch.py ==================
 
 # Copyright 2022 Walter Lucetti
 #
@@ -17723,7 +17959,7 @@ def generate_launch_description():
     return ld
 
 
-# ================== FILE 171: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_with_mgr.launch.py ==================
+# ================== FILE 172: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_with_mgr.launch.py ==================
 
 # Copyright 2022 Walter Lucetti
 #
@@ -17796,7 +18032,7 @@ def generate_launch_description():
     return ld
 
 
-# ================== FILE 172: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/ldlidar.yaml ==================
+# ================== FILE 173: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/ldlidar.yaml ==================
 
 # config/ldlidar.yaml
 #
@@ -17825,7 +18061,7 @@ def generate_launch_description():
       angle_crop_max: 270.0 # maximum angle for cropping
 
 
-# ================== FILE 173: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/lifecycle_mgr.yaml ==================
+# ================== FILE 174: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/lifecycle_mgr.yaml ==================
 
 # config/lifecycle_mgr.yaml
 #
@@ -17840,7 +18076,7 @@ def generate_launch_description():
     bond_respawn_max_duration: 10.0
 
 
-# ================== FILE 174: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/lifecycle_mgr_slam.yaml ==================
+# ================== FILE 175: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/lifecycle_mgr_slam.yaml ==================
 
 # config/lifecycle_mgr.yaml
 #
@@ -17855,7 +18091,7 @@ def generate_launch_description():
     bond_respawn_max_duration: 10.0
 
 
-# ================== FILE 175: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/slam_toolbox.yaml ==================
+# ================== FILE 176: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/slam_toolbox.yaml ==================
 
 slam_toolbox:
   ros__parameters:
@@ -17933,7 +18169,7 @@ slam_toolbox:
     use_response_expansion: true
 
 
-# ================== FILE 176: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/src/ldlidar_container_node.cpp ==================
+# ================== FILE 177: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/src/ldlidar_container_node.cpp ==================
 
 //  Copyright 2022 Walter Lucetti
 //
@@ -17983,7 +18219,7 @@ int main(int argc, char * argv[])
 }
 
 
-# ================== FILE 177: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/test/ldlidar_benchmark.py ==================
+# ================== FILE 178: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/test/ldlidar_benchmark.py ==================
 
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
 # Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
@@ -18117,7 +18353,7 @@ class TestLDLidarNode(ROS2BenchmarkTest):
         self.run_benchmark()
 
 
-# ================== FILE 178: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/urdf/ldlidar_descr.urdf.xml ==================
+# ================== FILE 179: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/urdf/ldlidar_descr.urdf.xml ==================
 
 <?xml version="1.0"?>
 
@@ -18146,7 +18382,7 @@ class TestLDLidarNode(ROS2BenchmarkTest):
 </robot>
 
 
-# ================== FILE 179: ros2_ws/src/ldrobot-lidar-ros2/rules/ldlidar.rules ==================
+# ================== FILE 180: ros2_ws/src/ldrobot-lidar-ros2/rules/ldlidar.rules ==================
 
 # set the udev rule , make the device_port be fixed by ldlidar
 # CP210x USB Device
@@ -18154,7 +18390,7 @@ KERNEL=="ttyUSB*", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", MODE:="077
 
 
 
-# ================== FILE 180: ros2_ws/src/ldrobot-lidar-ros2/scripts/create_udev_rules.sh ==================
+# ================== FILE 181: ros2_ws/src/ldrobot-lidar-ros2/scripts/create_udev_rules.sh ==================
 
 #!/bin/bash
 
@@ -18171,7 +18407,7 @@ sudo udevadm trigger
 echo "finish "
 
 
-# ================== FILE 181: ros2_ws/src/ldrobot-lidar-ros2/scripts/delete_udev_rules.sh ==================
+# ================== FILE 182: ros2_ws/src/ldrobot-lidar-ros2/scripts/delete_udev_rules.sh ==================
 
 #!/bin/bash
 
@@ -18187,7 +18423,7 @@ sudo udevadm trigger
 echo "finish  delete"
 
 
-# ================== FILE 182: ros2_ws/src/maze_grading_node/CMakeLists.txt ==================
+# ================== FILE 183: ros2_ws/src/maze_grading_node/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.8)
 project(maze_grading_node)
@@ -18221,7 +18457,7 @@ install(
 ament_package()
 
 
-# ================== FILE 183: ros2_ws/src/maze_grading_node/package.xml ==================
+# ================== FILE 184: ros2_ws/src/maze_grading_node/package.xml ==================
 
 <?xml version="1.0"?>
 <package format="3">
@@ -18246,7 +18482,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 184: ros2_ws/src/maze_grading_node/mazes/1.maze ==================
+# ================== FILE 185: ros2_ws/src/maze_grading_node/mazes/1.maze ==================
 
 7
 4
@@ -18283,7 +18519,7 @@ ament_package()
 7
 
 
-# ================== FILE 185: ros2_ws/src/maze_grading_node/src/grade_maze_server.cpp ==================
+# ================== FILE 186: ros2_ws/src/maze_grading_node/src/grade_maze_server.cpp ==================
 
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
@@ -18440,7 +18676,7 @@ int main(int argc, char ** argv)
 }
 
 
-# ================== FILE 186: ros2_ws/src/maze_interface/CMakeLists.txt ==================
+# ================== FILE 187: ros2_ws/src/maze_interface/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.8)
 project(maze_interface)
@@ -18475,7 +18711,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 ament_package()
 
 
-# ================== FILE 187: ros2_ws/src/maze_interface/package.xml ==================
+# ================== FILE 188: ros2_ws/src/maze_interface/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -18501,7 +18737,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 188: ros2_ws/src/maze_interface/msg/RosMaze.msg ==================
+# ================== FILE 189: ros2_ws/src/maze_interface/msg/RosMaze.msg ==================
 
 uint8 n
 uint8 m
@@ -18511,14 +18747,14 @@ uint8 start_orientation
 uint8[] l
 
 
-# ================== FILE 189: ros2_ws/src/maze_interface/srv/GetRosMaze.srv ==================
+# ================== FILE 190: ros2_ws/src/maze_interface/srv/GetRosMaze.srv ==================
 
 int8 maze_nr
 ---
 maze_interface/RosMaze maze
 
 
-# ================== FILE 190: ros2_ws/src/maze_interface/srv/GradeCubes.srv ==================
+# ================== FILE 191: ros2_ws/src/maze_interface/srv/GradeCubes.srv ==================
 
 uint8 n
 int16[] x
@@ -18528,7 +18764,7 @@ uint8[] color
 int16 score
 
 
-# ================== FILE 191: ros2_ws/src/maze_interface/srv/GradeMaze.srv ==================
+# ================== FILE 192: ros2_ws/src/maze_interface/srv/GradeMaze.srv ==================
 
 int8 maze_nr
 maze_interface/RosMaze maze
@@ -18536,7 +18772,7 @@ maze_interface/RosMaze maze
 int32 score
 
 
-# ================== FILE 192: ros2_ws/src/maze_publisher_node/CMakeLists.txt ==================
+# ================== FILE 193: ros2_ws/src/maze_publisher_node/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.8)
 project(maze_publisher_node)
@@ -18580,7 +18816,7 @@ install(
 ament_package()
 
 
-# ================== FILE 193: ros2_ws/src/maze_publisher_node/LICENSE ==================
+# ================== FILE 194: ros2_ws/src/maze_publisher_node/LICENSE ==================
 
 
                                  Apache License
@@ -18786,7 +19022,7 @@ ament_package()
    limitations under the License.
 
 
-# ================== FILE 194: ros2_ws/src/maze_publisher_node/package.xml ==================
+# ================== FILE 195: ros2_ws/src/maze_publisher_node/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -18812,7 +19048,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 195: ros2_ws/src/maze_publisher_node/mazes/1.maze ==================
+# ================== FILE 196: ros2_ws/src/maze_publisher_node/mazes/1.maze ==================
 
 7
 4
@@ -18849,7 +19085,7 @@ ament_package()
 7
 
 
-# ================== FILE 196: ros2_ws/src/maze_publisher_node/src/maze_publisher_node.cpp ==================
+# ================== FILE 197: ros2_ws/src/maze_publisher_node/src/maze_publisher_node.cpp ==================
 
 #include "rclcpp/rclcpp.hpp"
 #include "maze_interface/msg/ros_maze.hpp"
@@ -18926,7 +19162,7 @@ int main(int argc, char **argv) {
 }
 
 
-# ================== FILE 197: ros2_ws/src/maze_solver/maze_solver_node.py ==================
+# ================== FILE 198: ros2_ws/src/maze_solver/maze_solver_node.py ==================
 
 import math
 import time
@@ -19628,7 +19864,7 @@ if __name__ == '__main__':
     main()
 
 
-# ================== FILE 198: ros2_ws/src/maze_solver/package.xml ==================
+# ================== FILE 199: ros2_ws/src/maze_solver/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -19661,7 +19897,7 @@ if __name__ == '__main__':
 </package>
 
 
-# ================== FILE 199: ros2_ws/src/maze_solver/setup.cfg ==================
+# ================== FILE 200: ros2_ws/src/maze_solver/setup.cfg ==================
 
 [develop]
 script_dir=$base/lib/maze_solver
@@ -19670,7 +19906,7 @@ script_dir=$base/lib/maze_solver
 install_scripts=$base/lib/maze_solver
 
 
-# ================== FILE 200: ros2_ws/src/maze_solver/setup.py ==================
+# ================== FILE 201: ros2_ws/src/maze_solver/setup.py ==================
 
 from glob import glob
 from os.path import join
@@ -19703,7 +19939,7 @@ setup(
 )
 
 
-# ================== FILE 201: ros2_ws/src/maze_solver/launch/exam_task1.launch.py ==================
+# ================== FILE 202: ros2_ws/src/maze_solver/launch/exam_task1.launch.py ==================
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
@@ -19748,12 +19984,12 @@ def generate_launch_description():
     ])
 
 
-# ================== FILE 202: ros2_ws/src/maze_solver/resource/maze_solver ==================
+# ================== FILE 203: ros2_ws/src/maze_solver/resource/maze_solver ==================
 
 
 
 
-# ================== FILE 203: ros2_ws/src/maze_solver/test/test_motion_command_compression.py ==================
+# ================== FILE 204: ros2_ws/src/maze_solver/test/test_motion_command_compression.py ==================
 
 import math
 
@@ -20035,7 +20271,7 @@ def test_validate_solver_parameters_rejects_relative_maze_service_name():
     assert 'absolute service name' in error
 
 
-# ================== FILE 204: ros2_ws/src/orchestrator_launch/CMakeLists.txt ==================
+# ================== FILE 205: ros2_ws/src/orchestrator_launch/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.5)
 project(orchestrator_launch)
@@ -20053,7 +20289,7 @@ install(
 ament_package()
 
 
-# ================== FILE 205: ros2_ws/src/orchestrator_launch/package.xml ==================
+# ================== FILE 206: ros2_ws/src/orchestrator_launch/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -20084,7 +20320,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 206: ros2_ws/src/orchestrator_launch/config/mapper_params_online_async.yaml ==================
+# ================== FILE 207: ros2_ws/src/orchestrator_launch/config/mapper_params_online_async.yaml ==================
 
 slam_toolbox:
   ros__parameters:
@@ -20163,7 +20399,7 @@ slam_toolbox:
     use_response_expansion: true
 
 
-# ================== FILE 207: ros2_ws/src/orchestrator_launch/launch/launch_full_slam_stack.launch.py ==================
+# ================== FILE 208: ros2_ws/src/orchestrator_launch/launch/launch_full_slam_stack.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -20210,7 +20446,7 @@ def generate_launch_description():
     ])
 
 
-# ================== FILE 208: ros2_ws/src/orchestrator_launch/launch/slam_toolbox.launch.py ==================
+# ================== FILE 209: ros2_ws/src/orchestrator_launch/launch/slam_toolbox.launch.py ==================
 
 import os
 
@@ -20302,7 +20538,7 @@ def generate_launch_description():
     return ld
 
 
-# ================== FILE 209: ros2_ws/src/peripherals/package.xml ==================
+# ================== FILE 210: ros2_ws/src/peripherals/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -20324,7 +20560,7 @@ def generate_launch_description():
 </package>
 
 
-# ================== FILE 210: ros2_ws/src/peripherals/setup.cfg ==================
+# ================== FILE 211: ros2_ws/src/peripherals/setup.cfg ==================
 
 [develop]
 script_dir=$base/lib/peripherals
@@ -20332,7 +20568,7 @@ script_dir=$base/lib/peripherals
 install_scripts=$base/lib/peripherals
 
 
-# ================== FILE 211: ros2_ws/src/peripherals/setup.py ==================
+# ================== FILE 212: ros2_ws/src/peripherals/setup.py ==================
 
 import os
 from glob import glob
@@ -20370,7 +20606,7 @@ setup(
 )
 
 
-# ================== FILE 212: ros2_ws/src/peripherals/config/apriltag_config.yaml ==================
+# ================== FILE 213: ros2_ws/src/peripherals/config/apriltag_config.yaml ==================
 
 apriltag_detector:
   ros__parameters:
@@ -20397,7 +20633,7 @@ apriltag_detector:
 
 
 
-# ================== FILE 213: ros2_ws/src/peripherals/config/camera_info.yaml ==================
+# ================== FILE 214: ros2_ws/src/peripherals/config/camera_info.yaml ==================
 
 image_width: 640
 image_height: 480
@@ -20421,7 +20657,7 @@ projection_matrix:
   data: [465.8162841796875, 0, 321.2985662909559, 0, 0, 470.4940490722656, 236.298464380614, 0, 0, 0, 1, 0]
 
 
-# ================== FILE 214: ros2_ws/src/peripherals/config/usb_cam_param.yaml ==================
+# ================== FILE 215: ros2_ws/src/peripherals/config/usb_cam_param.yaml ==================
 
 /**:
     ros__parameters:
@@ -20449,7 +20685,7 @@ projection_matrix:
 
 
 
-# ================== FILE 215: ros2_ws/src/peripherals/launch/apriltag.launch.py ==================
+# ================== FILE 216: ros2_ws/src/peripherals/launch/apriltag.launch.py ==================
 
 import os
 from launch import LaunchDescription
@@ -20477,7 +20713,7 @@ def generate_launch_description():
 
 
 
-# ================== FILE 216: ros2_ws/src/peripherals/launch/image_pipeline.launch.py ==================
+# ================== FILE 217: ros2_ws/src/peripherals/launch/image_pipeline.launch.py ==================
 
 import os
 from launch import LaunchDescription
@@ -20530,7 +20766,7 @@ def generate_launch_description():
 
 
 
-# ================== FILE 217: ros2_ws/src/peripherals/launch/imu_filter.launch.py ==================
+# ================== FILE 218: ros2_ws/src/peripherals/launch/imu_filter.launch.py ==================
 
 from launch import LaunchDescription
 from launch_ros.actions import Node
@@ -20597,7 +20833,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 218: ros2_ws/src/peripherals/launch/imu_view.launch.py ==================
+# ================== FILE 219: ros2_ws/src/peripherals/launch/imu_view.launch.py ==================
 
 import os
 from launch_ros.actions import Node
@@ -20678,7 +20914,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 219: ros2_ws/src/peripherals/launch/joystick_control.launch.py ==================
+# ================== FILE 220: ros2_ws/src/peripherals/launch/joystick_control.launch.py ==================
 
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
@@ -20737,7 +20973,7 @@ if __name__ == '__main__':
 
 
 
-# ================== FILE 220: ros2_ws/src/peripherals/launch/teleop_key_control.launch.py ==================
+# ================== FILE 221: ros2_ws/src/peripherals/launch/teleop_key_control.launch.py ==================
 
 import os
 from launch.actions import DeclareLaunchArgument
@@ -20788,7 +21024,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 221: ros2_ws/src/peripherals/launch/usb_cam.launch.py ==================
+# ================== FILE 222: ros2_ws/src/peripherals/launch/usb_cam.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -20823,7 +21059,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 222: ros2_ws/src/peripherals/launch/include/ascamera.launch.py ==================
+# ================== FILE 223: ros2_ws/src/peripherals/launch/include/ascamera.launch.py ==================
 
 from launch import LaunchDescription
 import launch_ros.actions
@@ -20872,12 +21108,12 @@ def generate_launch_description():
 
 
 
-# ================== FILE 223: ros2_ws/src/peripherals/peripherals/__init__.py ==================
+# ================== FILE 224: ros2_ws/src/peripherals/peripherals/__init__.py ==================
 
 
 
 
-# ================== FILE 224: ros2_ws/src/peripherals/peripherals/demo.py ==================
+# ================== FILE 225: ros2_ws/src/peripherals/peripherals/demo.py ==================
 
 #!/usr/bin/env python3
 import rclpy
@@ -20909,7 +21145,7 @@ if __name__ == '__main__':
 
 
 
-# ================== FILE 225: ros2_ws/src/peripherals/peripherals/joystick_control.py ==================
+# ================== FILE 226: ros2_ws/src/peripherals/peripherals/joystick_control.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8
@@ -21186,7 +21422,7 @@ if __name__ == "__main__":
     main()
 
 
-# ================== FILE 226: ros2_ws/src/peripherals/peripherals/teleop_key_control.py ==================
+# ================== FILE 227: ros2_ws/src/peripherals/peripherals/teleop_key_control.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8
@@ -21339,7 +21575,7 @@ if __name__ == "__main__":
     main()
 
 
-# ================== FILE 227: ros2_ws/src/peripherals/peripherals/tf_broadcaster_imu.py ==================
+# ================== FILE 228: ros2_ws/src/peripherals/peripherals/tf_broadcaster_imu.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8 
@@ -21416,12 +21652,12 @@ if __name__ == "__main__":
     main()
 
 
-# ================== FILE 228: ros2_ws/src/peripherals/resource/peripherals ==================
+# ================== FILE 229: ros2_ws/src/peripherals/resource/peripherals ==================
 
 
 
 
-# ================== FILE 229: ros2_ws/src/peripherals/rviz/imu_view.rviz ==================
+# ================== FILE 230: ros2_ws/src/peripherals/rviz/imu_view.rviz ==================
 
 Panels:
   - Class: rviz_common/Displays
@@ -21688,7 +21924,7 @@ Window Geometry:
   Y: 46
 
 
-# ================== FILE 230: ros2_ws/src/peripherals/rviz/lidar_view.rviz ==================
+# ================== FILE 231: ros2_ws/src/peripherals/rviz/lidar_view.rviz ==================
 
 Panels:
   - Class: rviz_common/Displays
@@ -22013,7 +22249,7 @@ Window Geometry:
   Y: 151
 
 
-# ================== FILE 231: ros2_ws/src/peripherals/scripts/99-obsensor-libusb.rules ==================
+# ================== FILE 232: ros2_ws/src/peripherals/scripts/99-obsensor-libusb.rules ==================
 
 # UVC Modules
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="2bc5", ATTRS{idProduct}=="0635", MODE:="0666",  OWNER:="root", GROUP:="video", SYMLINK+="Femto"
@@ -22119,19 +22355,19 @@ KERNEL=="video*", ATTRS{idVendor}=="2bc5", ATTRS{idProduct}=="0559", MODE:="0777
 KERNEL=="video*", ATTRS{idVendor}=="2bc5", ATTRS{idProduct}=="0659", MODE:="0777", SYMLINK+="depth_cam"
 
 
-# ================== FILE 232: ros2_ws/src/peripherals/scripts/99-ttyACM0.rules ==================
+# ================== FILE 233: ros2_ws/src/peripherals/scripts/99-ttyACM0.rules ==================
 
 # Ignore ModemManager for ttyACM0 device
 KERNEL=="ttyACM*", SUBSYSTEM=="tty", GROUP="users", MODE="0777", SYMLINK+="rrc"
 ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55d4", ENV{ID_MM_PORT_IGNORE}="1"1"
 
 
-# ================== FILE 233: ros2_ws/src/peripherals/scripts/99-usb-cam.rules ==================
+# ================== FILE 234: ros2_ws/src/peripherals/scripts/99-usb-cam.rules ==================
 
 KERNEL=="video*",KERNELS=="1-2.1:1.0", MODE:="0777", SYMLINK+="depth_cam"
 
 
-# ================== FILE 234: ros2_ws/src/peripherals/scripts/create_udev_rules.sh ==================
+# ================== FILE 235: ros2_ws/src/peripherals/scripts/create_udev_rules.sh ==================
 
 #!/bin/bash
 
@@ -22144,13 +22380,13 @@ sudo service udev restart
 echo "finish "
 
 
-# ================== FILE 235: ros2_ws/src/peripherals/scripts/lidar.rules ==================
+# ================== FILE 236: ros2_ws/src/peripherals/scripts/lidar.rules ==================
 
 SUBSYSTEM=="tty", KERNELS=="1-2.3.4:1.0", SYMLINK+="lidar"
 SUBSYSTEM=="tty", KERNELS=="1-2.1.4:1.0", SYMLINK+="lidar"
 
 
-# ================== FILE 236: ros2_ws/src/peripherals/scripts/xf_mic.rules ==================
+# ================== FILE 237: ros2_ws/src/peripherals/scripts/xf_mic.rules ==================
 
 SUBSYSTEM=="tty", KERNELS=="1-2.3.1.1:1.0", SYMLINK+="ring_mic"
 SUBSYSTEM=="tty", KERNELS=="1-2.1.1.1:1.0", SYMLINK+="ring_mic"
@@ -22158,7 +22394,7 @@ KERNEL=="ttyCH341USB*", MODE:="0666", GROUP:="dialout"
 KERNEL=="ttyUSB*", MODE:="0666", GROUP:="dialout"
 
 
-# ================== FILE 237: ros2_ws/src/peripherals/test/test_copyright.py ==================
+# ================== FILE 238: ros2_ws/src/peripherals/test/test_copyright.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -22185,7 +22421,7 @@ def test_copyright():
     assert rc == 0, 'Found errors'
 
 
-# ================== FILE 238: ros2_ws/src/peripherals/test/test_flake8.py ==================
+# ================== FILE 239: ros2_ws/src/peripherals/test/test_flake8.py ==================
 
 # Copyright 2017 Open Source Robotics Foundation, Inc.
 #
@@ -22214,7 +22450,7 @@ def test_flake8():
         '\n'.join(errors)
 
 
-# ================== FILE 239: ros2_ws/src/peripherals/test/test_pep257.py ==================
+# ================== FILE 240: ros2_ws/src/peripherals/test/test_pep257.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -22241,7 +22477,7 @@ def test_pep257():
     assert rc == 0, 'Found code style errors / warnings'
 
 
-# ================== FILE 240: ros2_ws/src/simulations/mentorpi_description/package.xml ==================
+# ================== FILE 241: ros2_ws/src/simulations/mentorpi_description/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -22265,7 +22501,7 @@ def test_pep257():
 </package>
 
 
-# ================== FILE 241: ros2_ws/src/simulations/mentorpi_description/setup.cfg ==================
+# ================== FILE 242: ros2_ws/src/simulations/mentorpi_description/setup.cfg ==================
 
 [develop]
 script_dir=$base/lib/mentorpi_description
@@ -22273,7 +22509,7 @@ script_dir=$base/lib/mentorpi_description
 install_scripts=$base/lib/mentorpi_description
 
 
-# ================== FILE 242: ros2_ws/src/simulations/mentorpi_description/setup.py ==================
+# ================== FILE 243: ros2_ws/src/simulations/mentorpi_description/setup.py ==================
 
 import os
 from glob import glob
@@ -22309,7 +22545,7 @@ setup(
 )
 
 
-# ================== FILE 243: ros2_ws/src/simulations/mentorpi_description/launch/display.launch.py ==================
+# ================== FILE 244: ros2_ws/src/simulations/mentorpi_description/launch/display.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -22390,7 +22626,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 244: ros2_ws/src/simulations/mentorpi_description/launch/robot_description.launch.py ==================
+# ================== FILE 245: ros2_ws/src/simulations/mentorpi_description/launch/robot_description.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -22488,7 +22724,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 245: ros2_ws/src/simulations/mentorpi_description/launch/rviz.launch.py ==================
+# ================== FILE 246: ros2_ws/src/simulations/mentorpi_description/launch/rviz.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -22594,17 +22830,17 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 246: ros2_ws/src/simulations/mentorpi_description/mentorpi_description/__init__.py ==================
+# ================== FILE 247: ros2_ws/src/simulations/mentorpi_description/mentorpi_description/__init__.py ==================
 
 
 
 
-# ================== FILE 247: ros2_ws/src/simulations/mentorpi_description/resource/mentorpi_description ==================
+# ================== FILE 248: ros2_ws/src/simulations/mentorpi_description/resource/mentorpi_description ==================
 
 
 
 
-# ================== FILE 248: ros2_ws/src/simulations/mentorpi_description/rviz/view.rviz ==================
+# ================== FILE 249: ros2_ws/src/simulations/mentorpi_description/rviz/view.rviz ==================
 
 Panels:
   - Class: rviz_common/Displays
@@ -22867,7 +23103,7 @@ Window Geometry:
   Y: 153
 
 
-# ================== FILE 249: ros2_ws/src/simulations/mentorpi_description/test/test_copyright.py ==================
+# ================== FILE 250: ros2_ws/src/simulations/mentorpi_description/test/test_copyright.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -22896,7 +23132,7 @@ def test_copyright():
     assert rc == 0, 'Found errors'
 
 
-# ================== FILE 250: ros2_ws/src/simulations/mentorpi_description/test/test_flake8.py ==================
+# ================== FILE 251: ros2_ws/src/simulations/mentorpi_description/test/test_flake8.py ==================
 
 # Copyright 2017 Open Source Robotics Foundation, Inc.
 #
@@ -22925,7 +23161,7 @@ def test_flake8():
         '\n'.join(errors)
 
 
-# ================== FILE 251: ros2_ws/src/simulations/mentorpi_description/test/test_pep257.py ==================
+# ================== FILE 252: ros2_ws/src/simulations/mentorpi_description/test/test_pep257.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -22952,7 +23188,7 @@ def test_pep257():
     assert rc == 0, 'Found code style errors / warnings'
 
 
-# ================== FILE 252: ros2_ws/src/simulations/mentorpi_description/urdf/ack.xacro ==================
+# ================== FILE 253: ros2_ws/src/simulations/mentorpi_description/urdf/ack.xacro ==================
 
 <?xml version="1.0" ?>
 <robot name="ack" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -23173,7 +23409,7 @@ def test_pep257():
 
 
 
-# ================== FILE 253: ros2_ws/src/simulations/mentorpi_description/urdf/imu.urdf.xacro ==================
+# ================== FILE 254: ros2_ws/src/simulations/mentorpi_description/urdf/imu.urdf.xacro ==================
 
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="imu" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -23200,7 +23436,7 @@ def test_pep257():
 
 
 
-# ================== FILE 254: ros2_ws/src/simulations/mentorpi_description/urdf/inertial_matrix.xacro ==================
+# ================== FILE 255: ros2_ws/src/simulations/mentorpi_description/urdf/inertial_matrix.xacro ==================
 
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="inertial_matrix" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -23251,7 +23487,7 @@ def test_pep257():
 </robot>
 
 
-# ================== FILE 255: ros2_ws/src/simulations/mentorpi_description/urdf/lidar.urdf.xacro ==================
+# ================== FILE 256: ros2_ws/src/simulations/mentorpi_description/urdf/lidar.urdf.xacro ==================
 
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="lidar_a1" xmlns:xacro="http://ros.org/wiki/xacro" >
@@ -23267,7 +23503,7 @@ def test_pep257():
 </robot>
 
 
-# ================== FILE 256: ros2_ws/src/simulations/mentorpi_description/urdf/materials.xacro ==================
+# ================== FILE 257: ros2_ws/src/simulations/mentorpi_description/urdf/materials.xacro ==================
 
 <?xml version="1.0"?>
 <robot name="material" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -23305,7 +23541,7 @@ def test_pep257():
 </robot>
 
 
-# ================== FILE 257: ros2_ws/src/simulations/mentorpi_description/urdf/mecanum.xacro ==================
+# ================== FILE 258: ros2_ws/src/simulations/mentorpi_description/urdf/mecanum.xacro ==================
 
 <?xml version="1.0" ?>
 <robot name="mecanum" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -23525,7 +23761,7 @@ def test_pep257():
 </robot>
 
 
-# ================== FILE 258: ros2_ws/src/simulations/mentorpi_description/urdf/mentorpi.xacro ==================
+# ================== FILE 259: ros2_ws/src/simulations/mentorpi_description/urdf/mentorpi.xacro ==================
 
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="rosmentor" xmlns:xacro="http://ros.org/wiki/xacro">
