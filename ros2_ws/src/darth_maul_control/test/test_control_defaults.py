@@ -23,6 +23,17 @@ def test_control_params_default_to_lidar_required():
     assert 'pre_translation_grid_yaw_align_stable_samples: 3' in text
     assert 'pre_translation_grid_yaw_align_max_invalid_samples: 3' in text
     assert 'translation_lidar_required_invalid_max_consecutive_samples: 2' in text
+    assert 'post_rotation_grid_yaw_refine_enabled: true' in text
+    assert 'post_rotation_grid_yaw_refine_start_threshold_rad: 0.030' in text
+    assert 'post_rotation_grid_yaw_refine_target_rad: 0.015' in text
+    assert 'post_rotation_grid_yaw_refine_stable_samples: 3' in text
+    assert 'post_rotation_grid_yaw_refine_timeout_s: 2.0' in text
+    assert 'post_rotation_grid_yaw_refine_max_invalid_samples: 8' in text
+    assert 'post_rotation_grid_yaw_refine_max_abs_error_rad: 0.20' in text
+    assert 'post_rotation_grid_yaw_refine_min_confidence: 0.60' in text
+    assert 'post_rotation_grid_yaw_refine_kp: 1.00' in text
+    assert 'post_rotation_grid_yaw_refine_max_angular_z_radps: 0.080' in text
+    assert 'post_rotation_grid_yaw_refine_require_valid: false' in text
     assert 'translation_lidar_required_invalid_grace_s' not in text
     assert 'Odom is diagnostic only' in text
 
@@ -48,6 +59,17 @@ def test_control_launch_defaults_for_exam_mode():
     assert "'pre_translation_grid_yaw_align_max_invalid_samples'" in text
     assert "'translation_lidar_required_invalid_max_consecutive_samples'" in text
     assert "default_value='2'" in text
+    assert "'post_rotation_grid_yaw_refine_enabled'" in text
+    assert "'post_rotation_grid_yaw_refine_start_threshold_rad'" in text
+    assert "'post_rotation_grid_yaw_refine_target_rad'" in text
+    assert "'post_rotation_grid_yaw_refine_stable_samples'" in text
+    assert "'post_rotation_grid_yaw_refine_timeout_s'" in text
+    assert "'post_rotation_grid_yaw_refine_max_invalid_samples'" in text
+    assert "'post_rotation_grid_yaw_refine_max_abs_error_rad'" in text
+    assert "'post_rotation_grid_yaw_refine_min_confidence'" in text
+    assert "'post_rotation_grid_yaw_refine_kp'" in text
+    assert "'post_rotation_grid_yaw_refine_max_angular_z_radps'" in text
+    assert "'post_rotation_grid_yaw_refine_require_valid'" in text
     assert 'translation_lidar_required_invalid_grace_s' not in text
 
 
@@ -73,6 +95,22 @@ def test_control_node_defaults_to_grid_yaw_correction_enabled():
     assert "self._bool_param(\n            'grid_alignment_control_enabled',\n            True" in text
     assert "self._bool_param(\n            'grid_yaw_correction_enabled',\n            True" in text
     assert "self._bool_param(\n            'pre_translation_grid_yaw_align_enabled',\n            False" in text
+    assert "self._bool_param(\n            'post_rotation_grid_yaw_refine_enabled',\n            True" in text
+    assert "self._bool_param(\n            'post_rotation_grid_yaw_refine_require_valid',\n            False" in text
+
+
+def test_control_node_has_post_rotation_refine_hook_in_rotate_only():
+    text = (
+        PACKAGE_ROOT
+        / 'darth_maul_control'
+        / 'control_node.py'
+    ).read_text()
+
+    assert 'def _refine_post_rotation_grid_yaw(' in text
+    assert 'def _post_rotation_refine_correction(' in text
+    assert 'ROTATE_RELATIVE_POST_GRID_REFINE' in text
+    assert '_refine_post_rotation_grid_yaw(' in text
+    assert 'post_rotation_refine=' in text
 
 
 def test_control_node_has_no_4g_geometry_validation_runtime_path():

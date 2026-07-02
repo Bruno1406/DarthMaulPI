@@ -78,6 +78,13 @@ class GridAlignmentEstimate:
     reason: str
 
 
+@dataclass(frozen=True)
+class PostRotationGridYawRefineDecision:
+    stable: bool
+    should_correct: bool
+    reason: str
+
+
 def invalid_wall_line(side: str, reason: str) -> WallLineEstimate:
     return WallLineEstimate(
         valid=False,
@@ -348,6 +355,47 @@ def grid_yaw_pre_align_complete(
     return True, (
         f'grid yaw within target: {float(yaw_error_rad):.3f} rad '
         f'<= {float(target_rad):.3f} rad'
+    )
+
+
+def post_rotation_grid_yaw_refine_decision(
+    *,
+    yaw_error_rad: float,
+    target_rad: float,
+    start_threshold_rad: float,
+) -> PostRotationGridYawRefineDecision:
+    abs_error = abs(float(yaw_error_rad))
+    target = float(target_rad)
+    start = float(start_threshold_rad)
+
+    if abs_error <= target:
+        return PostRotationGridYawRefineDecision(
+            stable=True,
+            should_correct=False,
+            reason=(
+                f'post-rotation grid yaw within target: {float(yaw_error_rad):.3f} rad '
+                f'<= {target:.3f} rad'
+            ),
+        )
+
+    if abs_error <= start:
+        return PostRotationGridYawRefineDecision(
+            stable=True,
+            should_correct=False,
+            reason=(
+                'post-rotation grid yaw within start threshold; '
+                f'{float(yaw_error_rad):.3f} rad <= {start:.3f} rad; '
+                'no correction needed'
+            ),
+        )
+
+    return PostRotationGridYawRefineDecision(
+        stable=False,
+        should_correct=True,
+        reason=(
+            f'post-rotation grid yaw correction needed: {float(yaw_error_rad):.3f} rad '
+            f'> {start:.3f} rad'
+        ),
     )
 
 

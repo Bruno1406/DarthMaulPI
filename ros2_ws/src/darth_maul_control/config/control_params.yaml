@@ -171,6 +171,60 @@ darth_maul_control:
     # angular correction while valid; odom/IMU heading hold is fallback only.
     grid_yaw_active_heading_hold_scale: 0.0
 
+    # Post-rotation LiDAR grid-yaw refinement.
+    #
+    # This runs only after ROTATE_RELATIVE has reached odom/IMU heading tolerance.
+    # It is not the old pre-translation alignment path. It must not reset
+    # front/rear translation baselines because no translation is active yet.
+    #
+    # Purpose:
+    #   Odom/IMU-only rotations can finish with a physically bad wall-relative
+    #   heading. The next DRIVE_FORWARD may then fail immediately because
+    #   front/rear LiDAR progress disagrees or side-wall grid yaw is invalid.
+    #
+    # This refinement uses only the existing adjacent side-wall grid-yaw
+    # estimator. It does not use front/rear axial-wall geometry and it does not
+    # command lateral strafe.
+    post_rotation_grid_yaw_refine_enabled: true
+
+    # Start correcting only when abs(grid_yaw_error) is above this.
+    # Below this, the turn is considered good enough.
+    post_rotation_grid_yaw_refine_start_threshold_rad: 0.030
+
+    # Finish once abs(grid_yaw_error) is at or below this for stable samples.
+    post_rotation_grid_yaw_refine_target_rad: 0.015
+
+    # Consecutive valid in-target samples required before success.
+    post_rotation_grid_yaw_refine_stable_samples: 3
+
+    # Maximum wall-clock time spent in post-rotation refinement.
+    post_rotation_grid_yaw_refine_timeout_s: 2.0
+
+    # Number of invalid grid-yaw samples to tolerate before giving up.
+    # Default behavior is non-strict, so invalid grid yaw logs a warning and
+    # returns rotate success rather than aborting the whole queue.
+    post_rotation_grid_yaw_refine_max_invalid_samples: 8
+
+    # Do not try to correct very large side-wall yaw errors. These are likely
+    # junction/corner/aliasing cases, not clean corridor alignment.
+    post_rotation_grid_yaw_refine_max_abs_error_rad: 0.20
+
+    # Right-only or left-only adjacent wall confidence is 0.60 in the existing
+    # estimator. Keep the default at 0.60 so direct single-wall cases are usable.
+    post_rotation_grid_yaw_refine_min_confidence: 0.60
+
+    # Use the same sign convention as straight-drive grid yaw correction.
+    # Real testing showed that sign works.
+    post_rotation_grid_yaw_refine_kp: 1.00
+
+    # Slow correction. This should be less aggressive than normal rotation.
+    post_rotation_grid_yaw_refine_max_angular_z_radps: 0.080
+
+    # Non-strict by default. If no valid adjacent side wall is available after a
+    # turn, log it and return rotate success. This avoids creating a new exam
+    # failure at openings/junctions. Set true only for debugging.
+    post_rotation_grid_yaw_refine_require_valid: false
+
     # Movement-parallelity diagnostics only. No lateral strafe correction in this change.
     grid_lateral_drift_diagnostics_enabled: true
     grid_lateral_drift_require_left_right: true

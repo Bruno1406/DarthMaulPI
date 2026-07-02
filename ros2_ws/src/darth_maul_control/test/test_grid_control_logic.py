@@ -9,6 +9,7 @@ from darth_maul_control.scan_geometry import (
     grid_yaw_pre_align_complete,
     grid_lateral_drift,
     grid_yaw_correction_radps,
+    post_rotation_grid_yaw_refine_decision,
     should_pre_align_grid_yaw,
 )
 
@@ -162,6 +163,50 @@ def test_grid_yaw_correction_is_capped():
     )
 
     assert correction == pytest.approx(0.045)
+
+
+def test_post_rotation_refine_uses_same_positive_gain_sign():
+    correction = grid_yaw_correction_radps(
+        yaw_error_rad=-0.05,
+        k_yaw=1.00,
+        max_correction_radps=0.080,
+    )
+
+    assert correction == pytest.approx(-0.05)
+
+
+def test_post_rotation_refine_correction_is_capped():
+    correction = grid_yaw_correction_radps(
+        yaw_error_rad=0.20,
+        k_yaw=1.00,
+        max_correction_radps=0.080,
+    )
+
+    assert correction == pytest.approx(0.080)
+
+
+def test_post_rotation_refine_deadband_counts_as_stable_no_move():
+    decision = post_rotation_grid_yaw_refine_decision(
+        yaw_error_rad=0.020,
+        target_rad=0.015,
+        start_threshold_rad=0.030,
+    )
+
+    assert decision.stable
+    assert not decision.should_correct
+    assert 'within start threshold' in decision.reason
+
+
+def test_post_rotation_refine_corrects_above_start_threshold():
+    decision = post_rotation_grid_yaw_refine_decision(
+        yaw_error_rad=-0.040,
+        target_rad=0.015,
+        start_threshold_rad=0.030,
+    )
+
+    assert not decision.stable
+    assert decision.should_correct
+    assert 'correction needed' in decision.reason
 
 
 def test_compose_angular_command_uses_heading_hold_when_grid_inactive():

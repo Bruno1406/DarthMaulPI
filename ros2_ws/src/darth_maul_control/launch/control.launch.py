@@ -46,6 +46,39 @@ def generate_launch_description():
     translation_lidar_required_invalid_max_consecutive_samples = LaunchConfiguration(
         'translation_lidar_required_invalid_max_consecutive_samples'
     )
+    post_rotation_grid_yaw_refine_enabled = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_enabled'
+    )
+    post_rotation_grid_yaw_refine_start_threshold_rad = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_start_threshold_rad'
+    )
+    post_rotation_grid_yaw_refine_target_rad = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_target_rad'
+    )
+    post_rotation_grid_yaw_refine_stable_samples = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_stable_samples'
+    )
+    post_rotation_grid_yaw_refine_timeout_s = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_timeout_s'
+    )
+    post_rotation_grid_yaw_refine_max_invalid_samples = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_max_invalid_samples'
+    )
+    post_rotation_grid_yaw_refine_max_abs_error_rad = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_max_abs_error_rad'
+    )
+    post_rotation_grid_yaw_refine_min_confidence = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_min_confidence'
+    )
+    post_rotation_grid_yaw_refine_kp = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_kp'
+    )
+    post_rotation_grid_yaw_refine_max_angular_z_radps = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_max_angular_z_radps'
+    )
+    post_rotation_grid_yaw_refine_require_valid = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_require_valid'
+    )
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -120,6 +153,61 @@ def generate_launch_description():
             default_value='2',
             description='Consecutive invalid LiDAR progress samples allowed in lidar_required mode.',
         ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_enabled',
+            default_value='true',
+            description='Enable LiDAR side-wall yaw refinement after ROTATE_RELATIVE.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_start_threshold_rad',
+            default_value='0.030',
+            description='Grid yaw error threshold that triggers post-rotation refinement.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_target_rad',
+            default_value='0.015',
+            description='Target grid yaw error for post-rotation refinement completion.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_stable_samples',
+            default_value='3',
+            description='Consecutive in-target samples required after post-rotation refinement.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_timeout_s',
+            default_value='2.0',
+            description='Maximum seconds spent in post-rotation refinement.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_max_invalid_samples',
+            default_value='8',
+            description='Invalid grid-yaw samples tolerated during post-rotation refinement.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_max_abs_error_rad',
+            default_value='0.20',
+            description='Maximum grid yaw error considered safe to correct after rotation.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_min_confidence',
+            default_value='0.60',
+            description='Minimum grid alignment confidence for post-rotation refinement.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_kp',
+            default_value='1.00',
+            description='Post-rotation grid yaw refinement proportional gain.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_max_angular_z_radps',
+            default_value='0.080',
+            description='Max angular speed during post-rotation grid yaw refinement.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_require_valid',
+            default_value='false',
+            description='If true, fail ROTATE_RELATIVE when post-rotation grid yaw is unavailable.',
+        ),
         Node(
             package=package_name,
             executable='control_node',
@@ -174,6 +262,50 @@ def generate_launch_description():
                     'translation_lidar_required_invalid_max_consecutive_samples': ParameterValue(
                         translation_lidar_required_invalid_max_consecutive_samples,
                         value_type=int,
+                    ),
+                    'post_rotation_grid_yaw_refine_enabled': ParameterValue(
+                        post_rotation_grid_yaw_refine_enabled,
+                        value_type=bool,
+                    ),
+                    'post_rotation_grid_yaw_refine_start_threshold_rad': ParameterValue(
+                        post_rotation_grid_yaw_refine_start_threshold_rad,
+                        value_type=float,
+                    ),
+                    'post_rotation_grid_yaw_refine_target_rad': ParameterValue(
+                        post_rotation_grid_yaw_refine_target_rad,
+                        value_type=float,
+                    ),
+                    'post_rotation_grid_yaw_refine_stable_samples': ParameterValue(
+                        post_rotation_grid_yaw_refine_stable_samples,
+                        value_type=int,
+                    ),
+                    'post_rotation_grid_yaw_refine_timeout_s': ParameterValue(
+                        post_rotation_grid_yaw_refine_timeout_s,
+                        value_type=float,
+                    ),
+                    'post_rotation_grid_yaw_refine_max_invalid_samples': ParameterValue(
+                        post_rotation_grid_yaw_refine_max_invalid_samples,
+                        value_type=int,
+                    ),
+                    'post_rotation_grid_yaw_refine_max_abs_error_rad': ParameterValue(
+                        post_rotation_grid_yaw_refine_max_abs_error_rad,
+                        value_type=float,
+                    ),
+                    'post_rotation_grid_yaw_refine_min_confidence': ParameterValue(
+                        post_rotation_grid_yaw_refine_min_confidence,
+                        value_type=float,
+                    ),
+                    'post_rotation_grid_yaw_refine_kp': ParameterValue(
+                        post_rotation_grid_yaw_refine_kp,
+                        value_type=float,
+                    ),
+                    'post_rotation_grid_yaw_refine_max_angular_z_radps': ParameterValue(
+                        post_rotation_grid_yaw_refine_max_angular_z_radps,
+                        value_type=float,
+                    ),
+                    'post_rotation_grid_yaw_refine_require_valid': ParameterValue(
+                        post_rotation_grid_yaw_refine_require_valid,
+                        value_type=bool,
                     ),
                 },
             ],

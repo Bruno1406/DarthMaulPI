@@ -1,8 +1,8 @@
 # DarthMaulPI Codebase Text Snapshot
 
 Project root: /home/dtdav/Development/DarthMaulPI
-Included files: 259
-Skipped files: 12580
+Included files: 260
+Skipped files: 12675
 
 # Included File Index
 
@@ -202,76 +202,77 @@ Skipped files: 12580
 194. ros2_ws/src/maze_publisher_node/LICENSE
 195. ros2_ws/src/maze_publisher_node/package.xml
 196. ros2_ws/src/maze_publisher_node/mazes/1.maze
-197. ros2_ws/src/maze_publisher_node/src/maze_publisher_node.cpp
-198. ros2_ws/src/maze_solver/maze_solver_node.py
-199. ros2_ws/src/maze_solver/package.xml
-200. ros2_ws/src/maze_solver/setup.cfg
-201. ros2_ws/src/maze_solver/setup.py
-202. ros2_ws/src/maze_solver/launch/exam_task1.launch.py
-203. ros2_ws/src/maze_solver/resource/maze_solver
-204. ros2_ws/src/maze_solver/test/test_motion_command_compression.py
-205. ros2_ws/src/orchestrator_launch/CMakeLists.txt
-206. ros2_ws/src/orchestrator_launch/package.xml
-207. ros2_ws/src/orchestrator_launch/config/mapper_params_online_async.yaml
-208. ros2_ws/src/orchestrator_launch/launch/launch_full_slam_stack.launch.py
-209. ros2_ws/src/orchestrator_launch/launch/slam_toolbox.launch.py
-210. ros2_ws/src/peripherals/package.xml
-211. ros2_ws/src/peripherals/setup.cfg
-212. ros2_ws/src/peripherals/setup.py
-213. ros2_ws/src/peripherals/config/apriltag_config.yaml
-214. ros2_ws/src/peripherals/config/camera_info.yaml
-215. ros2_ws/src/peripherals/config/usb_cam_param.yaml
-216. ros2_ws/src/peripherals/launch/apriltag.launch.py
-217. ros2_ws/src/peripherals/launch/image_pipeline.launch.py
-218. ros2_ws/src/peripherals/launch/imu_filter.launch.py
-219. ros2_ws/src/peripherals/launch/imu_view.launch.py
-220. ros2_ws/src/peripherals/launch/joystick_control.launch.py
-221. ros2_ws/src/peripherals/launch/teleop_key_control.launch.py
-222. ros2_ws/src/peripherals/launch/usb_cam.launch.py
-223. ros2_ws/src/peripherals/launch/include/ascamera.launch.py
-224. ros2_ws/src/peripherals/peripherals/__init__.py
-225. ros2_ws/src/peripherals/peripherals/demo.py
-226. ros2_ws/src/peripherals/peripherals/joystick_control.py
-227. ros2_ws/src/peripherals/peripherals/teleop_key_control.py
-228. ros2_ws/src/peripherals/peripherals/tf_broadcaster_imu.py
-229. ros2_ws/src/peripherals/resource/peripherals
-230. ros2_ws/src/peripherals/rviz/imu_view.rviz
-231. ros2_ws/src/peripherals/rviz/lidar_view.rviz
-232. ros2_ws/src/peripherals/scripts/99-obsensor-libusb.rules
-233. ros2_ws/src/peripherals/scripts/99-ttyACM0.rules
-234. ros2_ws/src/peripherals/scripts/99-usb-cam.rules
-235. ros2_ws/src/peripherals/scripts/create_udev_rules.sh
-236. ros2_ws/src/peripherals/scripts/lidar.rules
-237. ros2_ws/src/peripherals/scripts/xf_mic.rules
-238. ros2_ws/src/peripherals/test/test_copyright.py
-239. ros2_ws/src/peripherals/test/test_flake8.py
-240. ros2_ws/src/peripherals/test/test_pep257.py
-241. ros2_ws/src/simulations/mentorpi_description/package.xml
-242. ros2_ws/src/simulations/mentorpi_description/setup.cfg
-243. ros2_ws/src/simulations/mentorpi_description/setup.py
-244. ros2_ws/src/simulations/mentorpi_description/launch/display.launch.py
-245. ros2_ws/src/simulations/mentorpi_description/launch/robot_description.launch.py
-246. ros2_ws/src/simulations/mentorpi_description/launch/rviz.launch.py
-247. ros2_ws/src/simulations/mentorpi_description/mentorpi_description/__init__.py
-248. ros2_ws/src/simulations/mentorpi_description/resource/mentorpi_description
-249. ros2_ws/src/simulations/mentorpi_description/rviz/view.rviz
-250. ros2_ws/src/simulations/mentorpi_description/test/test_copyright.py
-251. ros2_ws/src/simulations/mentorpi_description/test/test_flake8.py
-252. ros2_ws/src/simulations/mentorpi_description/test/test_pep257.py
-253. ros2_ws/src/simulations/mentorpi_description/urdf/ack.xacro
-254. ros2_ws/src/simulations/mentorpi_description/urdf/imu.urdf.xacro
-255. ros2_ws/src/simulations/mentorpi_description/urdf/inertial_matrix.xacro
-256. ros2_ws/src/simulations/mentorpi_description/urdf/lidar.urdf.xacro
-257. ros2_ws/src/simulations/mentorpi_description/urdf/materials.xacro
-258. ros2_ws/src/simulations/mentorpi_description/urdf/mecanum.xacro
-259. ros2_ws/src/simulations/mentorpi_description/urdf/mentorpi.xacro
+197. ros2_ws/src/maze_publisher_node/mazes/2.maze
+198. ros2_ws/src/maze_publisher_node/src/maze_publisher_node.cpp
+199. ros2_ws/src/maze_solver/maze_solver_node.py
+200. ros2_ws/src/maze_solver/package.xml
+201. ros2_ws/src/maze_solver/setup.cfg
+202. ros2_ws/src/maze_solver/setup.py
+203. ros2_ws/src/maze_solver/launch/exam_task1.launch.py
+204. ros2_ws/src/maze_solver/resource/maze_solver
+205. ros2_ws/src/maze_solver/test/test_motion_command_compression.py
+206. ros2_ws/src/orchestrator_launch/CMakeLists.txt
+207. ros2_ws/src/orchestrator_launch/package.xml
+208. ros2_ws/src/orchestrator_launch/config/mapper_params_online_async.yaml
+209. ros2_ws/src/orchestrator_launch/launch/launch_full_slam_stack.launch.py
+210. ros2_ws/src/orchestrator_launch/launch/slam_toolbox.launch.py
+211. ros2_ws/src/peripherals/package.xml
+212. ros2_ws/src/peripherals/setup.cfg
+213. ros2_ws/src/peripherals/setup.py
+214. ros2_ws/src/peripherals/config/apriltag_config.yaml
+215. ros2_ws/src/peripherals/config/camera_info.yaml
+216. ros2_ws/src/peripherals/config/usb_cam_param.yaml
+217. ros2_ws/src/peripherals/launch/apriltag.launch.py
+218. ros2_ws/src/peripherals/launch/image_pipeline.launch.py
+219. ros2_ws/src/peripherals/launch/imu_filter.launch.py
+220. ros2_ws/src/peripherals/launch/imu_view.launch.py
+221. ros2_ws/src/peripherals/launch/joystick_control.launch.py
+222. ros2_ws/src/peripherals/launch/teleop_key_control.launch.py
+223. ros2_ws/src/peripherals/launch/usb_cam.launch.py
+224. ros2_ws/src/peripherals/launch/include/ascamera.launch.py
+225. ros2_ws/src/peripherals/peripherals/__init__.py
+226. ros2_ws/src/peripherals/peripherals/demo.py
+227. ros2_ws/src/peripherals/peripherals/joystick_control.py
+228. ros2_ws/src/peripherals/peripherals/teleop_key_control.py
+229. ros2_ws/src/peripherals/peripherals/tf_broadcaster_imu.py
+230. ros2_ws/src/peripherals/resource/peripherals
+231. ros2_ws/src/peripherals/rviz/imu_view.rviz
+232. ros2_ws/src/peripherals/rviz/lidar_view.rviz
+233. ros2_ws/src/peripherals/scripts/99-obsensor-libusb.rules
+234. ros2_ws/src/peripherals/scripts/99-ttyACM0.rules
+235. ros2_ws/src/peripherals/scripts/99-usb-cam.rules
+236. ros2_ws/src/peripherals/scripts/create_udev_rules.sh
+237. ros2_ws/src/peripherals/scripts/lidar.rules
+238. ros2_ws/src/peripherals/scripts/xf_mic.rules
+239. ros2_ws/src/peripherals/test/test_copyright.py
+240. ros2_ws/src/peripherals/test/test_flake8.py
+241. ros2_ws/src/peripherals/test/test_pep257.py
+242. ros2_ws/src/simulations/mentorpi_description/package.xml
+243. ros2_ws/src/simulations/mentorpi_description/setup.cfg
+244. ros2_ws/src/simulations/mentorpi_description/setup.py
+245. ros2_ws/src/simulations/mentorpi_description/launch/display.launch.py
+246. ros2_ws/src/simulations/mentorpi_description/launch/robot_description.launch.py
+247. ros2_ws/src/simulations/mentorpi_description/launch/rviz.launch.py
+248. ros2_ws/src/simulations/mentorpi_description/mentorpi_description/__init__.py
+249. ros2_ws/src/simulations/mentorpi_description/resource/mentorpi_description
+250. ros2_ws/src/simulations/mentorpi_description/rviz/view.rviz
+251. ros2_ws/src/simulations/mentorpi_description/test/test_copyright.py
+252. ros2_ws/src/simulations/mentorpi_description/test/test_flake8.py
+253. ros2_ws/src/simulations/mentorpi_description/test/test_pep257.py
+254. ros2_ws/src/simulations/mentorpi_description/urdf/ack.xacro
+255. ros2_ws/src/simulations/mentorpi_description/urdf/imu.urdf.xacro
+256. ros2_ws/src/simulations/mentorpi_description/urdf/inertial_matrix.xacro
+257. ros2_ws/src/simulations/mentorpi_description/urdf/lidar.urdf.xacro
+258. ros2_ws/src/simulations/mentorpi_description/urdf/materials.xacro
+259. ros2_ws/src/simulations/mentorpi_description/urdf/mecanum.xacro
+260. ros2_ws/src/simulations/mentorpi_description/urdf/mentorpi.xacro
 
 # Skipped File Summary
 
 - binary, media, generated, or not useful as text: 57
 - not UTF-8 text: 1
 - previous merged output: 1
-- skipped directory: 12521
+- skipped directory: 12616
 
 # File Contents
 
@@ -1911,21 +1912,21 @@ def test_pep257():
 
 # ================== FILE 15: maze/ascii_maze.txt ==================
 
-+---+---+---+---+
-|       |       |
-+   +   +   +   +
-|       |       |
-+   +   +---+   +
-|               |
-+   +   +   +   +
-|               |
-+   +   +   +   +
-|       |       |
-+   +   +---+   +
-|               |
-+   +   +   +---+
-|               |
-+---+---+---+---+
++---+---+---+---+---+---+---+---+---+---+---+
+|       |       |                       |   |
++   +   +   +   +   +   +   +   +   +   +   +
+|       |       |   |                   |   |
++   +   +---+   +---+---+   +   +---+---+   +
+|               |       |       |           |
++   +   +   +   +   +---+   +   +   +   +   +
+|               |                       |   |
++   +   +   +   +---+   +   +   +   +   +   +
+|       |                           |   |   |
++   +   +---+   +   +   +---+---+---+---+   +
+|               |               |       |   |
++   +   +   +---+   +   +   +   +---+---+   +
+|               |       |                   |
++---+---+---+---+---+---+---+---+---+---+---+
 
 
 # ================== FILE 16: maze/ascii_to_L.py ==================
@@ -3146,7 +3147,7 @@ darth_maul_control:
     # LiDAR front stop
     require_scan_for_forward: true
     front_sector_deg: 35.0
-    front_stop_distance_m: 0.13
+    front_stop_distance_m: 0.08
 
     # LiDAR cardinal-sector diagnostics.
     lidar_diagnostics_enabled: true
@@ -3271,6 +3272,60 @@ darth_maul_control:
     # angular correction while valid; odom/IMU heading hold is fallback only.
     grid_yaw_active_heading_hold_scale: 0.0
 
+    # Post-rotation LiDAR grid-yaw refinement.
+    #
+    # This runs only after ROTATE_RELATIVE has reached odom/IMU heading tolerance.
+    # It is not the old pre-translation alignment path. It must not reset
+    # front/rear translation baselines because no translation is active yet.
+    #
+    # Purpose:
+    #   Odom/IMU-only rotations can finish with a physically bad wall-relative
+    #   heading. The next DRIVE_FORWARD may then fail immediately because
+    #   front/rear LiDAR progress disagrees or side-wall grid yaw is invalid.
+    #
+    # This refinement uses only the existing adjacent side-wall grid-yaw
+    # estimator. It does not use front/rear axial-wall geometry and it does not
+    # command lateral strafe.
+    post_rotation_grid_yaw_refine_enabled: true
+
+    # Start correcting only when abs(grid_yaw_error) is above this.
+    # Below this, the turn is considered good enough.
+    post_rotation_grid_yaw_refine_start_threshold_rad: 0.030
+
+    # Finish once abs(grid_yaw_error) is at or below this for stable samples.
+    post_rotation_grid_yaw_refine_target_rad: 0.015
+
+    # Consecutive valid in-target samples required before success.
+    post_rotation_grid_yaw_refine_stable_samples: 3
+
+    # Maximum wall-clock time spent in post-rotation refinement.
+    post_rotation_grid_yaw_refine_timeout_s: 2.0
+
+    # Number of invalid grid-yaw samples to tolerate before giving up.
+    # Default behavior is non-strict, so invalid grid yaw logs a warning and
+    # returns rotate success rather than aborting the whole queue.
+    post_rotation_grid_yaw_refine_max_invalid_samples: 8
+
+    # Do not try to correct very large side-wall yaw errors. These are likely
+    # junction/corner/aliasing cases, not clean corridor alignment.
+    post_rotation_grid_yaw_refine_max_abs_error_rad: 0.20
+
+    # Right-only or left-only adjacent wall confidence is 0.60 in the existing
+    # estimator. Keep the default at 0.60 so direct single-wall cases are usable.
+    post_rotation_grid_yaw_refine_min_confidence: 0.60
+
+    # Use the same sign convention as straight-drive grid yaw correction.
+    # Real testing showed that sign works.
+    post_rotation_grid_yaw_refine_kp: 1.00
+
+    # Slow correction. This should be less aggressive than normal rotation.
+    post_rotation_grid_yaw_refine_max_angular_z_radps: 0.080
+
+    # Non-strict by default. If no valid adjacent side wall is available after a
+    # turn, log it and return rotate success. This avoids creating a new exam
+    # failure at openings/junctions. Set true only for debugging.
+    post_rotation_grid_yaw_refine_require_valid: false
+
     # Movement-parallelity diagnostics only. No lateral strafe correction in this change.
     grid_lateral_drift_diagnostics_enabled: true
     grid_lateral_drift_require_left_right: true
@@ -3325,6 +3380,7 @@ from darth_maul_control.scan_geometry import (
     estimate_grid_alignment,
     finite_median_or_nan,
     grid_lateral_drift,
+    post_rotation_grid_yaw_refine_decision,
     grid_yaw_pre_align_complete,
     grid_yaw_correction_radps,
     invalid_grid_alignment,
@@ -3421,6 +3477,18 @@ class GridYawCorrection:
     reason: str
     source: str
     using_memory: bool
+
+
+@dataclass(frozen=True)
+class PostRotationGridYawRefineResult:
+    attempted: bool
+    moved: bool
+    success: bool
+    should_abort: bool
+    code: int
+    message: str
+    final_heading_error_rad: float
+    final_alignment: GridAlignmentEstimate
 
 
 SUPPORTED_PRIMITIVES = {
@@ -3813,6 +3881,64 @@ class DarthMaulControlNode(Node):
         self.grid_yaw_active_heading_hold_scale = max(
             0.0,
             min(1.0, float(self.grid_yaw_active_heading_hold_scale)),
+        )
+        self.post_rotation_grid_yaw_refine_enabled = self._bool_param(
+            'post_rotation_grid_yaw_refine_enabled',
+            True,
+        )
+        self.post_rotation_grid_yaw_refine_start_threshold_rad = (
+            self._positive_float_param(
+                'post_rotation_grid_yaw_refine_start_threshold_rad',
+                0.030,
+            )
+        )
+        self.post_rotation_grid_yaw_refine_target_rad = (
+            self._positive_float_param(
+                'post_rotation_grid_yaw_refine_target_rad',
+                0.015,
+            )
+        )
+        self.post_rotation_grid_yaw_refine_stable_samples = (
+            self._positive_int_param(
+                'post_rotation_grid_yaw_refine_stable_samples',
+                3,
+            )
+        )
+        self.post_rotation_grid_yaw_refine_timeout_s = self._positive_float_param(
+            'post_rotation_grid_yaw_refine_timeout_s',
+            2.0,
+        )
+        self.post_rotation_grid_yaw_refine_max_invalid_samples = (
+            self._positive_int_param(
+                'post_rotation_grid_yaw_refine_max_invalid_samples',
+                8,
+            )
+        )
+        self.post_rotation_grid_yaw_refine_max_abs_error_rad = (
+            self._positive_float_param(
+                'post_rotation_grid_yaw_refine_max_abs_error_rad',
+                0.20,
+            )
+        )
+        self.post_rotation_grid_yaw_refine_min_confidence = (
+            self._nonnegative_float_param(
+                'post_rotation_grid_yaw_refine_min_confidence',
+                0.60,
+            )
+        )
+        self.post_rotation_grid_yaw_refine_kp = self._nonnegative_float_param(
+            'post_rotation_grid_yaw_refine_kp',
+            1.00,
+        )
+        self.post_rotation_grid_yaw_refine_max_angular_z_radps = (
+            self._positive_float_param(
+                'post_rotation_grid_yaw_refine_max_angular_z_radps',
+                0.080,
+            )
+        )
+        self.post_rotation_grid_yaw_refine_require_valid = self._bool_param(
+            'post_rotation_grid_yaw_refine_require_valid',
+            False,
         )
 
         self.grid_lateral_drift_diagnostics_enabled = self._bool_param(
@@ -4904,6 +5030,330 @@ class DarthMaulControlNode(Node):
             grid_alignment=final_alignment,
         )
 
+    def _post_rotation_refine_correction(
+        self,
+        alignment: GridAlignmentEstimate,
+    ) -> GridYawCorrection:
+        if not self.grid_alignment_control_enabled:
+            return GridYawCorrection(
+                False,
+                0.0,
+                'post-rotation refinement disabled: grid alignment control disabled',
+                'none',
+                False,
+            )
+
+        if not self.grid_yaw_correction_enabled:
+            return GridYawCorrection(
+                False,
+                0.0,
+                'post-rotation refinement disabled: grid yaw correction disabled',
+                'none',
+                False,
+            )
+
+        if not alignment.valid or not alignment.yaw_valid:
+            return GridYawCorrection(
+                False,
+                0.0,
+                f'post-rotation grid yaw invalid: {alignment.reason}',
+                alignment.source,
+                False,
+            )
+
+        if alignment.confidence < self.post_rotation_grid_yaw_refine_min_confidence:
+            return GridYawCorrection(
+                False,
+                0.0,
+                (
+                    'post-rotation grid confidence too low: '
+                    f'{alignment.confidence:.2f} '
+                    f'< {self.post_rotation_grid_yaw_refine_min_confidence:.2f}'
+                ),
+                alignment.source,
+                False,
+            )
+
+        abs_error = abs(alignment.yaw_error_rad)
+        if abs_error > self.post_rotation_grid_yaw_refine_max_abs_error_rad:
+            return GridYawCorrection(
+                False,
+                0.0,
+                (
+                    'post-rotation grid yaw error too large to refine safely: '
+                    f'{alignment.yaw_error_rad:.3f} rad > '
+                    f'{self.post_rotation_grid_yaw_refine_max_abs_error_rad:.3f} rad'
+                ),
+                alignment.source,
+                False,
+            )
+
+        correction = grid_yaw_correction_radps(
+            alignment.yaw_error_rad,
+            self.post_rotation_grid_yaw_refine_kp,
+            self.post_rotation_grid_yaw_refine_max_angular_z_radps,
+        )
+
+        return GridYawCorrection(
+            active=True,
+            correction_radps=float(correction),
+            reason=(
+                f'post-rotation grid yaw correction from {alignment.source}: '
+                f'yaw_error={alignment.yaw_error_rad:.3f} rad, '
+                f'confidence={alignment.confidence:.2f}, '
+                f'correction={correction:.3f} rad/s'
+            ),
+            source=alignment.source,
+            using_memory=False,
+        )
+
+    def _refine_post_rotation_grid_yaw(
+        self,
+        goal_handle,
+        limits: VelocityLimits,
+        target_yaw: float,
+    ) -> PostRotationGridYawRefineResult:
+        if not self.post_rotation_grid_yaw_refine_enabled:
+            alignment = self._grid_alignment_snapshot()
+            snapshot = self._get_motion_snapshot()
+            final_heading_error = 0.0
+            if snapshot is not None:
+                final_heading_error = abs(normalize_angle(target_yaw - snapshot.pose.yaw))
+            return PostRotationGridYawRefineResult(
+                attempted=False,
+                moved=False,
+                success=True,
+                should_abort=False,
+                code=ExecuteMotionPrimitive.Result.SUCCESS,
+                message='post_rotation_refine=skipped: disabled',
+                final_heading_error_rad=final_heading_error,
+                final_alignment=alignment,
+            )
+
+        start_time = time.monotonic()
+        stable_samples = 0
+        invalid_samples = 0
+        moved = False
+        last_reason = 'not evaluated'
+        last_alignment = self._grid_alignment_snapshot()
+        last_heading_error = 0.0
+
+        # Do not reuse straight-drive grid yaw memory during post-rotation refinement.
+        self._end_grid_yaw_control_memory()
+
+        while True:
+            if self._cancel_or_stop_requested(goal_handle):
+                return PostRotationGridYawRefineResult(
+                    attempted=True,
+                    moved=moved,
+                    success=False,
+                    should_abort=True,
+                    code=ExecuteMotionPrimitive.Result.CANCELED,
+                    message='post_rotation_refine=canceled',
+                    final_heading_error_rad=last_heading_error,
+                    final_alignment=last_alignment,
+                )
+
+            elapsed = time.monotonic() - start_time
+            if elapsed > self.post_rotation_grid_yaw_refine_timeout_s:
+                self.publish_zero_twist()
+                message = (
+                    'post_rotation_refine=timeout; '
+                    f'moved={moved}; '
+                    f'stable={stable_samples}/'
+                    f'{self.post_rotation_grid_yaw_refine_stable_samples}; '
+                    f'invalid={invalid_samples}; '
+                    f'last_reason={last_reason}'
+                )
+                if self.post_rotation_grid_yaw_refine_require_valid:
+                    return PostRotationGridYawRefineResult(
+                        attempted=True,
+                        moved=moved,
+                        success=False,
+                        should_abort=True,
+                        code=ExecuteMotionPrimitive.Result.INTERNAL_ERROR,
+                        message=message,
+                        final_heading_error_rad=last_heading_error,
+                        final_alignment=last_alignment,
+                    )
+
+                return PostRotationGridYawRefineResult(
+                    attempted=True,
+                    moved=moved,
+                    success=True,
+                    should_abort=False,
+                    code=ExecuteMotionPrimitive.Result.SUCCESS,
+                    message=message + '; non_strict_continue=true',
+                    final_heading_error_rad=last_heading_error,
+                    final_alignment=last_alignment,
+                )
+
+            snapshot = self._get_motion_snapshot()
+            if snapshot is None:
+                self.publish_zero_twist()
+                return PostRotationGridYawRefineResult(
+                    attempted=True,
+                    moved=moved,
+                    success=False,
+                    should_abort=True,
+                    code=ExecuteMotionPrimitive.Result.ODOM_UNAVAILABLE,
+                    message='post_rotation_refine=failed: odom unavailable',
+                    final_heading_error_rad=last_heading_error,
+                    final_alignment=last_alignment,
+                )
+
+            last_heading_error = abs(normalize_angle(target_yaw - snapshot.pose.yaw))
+            alignment = self._grid_alignment_snapshot()
+            last_alignment = alignment
+
+            complete, complete_reason = grid_yaw_pre_align_complete(
+                alignment_valid=alignment.valid,
+                yaw_valid=alignment.yaw_valid,
+                yaw_error_rad=alignment.yaw_error_rad,
+                confidence=alignment.confidence,
+                min_confidence=self.post_rotation_grid_yaw_refine_min_confidence,
+                target_rad=self.post_rotation_grid_yaw_refine_target_rad,
+            )
+
+            correction = self._post_rotation_refine_correction(alignment)
+            last_reason = correction.reason if correction.reason else complete_reason
+
+            if complete:
+                stable_samples += 1
+                invalid_samples = 0
+                self.publish_zero_twist()
+                self._set_grid_yaw_control_status(
+                    False,
+                    0.0,
+                    complete_reason,
+                )
+            elif correction.active:
+                stable_samples = 0
+                invalid_samples = 0
+                status_active = correction.active
+                status_correction = correction.correction_radps
+                status_reason = correction.reason
+
+                decision = post_rotation_grid_yaw_refine_decision(
+                    yaw_error_rad=alignment.yaw_error_rad,
+                    target_rad=self.post_rotation_grid_yaw_refine_target_rad,
+                    start_threshold_rad=(
+                        self.post_rotation_grid_yaw_refine_start_threshold_rad
+                    ),
+                )
+                if decision.stable:
+                    stable_samples += 1
+                    invalid_samples = 0
+                    self.publish_zero_twist()
+                    last_reason = decision.reason
+                    status_active = False
+                    status_correction = 0.0
+                    status_reason = decision.reason
+                elif decision.should_correct:
+                    cmd = Twist()
+                    cmd.linear.x = 0.0
+                    cmd.linear.y = 0.0
+                    cmd.angular.z = correction.correction_radps
+                    cmd = self._limiter.clamp(cmd, limits)
+                    cmd = self._apply_acceleration_limits(cmd)
+                    self._cmd_vel_pub.publish(cmd)
+                    moved = True
+
+                self._set_grid_yaw_control_status(
+                    status_active,
+                    status_correction,
+                    status_reason,
+                )
+            else:
+                stable_samples = 0
+                invalid_samples += 1
+                self.publish_zero_twist()
+                self._set_grid_yaw_control_status(
+                    False,
+                    0.0,
+                    correction.reason,
+                )
+
+            self._update_motion_state(
+                distance_remaining=0.0,
+                distance_traveled=0.0,
+                heading_error=alignment.yaw_error_rad if alignment.yaw_valid else 0.0,
+                status=(
+                    'ROTATE_RELATIVE post-rotation grid refine: '
+                    f'valid={alignment.valid}, '
+                    f'yaw_valid={alignment.yaw_valid}, '
+                    f'yaw={alignment.yaw_error_rad:.3f} rad, '
+                    f'source={alignment.source}, '
+                    f'confidence={alignment.confidence:.2f}, '
+                    f'stable={stable_samples}/'
+                    f'{self.post_rotation_grid_yaw_refine_stable_samples}, '
+                    f'invalid={invalid_samples}/'
+                    f'{self.post_rotation_grid_yaw_refine_max_invalid_samples}, '
+                    f'correction={correction.correction_radps:.3f} rad/s, '
+                    f'reason={last_reason}'
+                ),
+            )
+
+            self._publish_feedback(
+                goal_handle,
+                progress=1.0,
+                distance_remaining=0.0,
+                heading_remaining=alignment.yaw_error_rad if alignment.yaw_valid else 0.0,
+                state='ROTATE_RELATIVE_POST_GRID_REFINE',
+            )
+
+            if stable_samples >= self.post_rotation_grid_yaw_refine_stable_samples:
+                self.publish_zero_twist()
+                return PostRotationGridYawRefineResult(
+                    attempted=True,
+                    moved=moved,
+                    success=True,
+                    should_abort=False,
+                    code=ExecuteMotionPrimitive.Result.SUCCESS,
+                    message=(
+                        'post_rotation_refine=succeeded; '
+                        f'moved={moved}; '
+                        f'final_grid_yaw={alignment.yaw_error_rad:.3f} rad; '
+                        f'source={alignment.source}; '
+                        f'confidence={alignment.confidence:.2f}; '
+                        f'reason={complete_reason}'
+                    ),
+                    final_heading_error_rad=last_heading_error,
+                    final_alignment=alignment,
+                )
+
+            if invalid_samples > self.post_rotation_grid_yaw_refine_max_invalid_samples:
+                self.publish_zero_twist()
+                message = (
+                    'post_rotation_refine=unavailable; '
+                    f'invalid={invalid_samples}; '
+                    f'last_reason={last_reason}'
+                )
+                if self.post_rotation_grid_yaw_refine_require_valid:
+                    return PostRotationGridYawRefineResult(
+                        attempted=True,
+                        moved=moved,
+                        success=False,
+                        should_abort=True,
+                        code=ExecuteMotionPrimitive.Result.INTERNAL_ERROR,
+                        message=message,
+                        final_heading_error_rad=last_heading_error,
+                        final_alignment=alignment,
+                    )
+
+                return PostRotationGridYawRefineResult(
+                    attempted=True,
+                    moved=moved,
+                    success=True,
+                    should_abort=False,
+                    code=ExecuteMotionPrimitive.Result.SUCCESS,
+                    message=message + '; non_strict_continue=true',
+                    final_heading_error_rad=last_heading_error,
+                    final_alignment=alignment,
+                )
+
+            time.sleep(1.0 / self.control_rate_hz)
+
     def _execute_rotate(self, goal_handle):
         request = goal_handle.request
         target_angle = float(request.value)
@@ -4982,8 +5432,26 @@ class DarthMaulControlNode(Node):
                 if self.enforce_final_error and final_heading_error > heading_tol * 1.5:
                     result_code = ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
                     result_message = (
-                        f'ROTATE_RELATIVE final heading error too large: '
-                        f'{final_heading_error:.3f} rad'
+                        f'ROTATE_RELATIVE final heading error too large before '
+                        f'post-rotation refine: {final_heading_error:.3f} rad'
+                    )
+                    break
+
+                refine = self._refine_post_rotation_grid_yaw(
+                    goal_handle,
+                    limits,
+                    target_yaw,
+                )
+                final_heading_error = refine.final_heading_error_rad
+
+                if refine.should_abort:
+                    if refine.code == ExecuteMotionPrimitive.Result.CANCELED:
+                        return self._cancel_result(goal_handle)
+
+                    result_success = False
+                    result_code = refine.code
+                    result_message = (
+                        f'ROTATE_RELATIVE failed after odom turn: {refine.message}'
                     )
                     break
 
@@ -4991,7 +5459,8 @@ class DarthMaulControlNode(Node):
                 result_code = ExecuteMotionPrimitive.Result.SUCCESS
                 result_message = (
                     f'ROTATE_RELATIVE succeeded: '
-                    f'heading_error={final_heading_error:.3f} rad'
+                    f'heading_error={final_heading_error:.3f} rad; '
+                    f'{refine.message}'
                 )
                 break
 
@@ -5030,8 +5499,6 @@ class DarthMaulControlNode(Node):
             time.sleep(1.0 / self.control_rate_hz)
 
         final_alignment = self._grid_alignment_snapshot()
-        # Deliberately diagnostic only. The current grid estimator is side-wall based and
-        # is not reliable enough to refine all turns at junctions/corners/openings.
         result_message = self._append_grid_alignment_diagnostics(
             result_message,
             final_alignment,
@@ -6085,6 +6552,13 @@ class GridAlignmentEstimate:
     reason: str
 
 
+@dataclass(frozen=True)
+class PostRotationGridYawRefineDecision:
+    stable: bool
+    should_correct: bool
+    reason: str
+
+
 def invalid_wall_line(side: str, reason: str) -> WallLineEstimate:
     return WallLineEstimate(
         valid=False,
@@ -6355,6 +6829,47 @@ def grid_yaw_pre_align_complete(
     return True, (
         f'grid yaw within target: {float(yaw_error_rad):.3f} rad '
         f'<= {float(target_rad):.3f} rad'
+    )
+
+
+def post_rotation_grid_yaw_refine_decision(
+    *,
+    yaw_error_rad: float,
+    target_rad: float,
+    start_threshold_rad: float,
+) -> PostRotationGridYawRefineDecision:
+    abs_error = abs(float(yaw_error_rad))
+    target = float(target_rad)
+    start = float(start_threshold_rad)
+
+    if abs_error <= target:
+        return PostRotationGridYawRefineDecision(
+            stable=True,
+            should_correct=False,
+            reason=(
+                f'post-rotation grid yaw within target: {float(yaw_error_rad):.3f} rad '
+                f'<= {target:.3f} rad'
+            ),
+        )
+
+    if abs_error <= start:
+        return PostRotationGridYawRefineDecision(
+            stable=True,
+            should_correct=False,
+            reason=(
+                'post-rotation grid yaw within start threshold; '
+                f'{float(yaw_error_rad):.3f} rad <= {start:.3f} rad; '
+                'no correction needed'
+            ),
+        )
+
+    return PostRotationGridYawRefineDecision(
+        stable=False,
+        should_correct=True,
+        reason=(
+            f'post-rotation grid yaw correction needed: {float(yaw_error_rad):.3f} rad '
+            f'> {start:.3f} rad'
+        ),
     )
 
 
@@ -7048,6 +7563,39 @@ def generate_launch_description():
     translation_lidar_required_invalid_max_consecutive_samples = LaunchConfiguration(
         'translation_lidar_required_invalid_max_consecutive_samples'
     )
+    post_rotation_grid_yaw_refine_enabled = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_enabled'
+    )
+    post_rotation_grid_yaw_refine_start_threshold_rad = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_start_threshold_rad'
+    )
+    post_rotation_grid_yaw_refine_target_rad = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_target_rad'
+    )
+    post_rotation_grid_yaw_refine_stable_samples = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_stable_samples'
+    )
+    post_rotation_grid_yaw_refine_timeout_s = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_timeout_s'
+    )
+    post_rotation_grid_yaw_refine_max_invalid_samples = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_max_invalid_samples'
+    )
+    post_rotation_grid_yaw_refine_max_abs_error_rad = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_max_abs_error_rad'
+    )
+    post_rotation_grid_yaw_refine_min_confidence = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_min_confidence'
+    )
+    post_rotation_grid_yaw_refine_kp = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_kp'
+    )
+    post_rotation_grid_yaw_refine_max_angular_z_radps = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_max_angular_z_radps'
+    )
+    post_rotation_grid_yaw_refine_require_valid = LaunchConfiguration(
+        'post_rotation_grid_yaw_refine_require_valid'
+    )
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -7122,6 +7670,61 @@ def generate_launch_description():
             default_value='2',
             description='Consecutive invalid LiDAR progress samples allowed in lidar_required mode.',
         ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_enabled',
+            default_value='true',
+            description='Enable LiDAR side-wall yaw refinement after ROTATE_RELATIVE.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_start_threshold_rad',
+            default_value='0.030',
+            description='Grid yaw error threshold that triggers post-rotation refinement.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_target_rad',
+            default_value='0.015',
+            description='Target grid yaw error for post-rotation refinement completion.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_stable_samples',
+            default_value='3',
+            description='Consecutive in-target samples required after post-rotation refinement.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_timeout_s',
+            default_value='2.0',
+            description='Maximum seconds spent in post-rotation refinement.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_max_invalid_samples',
+            default_value='8',
+            description='Invalid grid-yaw samples tolerated during post-rotation refinement.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_max_abs_error_rad',
+            default_value='0.20',
+            description='Maximum grid yaw error considered safe to correct after rotation.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_min_confidence',
+            default_value='0.60',
+            description='Minimum grid alignment confidence for post-rotation refinement.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_kp',
+            default_value='1.00',
+            description='Post-rotation grid yaw refinement proportional gain.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_max_angular_z_radps',
+            default_value='0.080',
+            description='Max angular speed during post-rotation grid yaw refinement.',
+        ),
+        DeclareLaunchArgument(
+            'post_rotation_grid_yaw_refine_require_valid',
+            default_value='false',
+            description='If true, fail ROTATE_RELATIVE when post-rotation grid yaw is unavailable.',
+        ),
         Node(
             package=package_name,
             executable='control_node',
@@ -7177,6 +7780,50 @@ def generate_launch_description():
                         translation_lidar_required_invalid_max_consecutive_samples,
                         value_type=int,
                     ),
+                    'post_rotation_grid_yaw_refine_enabled': ParameterValue(
+                        post_rotation_grid_yaw_refine_enabled,
+                        value_type=bool,
+                    ),
+                    'post_rotation_grid_yaw_refine_start_threshold_rad': ParameterValue(
+                        post_rotation_grid_yaw_refine_start_threshold_rad,
+                        value_type=float,
+                    ),
+                    'post_rotation_grid_yaw_refine_target_rad': ParameterValue(
+                        post_rotation_grid_yaw_refine_target_rad,
+                        value_type=float,
+                    ),
+                    'post_rotation_grid_yaw_refine_stable_samples': ParameterValue(
+                        post_rotation_grid_yaw_refine_stable_samples,
+                        value_type=int,
+                    ),
+                    'post_rotation_grid_yaw_refine_timeout_s': ParameterValue(
+                        post_rotation_grid_yaw_refine_timeout_s,
+                        value_type=float,
+                    ),
+                    'post_rotation_grid_yaw_refine_max_invalid_samples': ParameterValue(
+                        post_rotation_grid_yaw_refine_max_invalid_samples,
+                        value_type=int,
+                    ),
+                    'post_rotation_grid_yaw_refine_max_abs_error_rad': ParameterValue(
+                        post_rotation_grid_yaw_refine_max_abs_error_rad,
+                        value_type=float,
+                    ),
+                    'post_rotation_grid_yaw_refine_min_confidence': ParameterValue(
+                        post_rotation_grid_yaw_refine_min_confidence,
+                        value_type=float,
+                    ),
+                    'post_rotation_grid_yaw_refine_kp': ParameterValue(
+                        post_rotation_grid_yaw_refine_kp,
+                        value_type=float,
+                    ),
+                    'post_rotation_grid_yaw_refine_max_angular_z_radps': ParameterValue(
+                        post_rotation_grid_yaw_refine_max_angular_z_radps,
+                        value_type=float,
+                    ),
+                    'post_rotation_grid_yaw_refine_require_valid': ParameterValue(
+                        post_rotation_grid_yaw_refine_require_valid,
+                        value_type=bool,
+                    ),
                 },
             ],
             output='screen',
@@ -7208,6 +7855,7 @@ def test_control_params_default_to_lidar_required():
     assert 'grid_alignment_control_enabled: true' in text
     assert 'grid_yaw_correction_enabled: true' in text
     assert 'pre_translation_grid_yaw_align_enabled: false' in text
+    assert 'front_stop_distance_m: 0.08' in text
     assert GEOMETRY_VALIDATION_PARAM not in text
     assert AXIAL_WALL_PARAM_PREFIX not in text
     assert 'pre_translation_grid_yaw_align_start_threshold_rad: 0.035' in text
@@ -7215,6 +7863,17 @@ def test_control_params_default_to_lidar_required():
     assert 'pre_translation_grid_yaw_align_stable_samples: 3' in text
     assert 'pre_translation_grid_yaw_align_max_invalid_samples: 3' in text
     assert 'translation_lidar_required_invalid_max_consecutive_samples: 2' in text
+    assert 'post_rotation_grid_yaw_refine_enabled: true' in text
+    assert 'post_rotation_grid_yaw_refine_start_threshold_rad: 0.030' in text
+    assert 'post_rotation_grid_yaw_refine_target_rad: 0.015' in text
+    assert 'post_rotation_grid_yaw_refine_stable_samples: 3' in text
+    assert 'post_rotation_grid_yaw_refine_timeout_s: 2.0' in text
+    assert 'post_rotation_grid_yaw_refine_max_invalid_samples: 8' in text
+    assert 'post_rotation_grid_yaw_refine_max_abs_error_rad: 0.20' in text
+    assert 'post_rotation_grid_yaw_refine_min_confidence: 0.60' in text
+    assert 'post_rotation_grid_yaw_refine_kp: 1.00' in text
+    assert 'post_rotation_grid_yaw_refine_max_angular_z_radps: 0.080' in text
+    assert 'post_rotation_grid_yaw_refine_require_valid: false' in text
     assert 'translation_lidar_required_invalid_grace_s' not in text
     assert 'Odom is diagnostic only' in text
 
@@ -7240,6 +7899,17 @@ def test_control_launch_defaults_for_exam_mode():
     assert "'pre_translation_grid_yaw_align_max_invalid_samples'" in text
     assert "'translation_lidar_required_invalid_max_consecutive_samples'" in text
     assert "default_value='2'" in text
+    assert "'post_rotation_grid_yaw_refine_enabled'" in text
+    assert "'post_rotation_grid_yaw_refine_start_threshold_rad'" in text
+    assert "'post_rotation_grid_yaw_refine_target_rad'" in text
+    assert "'post_rotation_grid_yaw_refine_stable_samples'" in text
+    assert "'post_rotation_grid_yaw_refine_timeout_s'" in text
+    assert "'post_rotation_grid_yaw_refine_max_invalid_samples'" in text
+    assert "'post_rotation_grid_yaw_refine_max_abs_error_rad'" in text
+    assert "'post_rotation_grid_yaw_refine_min_confidence'" in text
+    assert "'post_rotation_grid_yaw_refine_kp'" in text
+    assert "'post_rotation_grid_yaw_refine_max_angular_z_radps'" in text
+    assert "'post_rotation_grid_yaw_refine_require_valid'" in text
     assert 'translation_lidar_required_invalid_grace_s' not in text
 
 
@@ -7265,6 +7935,22 @@ def test_control_node_defaults_to_grid_yaw_correction_enabled():
     assert "self._bool_param(\n            'grid_alignment_control_enabled',\n            True" in text
     assert "self._bool_param(\n            'grid_yaw_correction_enabled',\n            True" in text
     assert "self._bool_param(\n            'pre_translation_grid_yaw_align_enabled',\n            False" in text
+    assert "self._bool_param(\n            'post_rotation_grid_yaw_refine_enabled',\n            True" in text
+    assert "self._bool_param(\n            'post_rotation_grid_yaw_refine_require_valid',\n            False" in text
+
+
+def test_control_node_has_post_rotation_refine_hook_in_rotate_only():
+    text = (
+        PACKAGE_ROOT
+        / 'darth_maul_control'
+        / 'control_node.py'
+    ).read_text()
+
+    assert 'def _refine_post_rotation_grid_yaw(' in text
+    assert 'def _post_rotation_refine_correction(' in text
+    assert 'ROTATE_RELATIVE_POST_GRID_REFINE' in text
+    assert '_refine_post_rotation_grid_yaw(' in text
+    assert 'post_rotation_refine=' in text
 
 
 def test_control_node_has_no_4g_geometry_validation_runtime_path():
@@ -7292,6 +7978,7 @@ from darth_maul_control.scan_geometry import (
     grid_yaw_pre_align_complete,
     grid_lateral_drift,
     grid_yaw_correction_radps,
+    post_rotation_grid_yaw_refine_decision,
     should_pre_align_grid_yaw,
 )
 
@@ -7445,6 +8132,50 @@ def test_grid_yaw_correction_is_capped():
     )
 
     assert correction == pytest.approx(0.045)
+
+
+def test_post_rotation_refine_uses_same_positive_gain_sign():
+    correction = grid_yaw_correction_radps(
+        yaw_error_rad=-0.05,
+        k_yaw=1.00,
+        max_correction_radps=0.080,
+    )
+
+    assert correction == pytest.approx(-0.05)
+
+
+def test_post_rotation_refine_correction_is_capped():
+    correction = grid_yaw_correction_radps(
+        yaw_error_rad=0.20,
+        k_yaw=1.00,
+        max_correction_radps=0.080,
+    )
+
+    assert correction == pytest.approx(0.080)
+
+
+def test_post_rotation_refine_deadband_counts_as_stable_no_move():
+    decision = post_rotation_grid_yaw_refine_decision(
+        yaw_error_rad=0.020,
+        target_rad=0.015,
+        start_threshold_rad=0.030,
+    )
+
+    assert decision.stable
+    assert not decision.should_correct
+    assert 'within start threshold' in decision.reason
+
+
+def test_post_rotation_refine_corrects_above_start_threshold():
+    decision = post_rotation_grid_yaw_refine_decision(
+        yaw_error_rad=-0.040,
+        target_rad=0.015,
+        start_threshold_rad=0.030,
+    )
+
+    assert not decision.stable
+    assert decision.should_correct
+    assert 'correction needed' in decision.reason
 
 
 def test_compose_angular_command_uses_heading_hold_when_grid_inactive():
@@ -19881,7 +20612,93 @@ ament_package()
 7
 
 
-# ================== FILE 197: ros2_ws/src/maze_publisher_node/src/maze_publisher_node.cpp ==================
+# ================== FILE 197: ros2_ws/src/maze_publisher_node/mazes/2.maze ==================
+
+7
+11
+1
+77
+8
+10
+8
+8
+8
+8
+8
+9
+6
+4
+0
+0
+4
+0
+1
+10
+9
+2
+0
+9
+2
+1
+6
+4
+4
+4
+0
+5
+7
+10
+13
+10
+9
+2
+8
+9
+2
+9
+7
+2
+0
+0
+5
+2
+0
+8
+0
+1
+2
+9
+2
+0
+4
+0
+1
+6
+1
+2
+1
+10
+0
+5
+11
+3
+6
+5
+2
+4
+13
+7
+3
+14
+12
+4
+12
+12
+12
+5
+
+
+# ================== FILE 198: ros2_ws/src/maze_publisher_node/src/maze_publisher_node.cpp ==================
 
 #include "rclcpp/rclcpp.hpp"
 #include "maze_interface/msg/ros_maze.hpp"
@@ -19958,7 +20775,7 @@ int main(int argc, char **argv) {
 }
 
 
-# ================== FILE 198: ros2_ws/src/maze_solver/maze_solver_node.py ==================
+# ================== FILE 199: ros2_ws/src/maze_solver/maze_solver_node.py ==================
 
 import math
 import time
@@ -20658,7 +21475,7 @@ if __name__ == '__main__':
     main()
 
 
-# ================== FILE 199: ros2_ws/src/maze_solver/package.xml ==================
+# ================== FILE 200: ros2_ws/src/maze_solver/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -20691,7 +21508,7 @@ if __name__ == '__main__':
 </package>
 
 
-# ================== FILE 200: ros2_ws/src/maze_solver/setup.cfg ==================
+# ================== FILE 201: ros2_ws/src/maze_solver/setup.cfg ==================
 
 [develop]
 script_dir=$base/lib/maze_solver
@@ -20700,7 +21517,7 @@ script_dir=$base/lib/maze_solver
 install_scripts=$base/lib/maze_solver
 
 
-# ================== FILE 201: ros2_ws/src/maze_solver/setup.py ==================
+# ================== FILE 202: ros2_ws/src/maze_solver/setup.py ==================
 
 from glob import glob
 from os.path import join
@@ -20733,7 +21550,7 @@ setup(
 )
 
 
-# ================== FILE 202: ros2_ws/src/maze_solver/launch/exam_task1.launch.py ==================
+# ================== FILE 203: ros2_ws/src/maze_solver/launch/exam_task1.launch.py ==================
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
@@ -20775,12 +21592,12 @@ def generate_launch_description():
     ])
 
 
-# ================== FILE 203: ros2_ws/src/maze_solver/resource/maze_solver ==================
+# ================== FILE 204: ros2_ws/src/maze_solver/resource/maze_solver ==================
 
 
 
 
-# ================== FILE 204: ros2_ws/src/maze_solver/test/test_motion_command_compression.py ==================
+# ================== FILE 205: ros2_ws/src/maze_solver/test/test_motion_command_compression.py ==================
 
 import math
 from pathlib import Path
@@ -21096,7 +21913,7 @@ def test_solver_node_has_no_removed_cell_cap_parameter():
     assert REMOVED_CELL_CAP_PARAM not in solver_text
 
 
-# ================== FILE 205: ros2_ws/src/orchestrator_launch/CMakeLists.txt ==================
+# ================== FILE 206: ros2_ws/src/orchestrator_launch/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.5)
 project(orchestrator_launch)
@@ -21114,7 +21931,7 @@ install(
 ament_package()
 
 
-# ================== FILE 206: ros2_ws/src/orchestrator_launch/package.xml ==================
+# ================== FILE 207: ros2_ws/src/orchestrator_launch/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -21145,7 +21962,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 207: ros2_ws/src/orchestrator_launch/config/mapper_params_online_async.yaml ==================
+# ================== FILE 208: ros2_ws/src/orchestrator_launch/config/mapper_params_online_async.yaml ==================
 
 slam_toolbox:
   ros__parameters:
@@ -21224,7 +22041,7 @@ slam_toolbox:
     use_response_expansion: true
 
 
-# ================== FILE 208: ros2_ws/src/orchestrator_launch/launch/launch_full_slam_stack.launch.py ==================
+# ================== FILE 209: ros2_ws/src/orchestrator_launch/launch/launch_full_slam_stack.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -21271,7 +22088,7 @@ def generate_launch_description():
     ])
 
 
-# ================== FILE 209: ros2_ws/src/orchestrator_launch/launch/slam_toolbox.launch.py ==================
+# ================== FILE 210: ros2_ws/src/orchestrator_launch/launch/slam_toolbox.launch.py ==================
 
 import os
 
@@ -21363,7 +22180,7 @@ def generate_launch_description():
     return ld
 
 
-# ================== FILE 210: ros2_ws/src/peripherals/package.xml ==================
+# ================== FILE 211: ros2_ws/src/peripherals/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -21385,7 +22202,7 @@ def generate_launch_description():
 </package>
 
 
-# ================== FILE 211: ros2_ws/src/peripherals/setup.cfg ==================
+# ================== FILE 212: ros2_ws/src/peripherals/setup.cfg ==================
 
 [develop]
 script_dir=$base/lib/peripherals
@@ -21393,7 +22210,7 @@ script_dir=$base/lib/peripherals
 install_scripts=$base/lib/peripherals
 
 
-# ================== FILE 212: ros2_ws/src/peripherals/setup.py ==================
+# ================== FILE 213: ros2_ws/src/peripherals/setup.py ==================
 
 import os
 from glob import glob
@@ -21431,7 +22248,7 @@ setup(
 )
 
 
-# ================== FILE 213: ros2_ws/src/peripherals/config/apriltag_config.yaml ==================
+# ================== FILE 214: ros2_ws/src/peripherals/config/apriltag_config.yaml ==================
 
 apriltag_detector:
   ros__parameters:
@@ -21458,7 +22275,7 @@ apriltag_detector:
 
 
 
-# ================== FILE 214: ros2_ws/src/peripherals/config/camera_info.yaml ==================
+# ================== FILE 215: ros2_ws/src/peripherals/config/camera_info.yaml ==================
 
 image_width: 640
 image_height: 480
@@ -21482,7 +22299,7 @@ projection_matrix:
   data: [465.8162841796875, 0, 321.2985662909559, 0, 0, 470.4940490722656, 236.298464380614, 0, 0, 0, 1, 0]
 
 
-# ================== FILE 215: ros2_ws/src/peripherals/config/usb_cam_param.yaml ==================
+# ================== FILE 216: ros2_ws/src/peripherals/config/usb_cam_param.yaml ==================
 
 /**:
     ros__parameters:
@@ -21510,7 +22327,7 @@ projection_matrix:
 
 
 
-# ================== FILE 216: ros2_ws/src/peripherals/launch/apriltag.launch.py ==================
+# ================== FILE 217: ros2_ws/src/peripherals/launch/apriltag.launch.py ==================
 
 import os
 from launch import LaunchDescription
@@ -21538,7 +22355,7 @@ def generate_launch_description():
 
 
 
-# ================== FILE 217: ros2_ws/src/peripherals/launch/image_pipeline.launch.py ==================
+# ================== FILE 218: ros2_ws/src/peripherals/launch/image_pipeline.launch.py ==================
 
 import os
 from launch import LaunchDescription
@@ -21591,7 +22408,7 @@ def generate_launch_description():
 
 
 
-# ================== FILE 218: ros2_ws/src/peripherals/launch/imu_filter.launch.py ==================
+# ================== FILE 219: ros2_ws/src/peripherals/launch/imu_filter.launch.py ==================
 
 from launch import LaunchDescription
 from launch_ros.actions import Node
@@ -21658,7 +22475,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 219: ros2_ws/src/peripherals/launch/imu_view.launch.py ==================
+# ================== FILE 220: ros2_ws/src/peripherals/launch/imu_view.launch.py ==================
 
 import os
 from launch_ros.actions import Node
@@ -21739,7 +22556,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 220: ros2_ws/src/peripherals/launch/joystick_control.launch.py ==================
+# ================== FILE 221: ros2_ws/src/peripherals/launch/joystick_control.launch.py ==================
 
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
@@ -21798,7 +22615,7 @@ if __name__ == '__main__':
 
 
 
-# ================== FILE 221: ros2_ws/src/peripherals/launch/teleop_key_control.launch.py ==================
+# ================== FILE 222: ros2_ws/src/peripherals/launch/teleop_key_control.launch.py ==================
 
 import os
 from launch.actions import DeclareLaunchArgument
@@ -21849,7 +22666,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 222: ros2_ws/src/peripherals/launch/usb_cam.launch.py ==================
+# ================== FILE 223: ros2_ws/src/peripherals/launch/usb_cam.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -21884,7 +22701,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 223: ros2_ws/src/peripherals/launch/include/ascamera.launch.py ==================
+# ================== FILE 224: ros2_ws/src/peripherals/launch/include/ascamera.launch.py ==================
 
 from launch import LaunchDescription
 import launch_ros.actions
@@ -21933,12 +22750,12 @@ def generate_launch_description():
 
 
 
-# ================== FILE 224: ros2_ws/src/peripherals/peripherals/__init__.py ==================
+# ================== FILE 225: ros2_ws/src/peripherals/peripherals/__init__.py ==================
 
 
 
 
-# ================== FILE 225: ros2_ws/src/peripherals/peripherals/demo.py ==================
+# ================== FILE 226: ros2_ws/src/peripherals/peripherals/demo.py ==================
 
 #!/usr/bin/env python3
 import rclpy
@@ -21970,7 +22787,7 @@ if __name__ == '__main__':
 
 
 
-# ================== FILE 226: ros2_ws/src/peripherals/peripherals/joystick_control.py ==================
+# ================== FILE 227: ros2_ws/src/peripherals/peripherals/joystick_control.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8
@@ -22247,7 +23064,7 @@ if __name__ == "__main__":
     main()
 
 
-# ================== FILE 227: ros2_ws/src/peripherals/peripherals/teleop_key_control.py ==================
+# ================== FILE 228: ros2_ws/src/peripherals/peripherals/teleop_key_control.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8
@@ -22400,7 +23217,7 @@ if __name__ == "__main__":
     main()
 
 
-# ================== FILE 228: ros2_ws/src/peripherals/peripherals/tf_broadcaster_imu.py ==================
+# ================== FILE 229: ros2_ws/src/peripherals/peripherals/tf_broadcaster_imu.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8 
@@ -22477,12 +23294,12 @@ if __name__ == "__main__":
     main()
 
 
-# ================== FILE 229: ros2_ws/src/peripherals/resource/peripherals ==================
+# ================== FILE 230: ros2_ws/src/peripherals/resource/peripherals ==================
 
 
 
 
-# ================== FILE 230: ros2_ws/src/peripherals/rviz/imu_view.rviz ==================
+# ================== FILE 231: ros2_ws/src/peripherals/rviz/imu_view.rviz ==================
 
 Panels:
   - Class: rviz_common/Displays
@@ -22749,7 +23566,7 @@ Window Geometry:
   Y: 46
 
 
-# ================== FILE 231: ros2_ws/src/peripherals/rviz/lidar_view.rviz ==================
+# ================== FILE 232: ros2_ws/src/peripherals/rviz/lidar_view.rviz ==================
 
 Panels:
   - Class: rviz_common/Displays
@@ -23074,7 +23891,7 @@ Window Geometry:
   Y: 151
 
 
-# ================== FILE 232: ros2_ws/src/peripherals/scripts/99-obsensor-libusb.rules ==================
+# ================== FILE 233: ros2_ws/src/peripherals/scripts/99-obsensor-libusb.rules ==================
 
 # UVC Modules
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="2bc5", ATTRS{idProduct}=="0635", MODE:="0666",  OWNER:="root", GROUP:="video", SYMLINK+="Femto"
@@ -23180,19 +23997,19 @@ KERNEL=="video*", ATTRS{idVendor}=="2bc5", ATTRS{idProduct}=="0559", MODE:="0777
 KERNEL=="video*", ATTRS{idVendor}=="2bc5", ATTRS{idProduct}=="0659", MODE:="0777", SYMLINK+="depth_cam"
 
 
-# ================== FILE 233: ros2_ws/src/peripherals/scripts/99-ttyACM0.rules ==================
+# ================== FILE 234: ros2_ws/src/peripherals/scripts/99-ttyACM0.rules ==================
 
 # Ignore ModemManager for ttyACM0 device
 KERNEL=="ttyACM*", SUBSYSTEM=="tty", GROUP="users", MODE="0777", SYMLINK+="rrc"
 ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55d4", ENV{ID_MM_PORT_IGNORE}="1"1"
 
 
-# ================== FILE 234: ros2_ws/src/peripherals/scripts/99-usb-cam.rules ==================
+# ================== FILE 235: ros2_ws/src/peripherals/scripts/99-usb-cam.rules ==================
 
 KERNEL=="video*",KERNELS=="1-2.1:1.0", MODE:="0777", SYMLINK+="depth_cam"
 
 
-# ================== FILE 235: ros2_ws/src/peripherals/scripts/create_udev_rules.sh ==================
+# ================== FILE 236: ros2_ws/src/peripherals/scripts/create_udev_rules.sh ==================
 
 #!/bin/bash
 
@@ -23205,13 +24022,13 @@ sudo service udev restart
 echo "finish "
 
 
-# ================== FILE 236: ros2_ws/src/peripherals/scripts/lidar.rules ==================
+# ================== FILE 237: ros2_ws/src/peripherals/scripts/lidar.rules ==================
 
 SUBSYSTEM=="tty", KERNELS=="1-2.3.4:1.0", SYMLINK+="lidar"
 SUBSYSTEM=="tty", KERNELS=="1-2.1.4:1.0", SYMLINK+="lidar"
 
 
-# ================== FILE 237: ros2_ws/src/peripherals/scripts/xf_mic.rules ==================
+# ================== FILE 238: ros2_ws/src/peripherals/scripts/xf_mic.rules ==================
 
 SUBSYSTEM=="tty", KERNELS=="1-2.3.1.1:1.0", SYMLINK+="ring_mic"
 SUBSYSTEM=="tty", KERNELS=="1-2.1.1.1:1.0", SYMLINK+="ring_mic"
@@ -23219,7 +24036,7 @@ KERNEL=="ttyCH341USB*", MODE:="0666", GROUP:="dialout"
 KERNEL=="ttyUSB*", MODE:="0666", GROUP:="dialout"
 
 
-# ================== FILE 238: ros2_ws/src/peripherals/test/test_copyright.py ==================
+# ================== FILE 239: ros2_ws/src/peripherals/test/test_copyright.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -23246,7 +24063,7 @@ def test_copyright():
     assert rc == 0, 'Found errors'
 
 
-# ================== FILE 239: ros2_ws/src/peripherals/test/test_flake8.py ==================
+# ================== FILE 240: ros2_ws/src/peripherals/test/test_flake8.py ==================
 
 # Copyright 2017 Open Source Robotics Foundation, Inc.
 #
@@ -23275,7 +24092,7 @@ def test_flake8():
         '\n'.join(errors)
 
 
-# ================== FILE 240: ros2_ws/src/peripherals/test/test_pep257.py ==================
+# ================== FILE 241: ros2_ws/src/peripherals/test/test_pep257.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -23302,7 +24119,7 @@ def test_pep257():
     assert rc == 0, 'Found code style errors / warnings'
 
 
-# ================== FILE 241: ros2_ws/src/simulations/mentorpi_description/package.xml ==================
+# ================== FILE 242: ros2_ws/src/simulations/mentorpi_description/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -23326,7 +24143,7 @@ def test_pep257():
 </package>
 
 
-# ================== FILE 242: ros2_ws/src/simulations/mentorpi_description/setup.cfg ==================
+# ================== FILE 243: ros2_ws/src/simulations/mentorpi_description/setup.cfg ==================
 
 [develop]
 script_dir=$base/lib/mentorpi_description
@@ -23334,7 +24151,7 @@ script_dir=$base/lib/mentorpi_description
 install_scripts=$base/lib/mentorpi_description
 
 
-# ================== FILE 243: ros2_ws/src/simulations/mentorpi_description/setup.py ==================
+# ================== FILE 244: ros2_ws/src/simulations/mentorpi_description/setup.py ==================
 
 import os
 from glob import glob
@@ -23370,7 +24187,7 @@ setup(
 )
 
 
-# ================== FILE 244: ros2_ws/src/simulations/mentorpi_description/launch/display.launch.py ==================
+# ================== FILE 245: ros2_ws/src/simulations/mentorpi_description/launch/display.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -23451,7 +24268,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 245: ros2_ws/src/simulations/mentorpi_description/launch/robot_description.launch.py ==================
+# ================== FILE 246: ros2_ws/src/simulations/mentorpi_description/launch/robot_description.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -23549,7 +24366,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 246: ros2_ws/src/simulations/mentorpi_description/launch/rviz.launch.py ==================
+# ================== FILE 247: ros2_ws/src/simulations/mentorpi_description/launch/rviz.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -23655,17 +24472,17 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 247: ros2_ws/src/simulations/mentorpi_description/mentorpi_description/__init__.py ==================
+# ================== FILE 248: ros2_ws/src/simulations/mentorpi_description/mentorpi_description/__init__.py ==================
 
 
 
 
-# ================== FILE 248: ros2_ws/src/simulations/mentorpi_description/resource/mentorpi_description ==================
+# ================== FILE 249: ros2_ws/src/simulations/mentorpi_description/resource/mentorpi_description ==================
 
 
 
 
-# ================== FILE 249: ros2_ws/src/simulations/mentorpi_description/rviz/view.rviz ==================
+# ================== FILE 250: ros2_ws/src/simulations/mentorpi_description/rviz/view.rviz ==================
 
 Panels:
   - Class: rviz_common/Displays
@@ -23928,7 +24745,7 @@ Window Geometry:
   Y: 153
 
 
-# ================== FILE 250: ros2_ws/src/simulations/mentorpi_description/test/test_copyright.py ==================
+# ================== FILE 251: ros2_ws/src/simulations/mentorpi_description/test/test_copyright.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -23957,7 +24774,7 @@ def test_copyright():
     assert rc == 0, 'Found errors'
 
 
-# ================== FILE 251: ros2_ws/src/simulations/mentorpi_description/test/test_flake8.py ==================
+# ================== FILE 252: ros2_ws/src/simulations/mentorpi_description/test/test_flake8.py ==================
 
 # Copyright 2017 Open Source Robotics Foundation, Inc.
 #
@@ -23986,7 +24803,7 @@ def test_flake8():
         '\n'.join(errors)
 
 
-# ================== FILE 252: ros2_ws/src/simulations/mentorpi_description/test/test_pep257.py ==================
+# ================== FILE 253: ros2_ws/src/simulations/mentorpi_description/test/test_pep257.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -24013,7 +24830,7 @@ def test_pep257():
     assert rc == 0, 'Found code style errors / warnings'
 
 
-# ================== FILE 253: ros2_ws/src/simulations/mentorpi_description/urdf/ack.xacro ==================
+# ================== FILE 254: ros2_ws/src/simulations/mentorpi_description/urdf/ack.xacro ==================
 
 <?xml version="1.0" ?>
 <robot name="ack" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -24234,7 +25051,7 @@ def test_pep257():
 
 
 
-# ================== FILE 254: ros2_ws/src/simulations/mentorpi_description/urdf/imu.urdf.xacro ==================
+# ================== FILE 255: ros2_ws/src/simulations/mentorpi_description/urdf/imu.urdf.xacro ==================
 
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="imu" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -24261,7 +25078,7 @@ def test_pep257():
 
 
 
-# ================== FILE 255: ros2_ws/src/simulations/mentorpi_description/urdf/inertial_matrix.xacro ==================
+# ================== FILE 256: ros2_ws/src/simulations/mentorpi_description/urdf/inertial_matrix.xacro ==================
 
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="inertial_matrix" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -24312,7 +25129,7 @@ def test_pep257():
 </robot>
 
 
-# ================== FILE 256: ros2_ws/src/simulations/mentorpi_description/urdf/lidar.urdf.xacro ==================
+# ================== FILE 257: ros2_ws/src/simulations/mentorpi_description/urdf/lidar.urdf.xacro ==================
 
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="lidar_a1" xmlns:xacro="http://ros.org/wiki/xacro" >
@@ -24328,7 +25145,7 @@ def test_pep257():
 </robot>
 
 
-# ================== FILE 257: ros2_ws/src/simulations/mentorpi_description/urdf/materials.xacro ==================
+# ================== FILE 258: ros2_ws/src/simulations/mentorpi_description/urdf/materials.xacro ==================
 
 <?xml version="1.0"?>
 <robot name="material" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -24366,7 +25183,7 @@ def test_pep257():
 </robot>
 
 
-# ================== FILE 258: ros2_ws/src/simulations/mentorpi_description/urdf/mecanum.xacro ==================
+# ================== FILE 259: ros2_ws/src/simulations/mentorpi_description/urdf/mecanum.xacro ==================
 
 <?xml version="1.0" ?>
 <robot name="mecanum" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -24586,7 +25403,7 @@ def test_pep257():
 </robot>
 
 
-# ================== FILE 259: ros2_ws/src/simulations/mentorpi_description/urdf/mentorpi.xacro ==================
+# ================== FILE 260: ros2_ws/src/simulations/mentorpi_description/urdf/mentorpi.xacro ==================
 
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="rosmentor" xmlns:xacro="http://ros.org/wiki/xacro">

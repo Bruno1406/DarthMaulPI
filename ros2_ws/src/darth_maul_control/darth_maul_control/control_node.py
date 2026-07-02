@@ -27,6 +27,7 @@ from darth_maul_control.scan_geometry import (
     estimate_grid_alignment,
     finite_median_or_nan,
     grid_lateral_drift,
+    post_rotation_grid_yaw_refine_decision,
     grid_yaw_pre_align_complete,
     grid_yaw_correction_radps,
     invalid_grid_alignment,
@@ -123,6 +124,18 @@ class GridYawCorrection:
     reason: str
     source: str
     using_memory: bool
+
+
+@dataclass(frozen=True)
+class PostRotationGridYawRefineResult:
+    attempted: bool
+    moved: bool
+    success: bool
+    should_abort: bool
+    code: int
+    message: str
+    final_heading_error_rad: float
+    final_alignment: GridAlignmentEstimate
 
 
 SUPPORTED_PRIMITIVES = {
@@ -515,6 +528,64 @@ class DarthMaulControlNode(Node):
         self.grid_yaw_active_heading_hold_scale = max(
             0.0,
             min(1.0, float(self.grid_yaw_active_heading_hold_scale)),
+        )
+        self.post_rotation_grid_yaw_refine_enabled = self._bool_param(
+            'post_rotation_grid_yaw_refine_enabled',
+            True,
+        )
+        self.post_rotation_grid_yaw_refine_start_threshold_rad = (
+            self._positive_float_param(
+                'post_rotation_grid_yaw_refine_start_threshold_rad',
+                0.030,
+            )
+        )
+        self.post_rotation_grid_yaw_refine_target_rad = (
+            self._positive_float_param(
+                'post_rotation_grid_yaw_refine_target_rad',
+                0.015,
+            )
+        )
+        self.post_rotation_grid_yaw_refine_stable_samples = (
+            self._positive_int_param(
+                'post_rotation_grid_yaw_refine_stable_samples',
+                3,
+            )
+        )
+        self.post_rotation_grid_yaw_refine_timeout_s = self._positive_float_param(
+            'post_rotation_grid_yaw_refine_timeout_s',
+            2.0,
+        )
+        self.post_rotation_grid_yaw_refine_max_invalid_samples = (
+            self._positive_int_param(
+                'post_rotation_grid_yaw_refine_max_invalid_samples',
+                8,
+            )
+        )
+        self.post_rotation_grid_yaw_refine_max_abs_error_rad = (
+            self._positive_float_param(
+                'post_rotation_grid_yaw_refine_max_abs_error_rad',
+                0.20,
+            )
+        )
+        self.post_rotation_grid_yaw_refine_min_confidence = (
+            self._nonnegative_float_param(
+                'post_rotation_grid_yaw_refine_min_confidence',
+                0.60,
+            )
+        )
+        self.post_rotation_grid_yaw_refine_kp = self._nonnegative_float_param(
+            'post_rotation_grid_yaw_refine_kp',
+            1.00,
+        )
+        self.post_rotation_grid_yaw_refine_max_angular_z_radps = (
+            self._positive_float_param(
+                'post_rotation_grid_yaw_refine_max_angular_z_radps',
+                0.080,
+            )
+        )
+        self.post_rotation_grid_yaw_refine_require_valid = self._bool_param(
+            'post_rotation_grid_yaw_refine_require_valid',
+            False,
         )
 
         self.grid_lateral_drift_diagnostics_enabled = self._bool_param(
@@ -1606,6 +1677,330 @@ class DarthMaulControlNode(Node):
             grid_alignment=final_alignment,
         )
 
+    def _post_rotation_refine_correction(
+        self,
+        alignment: GridAlignmentEstimate,
+    ) -> GridYawCorrection:
+        if not self.grid_alignment_control_enabled:
+            return GridYawCorrection(
+                False,
+                0.0,
+                'post-rotation refinement disabled: grid alignment control disabled',
+                'none',
+                False,
+            )
+
+        if not self.grid_yaw_correction_enabled:
+            return GridYawCorrection(
+                False,
+                0.0,
+                'post-rotation refinement disabled: grid yaw correction disabled',
+                'none',
+                False,
+            )
+
+        if not alignment.valid or not alignment.yaw_valid:
+            return GridYawCorrection(
+                False,
+                0.0,
+                f'post-rotation grid yaw invalid: {alignment.reason}',
+                alignment.source,
+                False,
+            )
+
+        if alignment.confidence < self.post_rotation_grid_yaw_refine_min_confidence:
+            return GridYawCorrection(
+                False,
+                0.0,
+                (
+                    'post-rotation grid confidence too low: '
+                    f'{alignment.confidence:.2f} '
+                    f'< {self.post_rotation_grid_yaw_refine_min_confidence:.2f}'
+                ),
+                alignment.source,
+                False,
+            )
+
+        abs_error = abs(alignment.yaw_error_rad)
+        if abs_error > self.post_rotation_grid_yaw_refine_max_abs_error_rad:
+            return GridYawCorrection(
+                False,
+                0.0,
+                (
+                    'post-rotation grid yaw error too large to refine safely: '
+                    f'{alignment.yaw_error_rad:.3f} rad > '
+                    f'{self.post_rotation_grid_yaw_refine_max_abs_error_rad:.3f} rad'
+                ),
+                alignment.source,
+                False,
+            )
+
+        correction = grid_yaw_correction_radps(
+            alignment.yaw_error_rad,
+            self.post_rotation_grid_yaw_refine_kp,
+            self.post_rotation_grid_yaw_refine_max_angular_z_radps,
+        )
+
+        return GridYawCorrection(
+            active=True,
+            correction_radps=float(correction),
+            reason=(
+                f'post-rotation grid yaw correction from {alignment.source}: '
+                f'yaw_error={alignment.yaw_error_rad:.3f} rad, '
+                f'confidence={alignment.confidence:.2f}, '
+                f'correction={correction:.3f} rad/s'
+            ),
+            source=alignment.source,
+            using_memory=False,
+        )
+
+    def _refine_post_rotation_grid_yaw(
+        self,
+        goal_handle,
+        limits: VelocityLimits,
+        target_yaw: float,
+    ) -> PostRotationGridYawRefineResult:
+        if not self.post_rotation_grid_yaw_refine_enabled:
+            alignment = self._grid_alignment_snapshot()
+            snapshot = self._get_motion_snapshot()
+            final_heading_error = 0.0
+            if snapshot is not None:
+                final_heading_error = abs(normalize_angle(target_yaw - snapshot.pose.yaw))
+            return PostRotationGridYawRefineResult(
+                attempted=False,
+                moved=False,
+                success=True,
+                should_abort=False,
+                code=ExecuteMotionPrimitive.Result.SUCCESS,
+                message='post_rotation_refine=skipped: disabled',
+                final_heading_error_rad=final_heading_error,
+                final_alignment=alignment,
+            )
+
+        start_time = time.monotonic()
+        stable_samples = 0
+        invalid_samples = 0
+        moved = False
+        last_reason = 'not evaluated'
+        last_alignment = self._grid_alignment_snapshot()
+        last_heading_error = 0.0
+
+        # Do not reuse straight-drive grid yaw memory during post-rotation refinement.
+        self._end_grid_yaw_control_memory()
+
+        while True:
+            if self._cancel_or_stop_requested(goal_handle):
+                return PostRotationGridYawRefineResult(
+                    attempted=True,
+                    moved=moved,
+                    success=False,
+                    should_abort=True,
+                    code=ExecuteMotionPrimitive.Result.CANCELED,
+                    message='post_rotation_refine=canceled',
+                    final_heading_error_rad=last_heading_error,
+                    final_alignment=last_alignment,
+                )
+
+            elapsed = time.monotonic() - start_time
+            if elapsed > self.post_rotation_grid_yaw_refine_timeout_s:
+                self.publish_zero_twist()
+                message = (
+                    'post_rotation_refine=timeout; '
+                    f'moved={moved}; '
+                    f'stable={stable_samples}/'
+                    f'{self.post_rotation_grid_yaw_refine_stable_samples}; '
+                    f'invalid={invalid_samples}; '
+                    f'last_reason={last_reason}'
+                )
+                if self.post_rotation_grid_yaw_refine_require_valid:
+                    return PostRotationGridYawRefineResult(
+                        attempted=True,
+                        moved=moved,
+                        success=False,
+                        should_abort=True,
+                        code=ExecuteMotionPrimitive.Result.INTERNAL_ERROR,
+                        message=message,
+                        final_heading_error_rad=last_heading_error,
+                        final_alignment=last_alignment,
+                    )
+
+                return PostRotationGridYawRefineResult(
+                    attempted=True,
+                    moved=moved,
+                    success=True,
+                    should_abort=False,
+                    code=ExecuteMotionPrimitive.Result.SUCCESS,
+                    message=message + '; non_strict_continue=true',
+                    final_heading_error_rad=last_heading_error,
+                    final_alignment=last_alignment,
+                )
+
+            snapshot = self._get_motion_snapshot()
+            if snapshot is None:
+                self.publish_zero_twist()
+                return PostRotationGridYawRefineResult(
+                    attempted=True,
+                    moved=moved,
+                    success=False,
+                    should_abort=True,
+                    code=ExecuteMotionPrimitive.Result.ODOM_UNAVAILABLE,
+                    message='post_rotation_refine=failed: odom unavailable',
+                    final_heading_error_rad=last_heading_error,
+                    final_alignment=last_alignment,
+                )
+
+            last_heading_error = abs(normalize_angle(target_yaw - snapshot.pose.yaw))
+            alignment = self._grid_alignment_snapshot()
+            last_alignment = alignment
+
+            complete, complete_reason = grid_yaw_pre_align_complete(
+                alignment_valid=alignment.valid,
+                yaw_valid=alignment.yaw_valid,
+                yaw_error_rad=alignment.yaw_error_rad,
+                confidence=alignment.confidence,
+                min_confidence=self.post_rotation_grid_yaw_refine_min_confidence,
+                target_rad=self.post_rotation_grid_yaw_refine_target_rad,
+            )
+
+            correction = self._post_rotation_refine_correction(alignment)
+            last_reason = correction.reason if correction.reason else complete_reason
+
+            if complete:
+                stable_samples += 1
+                invalid_samples = 0
+                self.publish_zero_twist()
+                self._set_grid_yaw_control_status(
+                    False,
+                    0.0,
+                    complete_reason,
+                )
+            elif correction.active:
+                stable_samples = 0
+                invalid_samples = 0
+                status_active = correction.active
+                status_correction = correction.correction_radps
+                status_reason = correction.reason
+
+                decision = post_rotation_grid_yaw_refine_decision(
+                    yaw_error_rad=alignment.yaw_error_rad,
+                    target_rad=self.post_rotation_grid_yaw_refine_target_rad,
+                    start_threshold_rad=(
+                        self.post_rotation_grid_yaw_refine_start_threshold_rad
+                    ),
+                )
+                if decision.stable:
+                    stable_samples += 1
+                    invalid_samples = 0
+                    self.publish_zero_twist()
+                    last_reason = decision.reason
+                    status_active = False
+                    status_correction = 0.0
+                    status_reason = decision.reason
+                elif decision.should_correct:
+                    cmd = Twist()
+                    cmd.linear.x = 0.0
+                    cmd.linear.y = 0.0
+                    cmd.angular.z = correction.correction_radps
+                    cmd = self._limiter.clamp(cmd, limits)
+                    cmd = self._apply_acceleration_limits(cmd)
+                    self._cmd_vel_pub.publish(cmd)
+                    moved = True
+
+                self._set_grid_yaw_control_status(
+                    status_active,
+                    status_correction,
+                    status_reason,
+                )
+            else:
+                stable_samples = 0
+                invalid_samples += 1
+                self.publish_zero_twist()
+                self._set_grid_yaw_control_status(
+                    False,
+                    0.0,
+                    correction.reason,
+                )
+
+            self._update_motion_state(
+                distance_remaining=0.0,
+                distance_traveled=0.0,
+                heading_error=alignment.yaw_error_rad if alignment.yaw_valid else 0.0,
+                status=(
+                    'ROTATE_RELATIVE post-rotation grid refine: '
+                    f'valid={alignment.valid}, '
+                    f'yaw_valid={alignment.yaw_valid}, '
+                    f'yaw={alignment.yaw_error_rad:.3f} rad, '
+                    f'source={alignment.source}, '
+                    f'confidence={alignment.confidence:.2f}, '
+                    f'stable={stable_samples}/'
+                    f'{self.post_rotation_grid_yaw_refine_stable_samples}, '
+                    f'invalid={invalid_samples}/'
+                    f'{self.post_rotation_grid_yaw_refine_max_invalid_samples}, '
+                    f'correction={correction.correction_radps:.3f} rad/s, '
+                    f'reason={last_reason}'
+                ),
+            )
+
+            self._publish_feedback(
+                goal_handle,
+                progress=1.0,
+                distance_remaining=0.0,
+                heading_remaining=alignment.yaw_error_rad if alignment.yaw_valid else 0.0,
+                state='ROTATE_RELATIVE_POST_GRID_REFINE',
+            )
+
+            if stable_samples >= self.post_rotation_grid_yaw_refine_stable_samples:
+                self.publish_zero_twist()
+                return PostRotationGridYawRefineResult(
+                    attempted=True,
+                    moved=moved,
+                    success=True,
+                    should_abort=False,
+                    code=ExecuteMotionPrimitive.Result.SUCCESS,
+                    message=(
+                        'post_rotation_refine=succeeded; '
+                        f'moved={moved}; '
+                        f'final_grid_yaw={alignment.yaw_error_rad:.3f} rad; '
+                        f'source={alignment.source}; '
+                        f'confidence={alignment.confidence:.2f}; '
+                        f'reason={complete_reason}'
+                    ),
+                    final_heading_error_rad=last_heading_error,
+                    final_alignment=alignment,
+                )
+
+            if invalid_samples > self.post_rotation_grid_yaw_refine_max_invalid_samples:
+                self.publish_zero_twist()
+                message = (
+                    'post_rotation_refine=unavailable; '
+                    f'invalid={invalid_samples}; '
+                    f'last_reason={last_reason}'
+                )
+                if self.post_rotation_grid_yaw_refine_require_valid:
+                    return PostRotationGridYawRefineResult(
+                        attempted=True,
+                        moved=moved,
+                        success=False,
+                        should_abort=True,
+                        code=ExecuteMotionPrimitive.Result.INTERNAL_ERROR,
+                        message=message,
+                        final_heading_error_rad=last_heading_error,
+                        final_alignment=alignment,
+                    )
+
+                return PostRotationGridYawRefineResult(
+                    attempted=True,
+                    moved=moved,
+                    success=True,
+                    should_abort=False,
+                    code=ExecuteMotionPrimitive.Result.SUCCESS,
+                    message=message + '; non_strict_continue=true',
+                    final_heading_error_rad=last_heading_error,
+                    final_alignment=alignment,
+                )
+
+            time.sleep(1.0 / self.control_rate_hz)
+
     def _execute_rotate(self, goal_handle):
         request = goal_handle.request
         target_angle = float(request.value)
@@ -1684,8 +2079,26 @@ class DarthMaulControlNode(Node):
                 if self.enforce_final_error and final_heading_error > heading_tol * 1.5:
                     result_code = ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
                     result_message = (
-                        f'ROTATE_RELATIVE final heading error too large: '
-                        f'{final_heading_error:.3f} rad'
+                        f'ROTATE_RELATIVE final heading error too large before '
+                        f'post-rotation refine: {final_heading_error:.3f} rad'
+                    )
+                    break
+
+                refine = self._refine_post_rotation_grid_yaw(
+                    goal_handle,
+                    limits,
+                    target_yaw,
+                )
+                final_heading_error = refine.final_heading_error_rad
+
+                if refine.should_abort:
+                    if refine.code == ExecuteMotionPrimitive.Result.CANCELED:
+                        return self._cancel_result(goal_handle)
+
+                    result_success = False
+                    result_code = refine.code
+                    result_message = (
+                        f'ROTATE_RELATIVE failed after odom turn: {refine.message}'
                     )
                     break
 
@@ -1693,7 +2106,8 @@ class DarthMaulControlNode(Node):
                 result_code = ExecuteMotionPrimitive.Result.SUCCESS
                 result_message = (
                     f'ROTATE_RELATIVE succeeded: '
-                    f'heading_error={final_heading_error:.3f} rad'
+                    f'heading_error={final_heading_error:.3f} rad; '
+                    f'{refine.message}'
                 )
                 break
 
@@ -1732,8 +2146,6 @@ class DarthMaulControlNode(Node):
             time.sleep(1.0 / self.control_rate_hz)
 
         final_alignment = self._grid_alignment_snapshot()
-        # Deliberately diagnostic only. The current grid estimator is side-wall based and
-        # is not reliable enough to refine all turns at junctions/corners/openings.
         result_message = self._append_grid_alignment_diagnostics(
             result_message,
             final_alignment,
