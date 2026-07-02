@@ -92,7 +92,7 @@ float32 lidar_progress_disagreement_m
 string lidar_progress_reason
 string control_progress_reason
 
-# LiDAR grid-alignment diagnostics. Diagnostics only for now.
+# LiDAR grid-alignment diagnostics.
 bool grid_alignment_valid
 bool grid_yaw_valid
 float32 grid_yaw_error_rad
@@ -101,6 +101,25 @@ float32 grid_lateral_error_m
 string grid_alignment_source
 float32 grid_alignment_confidence
 string grid_alignment_reason
+
+# Straight-drive grid-yaw control diagnostics. These are populated for
+# DRIVE_FORWARD, DRIVE_BACKWARD, and ADVANCE_CELL. They remain false/zero/empty
+# for non-translation primitives.
+bool grid_yaw_correction_used
+float32 final_grid_yaw_correction_radps
+string grid_yaw_control_reason
+
+# Movement-parallelity diagnostics. Positive drift means the desired grid
+# centerline moved left relative to the robot over the segment. Negative means
+# it moved right relative to the robot. This is diagnostic only, not control.
+bool grid_lateral_start_valid
+float32 grid_lateral_start_error_m
+bool grid_lateral_end_valid
+float32 grid_lateral_end_error_m
+bool grid_lateral_drift_valid
+float32 grid_lateral_drift_m
+float32 grid_lateral_drift_per_m
+string grid_lateral_drift_reason
 
 bool left_wall_line_valid
 float32 left_wall_offset_m

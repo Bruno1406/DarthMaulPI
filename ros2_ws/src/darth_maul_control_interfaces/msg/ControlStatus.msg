@@ -37,6 +37,11 @@ float64 grid_lateral_error_m
 string grid_alignment_source
 float64 grid_alignment_confidence
 
+# Current straight-drive grid-yaw correction. False/zero/empty when inactive.
+bool grid_yaw_correction_active
+float64 grid_yaw_correction_radps
+string grid_yaw_control_reason
+
 bool left_wall_line_valid
 float64 left_wall_offset_m
 float64 left_wall_yaw_error_rad

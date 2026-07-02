@@ -24,6 +24,8 @@ from darth_maul_control.scan_geometry import (
     choose_translation_progress,
     estimate_grid_alignment,
     finite_median_or_nan,
+    grid_lateral_drift,
+    grid_yaw_correction_radps,
     invalid_grid_alignment,
 )
 from darth_maul_control.velocity_limiter import VelocityLimiter, VelocityLimits
@@ -96,6 +98,28 @@ class TranslationDiagnostics:
     lidar_progress_reason: str = ''
     control_progress_reason: str = ''
 
+    grid_yaw_correction_used: bool = False
+    final_grid_yaw_correction_radps: float = 0.0
+    grid_yaw_control_reason: str = ''
+
+    grid_lateral_start_valid: bool = False
+    grid_lateral_start_error_m: float = 0.0
+    grid_lateral_end_valid: bool = False
+    grid_lateral_end_error_m: float = 0.0
+    grid_lateral_drift_valid: bool = False
+    grid_lateral_drift_m: float = 0.0
+    grid_lateral_drift_per_m: float = 0.0
+    grid_lateral_drift_reason: str = ''
+
+
+@dataclass(frozen=True)
+class GridYawCorrection:
+    active: bool
+    correction_radps: float
+    reason: str
+    source: str
+    using_memory: bool
+
 
 SUPPORTED_PRIMITIVES = {
     ExecuteMotionPrimitive.Goal.DRIVE_FORWARD,
@@ -148,6 +172,14 @@ class DarthMaulControlNode(Node):
         self._left_range_m = float('nan')
         self._right_range_m = float('nan')
         self._grid_alignment = invalid_grid_alignment('not initialized')
+        self._last_valid_grid_control_alignment = invalid_grid_alignment(
+            'no valid grid control alignment yet'
+        )
+        self._last_valid_grid_control_alignment_monotonic: Optional[float] = None
+        self._grid_yaw_control_memory_accepting = False
+        self._grid_yaw_correction_active = False
+        self._grid_yaw_correction_radps = 0.0
+        self._grid_yaw_control_reason = ''
 
         self._active_goal = False
         self._stop_requested = False
@@ -405,17 +437,43 @@ class DarthMaulControlNode(Node):
             0.50,
         )
 
-        self.lateral_correction_enabled = self._bool_param(
-            'lateral_correction_enabled',
+        self.grid_alignment_control_enabled = self._bool_param(
+            'grid_alignment_control_enabled',
             False,
         )
-        self.k_lateral_cross_track = self._nonnegative_float_param(
-            'k_lateral_cross_track',
-            0.50,
+        self.grid_yaw_correction_enabled = self._bool_param(
+            'grid_yaw_correction_enabled',
+            False,
         )
-        self.max_lateral_correction_mps = self._nonnegative_float_param(
-            'max_lateral_correction_mps',
-            0.025,
+        self.k_grid_yaw = self._nonnegative_float_param('k_grid_yaw', 0.70)
+        self.max_grid_yaw_correction_radps = self._nonnegative_float_param(
+            'max_grid_yaw_correction_radps',
+            0.045,
+        )
+        self.grid_yaw_min_confidence_for_control = self._nonnegative_float_param(
+            'grid_yaw_min_confidence_for_control',
+            0.60,
+        )
+        self.grid_yaw_max_abs_error_for_control_rad = self._positive_float_param(
+            'grid_yaw_max_abs_error_for_control_rad',
+            0.20,
+        )
+        self.grid_yaw_memory_timeout_s = self._nonnegative_float_param(
+            'grid_yaw_memory_timeout_s',
+            0.35,
+        )
+
+        self.grid_lateral_drift_diagnostics_enabled = self._bool_param(
+            'grid_lateral_drift_diagnostics_enabled',
+            True,
+        )
+        self.grid_lateral_drift_require_left_right = self._bool_param(
+            'grid_lateral_drift_require_left_right',
+            True,
+        )
+        self.grid_lateral_drift_min_confidence = self._nonnegative_float_param(
+            'grid_lateral_drift_min_confidence',
+            0.90,
         )
 
         self.timeout_margin_sec = self._nonnegative_float_param(
@@ -500,6 +558,7 @@ class DarthMaulControlNode(Node):
             self._last_odom_monotonic = time.monotonic()
 
     def _scan_callback(self, msg: LaserScan) -> None:
+        now = time.monotonic()
         front_clearance = self._min_range_in_sector(msg, 0.0, self.front_sector_deg)
         cardinal = cardinal_sector_ranges(
             msg,
@@ -510,7 +569,7 @@ class DarthMaulControlNode(Node):
 
         with self._scan_lock:
             self._latest_scan = msg
-            self._last_scan_monotonic = time.monotonic()
+            self._last_scan_monotonic = now
 
         with self._state_lock:
             self._front_clearance_m = front_clearance
@@ -519,6 +578,13 @@ class DarthMaulControlNode(Node):
             self._left_range_m = finite_median_or_nan(cardinal['left'])
             self._right_range_m = finite_median_or_nan(cardinal['right'])
             self._grid_alignment = grid_alignment
+            if (
+                self._grid_yaw_control_memory_accepting
+                and grid_alignment.valid
+                and grid_alignment.yaw_valid
+            ):
+                self._last_valid_grid_control_alignment = grid_alignment
+                self._last_valid_grid_control_alignment_monotonic = now
 
     def _goal_callback(self, goal_request) -> GoalResponse:
         primitive = int(goal_request.primitive_type)
@@ -753,6 +819,10 @@ class DarthMaulControlNode(Node):
         start_ranges = self._cardinal_range_snapshot()
         start_alignment = self._grid_alignment_snapshot()
         start_time = time.monotonic()
+        self._begin_grid_yaw_control_memory(
+            start_alignment,
+            accept_updates=direction > 0.0,
+        )
 
         self.get_logger().info(
             f'{name} start grid diagnostics: '
@@ -778,9 +848,18 @@ class DarthMaulControlNode(Node):
         final_progress_source_used = 'odom'
         final_control_progress_reason = ''
         translation_diagnostics = TranslationDiagnostics()
+        final_grid_yaw_correction = GridYawCorrection(
+            active=False,
+            correction_radps=0.0,
+            reason='not evaluated',
+            source='none',
+            using_memory=False,
+        )
+        grid_yaw_correction_ever_used = False
 
         while True:
             if self._cancel_or_stop_requested(goal_handle):
+                self._end_grid_yaw_control_memory()
                 return self._cancel_result(goal_handle)
 
             elapsed = time.monotonic() - start_time
@@ -797,7 +876,11 @@ class DarthMaulControlNode(Node):
 
             current = snapshot.pose
 
-            progress_signed, cross_track = self._translation_errors(start, current, direction)
+            progress_signed, _cross_track = self._translation_errors(
+                start,
+                current,
+                direction,
+            )
             odom_progress = max(0.0, progress_signed)
             final_odom_progress = odom_progress
 
@@ -862,7 +945,7 @@ class DarthMaulControlNode(Node):
 
                 final_snapshot = self._get_motion_snapshot()
                 if final_snapshot is not None:
-                    progress_signed, cross_track = self._translation_errors(
+                    progress_signed, _cross_track = self._translation_errors(
                         start,
                         final_snapshot.pose,
                         direction,
@@ -939,26 +1022,33 @@ class DarthMaulControlNode(Node):
 
             heading_correction = self.k_heading * heading_error
 
-            lateral_correction = 0.0
-
-            if direction > 0.0 and self.lateral_correction_enabled:
-                lateral_correction += clamp(
-                    -self.k_lateral_cross_track * cross_track,
-                    -self.max_lateral_correction_mps,
-                    self.max_lateral_correction_mps,
-                )
-
-            cmd.linear.y = clamp(
-                lateral_correction,
-                -self.max_linear_y_mps,
-                self.max_linear_y_mps,
+            grid_yaw = GridYawCorrection(
+                active=False,
+                correction_radps=0.0,
+                reason='grid yaw correction only applies to forward translation',
+                source='none',
+                using_memory=False,
             )
 
-            cmd.angular.z = heading_correction
+            if direction > 0.0:
+                grid_yaw = self._grid_yaw_correction(current_alignment)
+
+            final_grid_yaw_correction = grid_yaw
+            grid_yaw_correction_ever_used = (
+                grid_yaw_correction_ever_used or grid_yaw.active
+            )
+
+            cmd.linear.y = 0.0
+            cmd.angular.z = heading_correction + grid_yaw.correction_radps
 
             cmd = self._limiter.clamp(cmd, limits)
             cmd = self._apply_acceleration_limits(cmd)
             self._cmd_vel_pub.publish(cmd)
+            self._set_grid_yaw_control_status(
+                grid_yaw.active,
+                grid_yaw.correction_radps,
+                grid_yaw.reason,
+            )
 
             self._update_motion_state(
                 distance_remaining=max(0.0, remaining),
@@ -973,7 +1063,10 @@ class DarthMaulControlNode(Node):
                     f'grid_yaw={current_alignment.yaw_error_rad:.3f} rad, '
                     f'grid_lat={current_alignment.lateral_error_m:.3f} m, '
                     f'grid_source={current_alignment.source}, '
+                    f'grid_yaw_corr={grid_yaw.correction_radps:.3f} rad/s, '
+                    f'grid_yaw_corr_active={grid_yaw.active}, '
                     f'heading_error={heading_error:.3f} rad, '
+                    f'angular_z_cmd={cmd.angular.z:.3f} rad/s, '
                     f'linear_y={cmd.linear.y:.3f} m/s'
                 ),
             )
@@ -1014,6 +1107,26 @@ class DarthMaulControlNode(Node):
         )
 
         final_alignment = self._grid_alignment_snapshot()
+        drift = self._lateral_drift_diagnostics(
+            start_alignment,
+            final_alignment,
+            final_control_progress,
+        )
+
+        translation_diagnostics = replace(
+            translation_diagnostics,
+            grid_yaw_correction_used=grid_yaw_correction_ever_used,
+            final_grid_yaw_correction_radps=final_grid_yaw_correction.correction_radps,
+            grid_yaw_control_reason=final_grid_yaw_correction.reason,
+            grid_lateral_start_valid=drift['start_valid'],
+            grid_lateral_start_error_m=drift['start_error'],
+            grid_lateral_end_valid=drift['end_valid'],
+            grid_lateral_end_error_m=drift['end_error'],
+            grid_lateral_drift_valid=drift['drift_valid'],
+            grid_lateral_drift_m=drift['drift'],
+            grid_lateral_drift_per_m=drift['drift_per_m'],
+            grid_lateral_drift_reason=drift['reason'],
+        )
 
         result_message = self._append_translation_diagnostics(
             result_message,
@@ -1051,6 +1164,8 @@ class DarthMaulControlNode(Node):
             f'lidar_source={translation_diagnostics.lidar_progress_source}, '
             f'lidar_disagreement={translation_diagnostics.lidar_progress_disagreement_m:.3f} m'
         )
+
+        self._end_grid_yaw_control_memory()
 
         return self._finish_motion_result(
             goal_handle,
@@ -1189,6 +1304,8 @@ class DarthMaulControlNode(Node):
             time.sleep(1.0 / self.control_rate_hz)
 
         final_alignment = self._grid_alignment_snapshot()
+        # Deliberately diagnostic only. The current grid estimator is side-wall based and
+        # is not reliable enough to refine all turns at junctions/corners/openings.
         result_message = self._append_grid_alignment_diagnostics(
             result_message,
             final_alignment,
@@ -1301,6 +1418,204 @@ class DarthMaulControlNode(Node):
     def _grid_alignment_snapshot(self) -> GridAlignmentEstimate:
         scan = self._fresh_scan_copy()
         return self._grid_alignment_from_scan(scan)
+
+    def _clear_grid_yaw_control_memory_locked(self) -> None:
+        self._last_valid_grid_control_alignment = invalid_grid_alignment(
+            'no valid grid control alignment for current translation'
+        )
+        self._last_valid_grid_control_alignment_monotonic = None
+        self._grid_yaw_control_memory_accepting = False
+
+    def _begin_grid_yaw_control_memory(
+        self,
+        seed: GridAlignmentEstimate,
+        accept_updates: bool,
+    ) -> None:
+        now = time.monotonic()
+        with self._state_lock:
+            self._grid_yaw_control_memory_accepting = bool(accept_updates)
+            if accept_updates and seed.valid and seed.yaw_valid:
+                self._last_valid_grid_control_alignment = seed
+                self._last_valid_grid_control_alignment_monotonic = now
+            else:
+                self._last_valid_grid_control_alignment = invalid_grid_alignment(
+                    'no valid grid control alignment for current translation'
+                )
+                self._last_valid_grid_control_alignment_monotonic = None
+
+    def _end_grid_yaw_control_memory(self) -> None:
+        with self._state_lock:
+            self._clear_grid_yaw_control_memory_locked()
+
+    def _grid_alignment_for_yaw_control(
+        self,
+        current: GridAlignmentEstimate,
+    ) -> tuple[GridAlignmentEstimate, bool, str]:
+        """Return current or short-memory grid alignment for yaw control."""
+        if current.valid and current.yaw_valid:
+            return current, False, 'current valid grid alignment'
+
+        if self.grid_yaw_memory_timeout_s <= 0.0:
+            return current, False, f'grid yaw invalid and memory disabled: {current.reason}'
+
+        with self._state_lock:
+            memory = self._last_valid_grid_control_alignment
+            memory_time = self._last_valid_grid_control_alignment_monotonic
+
+        if memory_time is None or not memory.valid or not memory.yaw_valid:
+            return current, False, f'grid yaw invalid and no valid memory: {current.reason}'
+
+        age = time.monotonic() - memory_time
+        if age > self.grid_yaw_memory_timeout_s:
+            return current, False, (
+                f'grid yaw invalid and memory stale: age={age:.3f}s '
+                f'> {self.grid_yaw_memory_timeout_s:.3f}s; current={current.reason}'
+            )
+
+        return memory, True, (
+            f'using grid yaw memory age={age:.3f}s because current invalid: {current.reason}'
+        )
+
+    def _grid_yaw_correction(
+        self,
+        current: GridAlignmentEstimate,
+    ) -> GridYawCorrection:
+        if not self.grid_alignment_control_enabled:
+            return GridYawCorrection(False, 0.0, 'grid alignment control disabled', 'none', False)
+
+        if not self.grid_yaw_correction_enabled:
+            return GridYawCorrection(False, 0.0, 'grid yaw correction disabled', 'none', False)
+
+        alignment, using_memory, memory_reason = self._grid_alignment_for_yaw_control(current)
+
+        if not alignment.valid or not alignment.yaw_valid:
+            return GridYawCorrection(False, 0.0, memory_reason, alignment.source, using_memory)
+
+        if alignment.confidence < self.grid_yaw_min_confidence_for_control:
+            return GridYawCorrection(
+                False,
+                0.0,
+                (
+                    f'grid confidence too low: {alignment.confidence:.2f} '
+                    f'< {self.grid_yaw_min_confidence_for_control:.2f}'
+                ),
+                alignment.source,
+                using_memory,
+            )
+
+        abs_error = abs(alignment.yaw_error_rad)
+        if abs_error > self.grid_yaw_max_abs_error_for_control_rad:
+            return GridYawCorrection(
+                False,
+                0.0,
+                (
+                    f'grid yaw error too large for control: {alignment.yaw_error_rad:.3f} rad '
+                    f'> {self.grid_yaw_max_abs_error_for_control_rad:.3f} rad'
+                ),
+                alignment.source,
+                using_memory,
+            )
+
+        correction = grid_yaw_correction_radps(
+            alignment.yaw_error_rad,
+            self.k_grid_yaw,
+            self.max_grid_yaw_correction_radps,
+        )
+
+        reason = (
+            f'grid yaw correction from {alignment.source}: '
+            f'yaw_error={alignment.yaw_error_rad:.3f} rad, '
+            f'confidence={alignment.confidence:.2f}, '
+            f'correction={correction:.3f} rad/s'
+        )
+        if using_memory:
+            reason += '; ' + memory_reason
+
+        return GridYawCorrection(
+            active=True,
+            correction_radps=float(correction),
+            reason=reason,
+            source=alignment.source,
+            using_memory=using_memory,
+        )
+
+    def _lateral_drift_diagnostics(
+        self,
+        start_alignment: GridAlignmentEstimate,
+        end_alignment: GridAlignmentEstimate,
+        control_progress_m: float,
+    ) -> dict:
+        if not self.grid_lateral_drift_diagnostics_enabled:
+            return {
+                'start_valid': False,
+                'start_error': 0.0,
+                'end_valid': False,
+                'end_error': 0.0,
+                'drift_valid': False,
+                'drift': 0.0,
+                'drift_per_m': 0.0,
+                'reason': 'grid lateral drift diagnostics disabled',
+            }
+
+        def usable(alignment: GridAlignmentEstimate) -> tuple[bool, str]:
+            if not alignment.valid or not alignment.lateral_valid:
+                return False, alignment.reason
+            if alignment.confidence < self.grid_lateral_drift_min_confidence:
+                return (
+                    False,
+                    f'confidence too low: {alignment.confidence:.2f} '
+                    f'< {self.grid_lateral_drift_min_confidence:.2f}',
+                )
+            if self.grid_lateral_drift_require_left_right and alignment.source != 'left_right':
+                return False, f'source is {alignment.source}, left_right required'
+            return True, 'usable'
+
+        start_ok, start_reason = usable(start_alignment)
+        end_ok, end_reason = usable(end_alignment)
+
+        start_error = float(start_alignment.lateral_error_m) if start_ok else 0.0
+        end_error = float(end_alignment.lateral_error_m) if end_ok else 0.0
+
+        if not start_ok or not end_ok:
+            return {
+                'start_valid': start_ok,
+                'start_error': start_error,
+                'end_valid': end_ok,
+                'end_error': end_error,
+                'drift_valid': False,
+                'drift': 0.0,
+                'drift_per_m': 0.0,
+                'reason': f'lateral drift unavailable: start={start_reason}; end={end_reason}',
+            }
+
+        drift = grid_lateral_drift(
+            start_ok,
+            start_error,
+            end_ok,
+            end_error,
+            control_progress_m,
+        )
+        return {
+            'start_valid': drift.start_valid,
+            'start_error': drift.start_error_m,
+            'end_valid': drift.end_valid,
+            'end_error': drift.end_error_m,
+            'drift_valid': drift.drift_valid,
+            'drift': drift.drift_m,
+            'drift_per_m': drift.drift_per_m,
+            'reason': 'valid left_right grid lateral drift',
+        }
+
+    def _set_grid_yaw_control_status(
+        self,
+        active: bool,
+        correction_radps: float,
+        reason: str,
+    ) -> None:
+        with self._state_lock:
+            self._grid_yaw_correction_active = bool(active)
+            self._grid_yaw_correction_radps = float(correction_radps)
+            self._grid_yaw_control_reason = str(reason)
 
     @staticmethod
     def _range_value(measurement: SectorRange) -> float:
@@ -1427,7 +1742,18 @@ class DarthMaulControlNode(Node):
             f'lidar_source={diagnostics.lidar_progress_source}; '
             f'lidar_disagreement={diagnostics.lidar_progress_disagreement_m:.3f} m; '
             f'lidar_reason={diagnostics.lidar_progress_reason}; '
-            f'control_reason={diagnostics.control_progress_reason}'
+            f'control_reason={diagnostics.control_progress_reason}; '
+            f'grid_yaw_correction_used={diagnostics.grid_yaw_correction_used}; '
+            f'final_grid_yaw_correction={diagnostics.final_grid_yaw_correction_radps:.3f} rad/s; '
+            f'grid_yaw_control_reason={diagnostics.grid_yaw_control_reason}; '
+            f'grid_lateral_start_valid={diagnostics.grid_lateral_start_valid}; '
+            f'grid_lateral_start_error={diagnostics.grid_lateral_start_error_m:.3f} m; '
+            f'grid_lateral_end_valid={diagnostics.grid_lateral_end_valid}; '
+            f'grid_lateral_end_error={diagnostics.grid_lateral_end_error_m:.3f} m; '
+            f'grid_lateral_drift_valid={diagnostics.grid_lateral_drift_valid}; '
+            f'grid_lateral_drift={diagnostics.grid_lateral_drift_m:.3f} m; '
+            f'grid_lateral_drift_per_m={diagnostics.grid_lateral_drift_per_m:.3f}; '
+            f'grid_lateral_drift_reason={diagnostics.grid_lateral_drift_reason}'
         )
 
     @staticmethod
@@ -1687,6 +2013,21 @@ class DarthMaulControlNode(Node):
         result.lidar_progress_reason = str(diagnostics.lidar_progress_reason)
         result.control_progress_reason = str(diagnostics.control_progress_reason)
 
+        result.grid_yaw_correction_used = bool(diagnostics.grid_yaw_correction_used)
+        result.final_grid_yaw_correction_radps = float(
+            diagnostics.final_grid_yaw_correction_radps
+        )
+        result.grid_yaw_control_reason = str(diagnostics.grid_yaw_control_reason)
+
+        result.grid_lateral_start_valid = bool(diagnostics.grid_lateral_start_valid)
+        result.grid_lateral_start_error_m = float(diagnostics.grid_lateral_start_error_m)
+        result.grid_lateral_end_valid = bool(diagnostics.grid_lateral_end_valid)
+        result.grid_lateral_end_error_m = float(diagnostics.grid_lateral_end_error_m)
+        result.grid_lateral_drift_valid = bool(diagnostics.grid_lateral_drift_valid)
+        result.grid_lateral_drift_m = float(diagnostics.grid_lateral_drift_m)
+        result.grid_lateral_drift_per_m = float(diagnostics.grid_lateral_drift_per_m)
+        result.grid_lateral_drift_reason = str(diagnostics.grid_lateral_drift_reason)
+
         alignment = grid_alignment or invalid_grid_alignment('not available')
 
         result.grid_alignment_valid = bool(alignment.valid)
@@ -1758,6 +2099,10 @@ class DarthMaulControlNode(Node):
                 self._distance_remaining_m = 0.0
                 self._distance_traveled_m = 0.0
                 self._heading_error_rad = 0.0
+                self._grid_yaw_correction_active = False
+                self._grid_yaw_correction_radps = 0.0
+                self._grid_yaw_control_reason = ''
+                self._clear_grid_yaw_control_memory_locked()
 
     def _is_odom_fresh(self) -> bool:
         with self._odom_lock:
@@ -1776,6 +2121,7 @@ class DarthMaulControlNode(Node):
         self._cmd_vel_pub.publish(zero)
         self._last_commanded_twist = zero
         self._last_command_time = time.monotonic()
+        self._set_grid_yaw_control_status(False, 0.0, '')
 
     def _publish_zero_for_duration(self) -> None:
         end = time.monotonic() + self.stop_publish_duration_sec
@@ -1799,6 +2145,9 @@ class DarthMaulControlNode(Node):
             left_range = self._left_range_m
             right_range = self._right_range_m
             grid_alignment = self._grid_alignment
+            grid_yaw_correction_active = self._grid_yaw_correction_active
+            grid_yaw_correction_radps = self._grid_yaw_correction_radps
+            grid_yaw_control_reason = self._grid_yaw_control_reason
 
         msg = ControlStatus()
         msg.stamp = self.get_clock().now().to_msg()
@@ -1823,6 +2172,9 @@ class DarthMaulControlNode(Node):
         msg.grid_lateral_error_m = float(grid_alignment.lateral_error_m)
         msg.grid_alignment_source = str(grid_alignment.source)
         msg.grid_alignment_confidence = float(grid_alignment.confidence)
+        msg.grid_yaw_correction_active = bool(grid_yaw_correction_active)
+        msg.grid_yaw_correction_radps = float(grid_yaw_correction_radps)
+        msg.grid_yaw_control_reason = str(grid_yaw_control_reason)
 
         msg.left_wall_line_valid = bool(grid_alignment.left.valid)
         msg.left_wall_offset_m = float(grid_alignment.left.offset_m)

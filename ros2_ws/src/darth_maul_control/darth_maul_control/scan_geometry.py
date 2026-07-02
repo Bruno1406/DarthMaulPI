@@ -39,6 +39,18 @@ class TranslationProgressSelection:
 
 
 @dataclass(frozen=True)
+class GridLateralDriftEstimate:
+    start_valid: bool
+    start_error_m: float
+    end_valid: bool
+    end_error_m: float
+    drift_valid: bool
+    drift_m: float
+    drift_per_m: float
+    reason: str
+
+
+@dataclass(frozen=True)
 class WallLineEstimate:
     valid: bool
     side: str
@@ -221,6 +233,61 @@ def fit_side_wall_line(
         span_x_m=float(span_x),
         rms_error_m=float(rms),
         reason='valid side wall line',
+    )
+
+
+def grid_yaw_correction_radps(
+    yaw_error_rad: float,
+    k_yaw: float,
+    max_correction_radps: float,
+) -> float:
+    correction = float(k_yaw) * float(yaw_error_rad)
+    limit = abs(float(max_correction_radps))
+    return float(max(-limit, min(limit, correction)))
+
+
+def grid_lateral_drift(
+    start_valid: bool,
+    start_error_m: float,
+    end_valid: bool,
+    end_error_m: float,
+    progress_m: float,
+) -> GridLateralDriftEstimate:
+    if not start_valid:
+        return GridLateralDriftEstimate(
+            start_valid=False,
+            start_error_m=0.0,
+            end_valid=bool(end_valid),
+            end_error_m=float(end_error_m) if end_valid else 0.0,
+            drift_valid=False,
+            drift_m=0.0,
+            drift_per_m=0.0,
+            reason='start lateral estimate invalid',
+        )
+
+    if not end_valid:
+        return GridLateralDriftEstimate(
+            start_valid=True,
+            start_error_m=float(start_error_m),
+            end_valid=False,
+            end_error_m=0.0,
+            drift_valid=False,
+            drift_m=0.0,
+            drift_per_m=0.0,
+            reason='end lateral estimate invalid',
+        )
+
+    progress = max(float(progress_m), 0.05)
+    drift = float(end_error_m) - float(start_error_m)
+    return GridLateralDriftEstimate(
+        start_valid=True,
+        start_error_m=float(start_error_m),
+        end_valid=True,
+        end_error_m=float(end_error_m),
+        drift_valid=True,
+        drift_m=float(drift),
+        drift_per_m=float(drift / progress),
+        reason='valid grid lateral drift',
     )
 
 

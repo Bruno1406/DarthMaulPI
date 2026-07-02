@@ -82,9 +82,8 @@ darth_maul_control:
     # Diagnostic warning threshold for odom/LiDAR disagreement.
     lidar_odom_warning_threshold_m: 0.020
 
-    # LiDAR grid-alignment diagnostics.
-    # Diagnostics only for now. Do not use these values for control until signs
-    # have been verified on the robot.
+    # LiDAR grid-alignment estimation.
+    # Used for diagnostics and, when explicitly enabled below, low-gain straight-drive yaw correction.
     grid_alignment_diagnostics_enabled: true
 
     # Expected distance from robot centerline to one side wall when centered.
@@ -114,11 +113,21 @@ darth_maul_control:
     grid_alignment_max_reported_error_m: 0.30
     grid_alignment_max_reported_yaw_rad: 0.50
 
-    # Lateral correction: uses mecanum linear.y for small in-cell centering.
-    # Enable only after basic ADVANCE_CELL works.
-    lateral_correction_enabled: false
-    k_lateral_cross_track: 0.50
-    max_lateral_correction_mps: 0.025
+    # LiDAR grid-yaw correction for straight translation.
+    # This is intentionally low-gain and heavily gated. It corrects heading only.
+    # It does not command lateral strafe and it does not replace front/rear LiDAR distance stopping.
+    grid_alignment_control_enabled: false
+    grid_yaw_correction_enabled: false
+    k_grid_yaw: 0.70
+    max_grid_yaw_correction_radps: 0.045
+    grid_yaw_min_confidence_for_control: 0.60
+    grid_yaw_max_abs_error_for_control_rad: 0.20
+    grid_yaw_memory_timeout_s: 0.35
+
+    # Movement-parallelity diagnostics only. No lateral strafe correction in this change.
+    grid_lateral_drift_diagnostics_enabled: true
+    grid_lateral_drift_require_left_right: true
+    grid_lateral_drift_min_confidence: 0.90
 
     # Timing
     timeout_margin_sec: 3.0
