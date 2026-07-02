@@ -62,9 +62,9 @@ darth_maul_control:
     translation_progress_source: lidar_required
 
     # Pre-translation grid-yaw acquisition.
-    # If a forward translation begins with a valid but large LiDAR grid-yaw error,
-    # rotate in place first, then reset front/rear LiDAR distance baselines before driving.
-    pre_translation_grid_yaw_align_enabled: true
+    # Experimental/debug option only. Default false because raw front/rear
+    # distance progress must not be contaminated by rotate-in-place side-wall aliasing.
+    pre_translation_grid_yaw_align_enabled: false
 
     # Trigger pre-alignment only when the absolute starting grid-yaw error is above this.
     # 0.035 rad ~= 2.0 deg.
@@ -99,6 +99,31 @@ darth_maul_control:
     # Allow one valid source, front-only or rear-only, when the other side is invalid.
     # Needed for long maze corridors where only the rear or front reference is visible.
     lidar_progress_allow_single_source: true
+
+    # Geometry-qualified front/rear LiDAR progress.
+    # A front/rear range may be used for longitudinal progress only if the scan
+    # contains an axial wall line approximately perpendicular to the drive axis.
+    lidar_progress_geometry_validation_enabled: true
+
+    # Candidate front/rear wall points must be this far from the robot along +/-x.
+    lidar_progress_axial_wall_min_distance_m: 0.05
+    lidar_progress_axial_wall_max_distance_m: 2.00
+
+    # Candidate points must be near the robot corridor laterally.
+    # This can be wider than half-cell width because yaw and wall edges spread points.
+    lidar_progress_axial_wall_max_abs_lateral_m: 0.35
+
+    # Minimum support for front/rear wall fitting.
+    lidar_progress_axial_wall_min_points: 8
+
+    # Required lateral span. This rejects side walls masquerading as front/rear walls.
+    lidar_progress_axial_wall_min_span_y_m: 0.08
+
+    # Reject noisy/curved/corner-like front/rear clusters.
+    lidar_progress_axial_wall_max_rms_error_m: 0.025
+
+    # Reject front/rear wall fits whose orientation is too far from axial.
+    lidar_progress_axial_wall_max_abs_yaw_error_rad: 0.35
 
     # Reject LiDAR progress if it is implausibly ahead of odom.
     # Odom is not trusted as truth, but it is still useful as a sanity bound.

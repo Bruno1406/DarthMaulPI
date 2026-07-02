@@ -10,7 +10,9 @@ def test_control_params_default_to_lidar_required():
     assert 'translation_progress_source: lidar_required' in text
     assert 'grid_alignment_control_enabled: true' in text
     assert 'grid_yaw_correction_enabled: true' in text
-    assert 'pre_translation_grid_yaw_align_enabled: true' in text
+    assert 'pre_translation_grid_yaw_align_enabled: false' in text
+    assert 'lidar_progress_geometry_validation_enabled: true' in text
+    assert 'lidar_progress_axial_wall_min_span_y_m: 0.08' in text
     assert 'pre_translation_grid_yaw_align_start_threshold_rad: 0.035' in text
     assert 'pre_translation_grid_yaw_align_target_rad: 0.015' in text
     assert 'pre_translation_grid_yaw_align_stable_samples: 3' in text
@@ -29,7 +31,22 @@ def test_control_launch_default_to_lidar_required_with_debug_override():
     assert "'grid_alignment_control_enabled'" in text
     assert "'grid_yaw_correction_enabled'" in text
     assert "'pre_translation_grid_yaw_align_enabled'" in text
+    assert "default_value='false'" in text
+    assert "'lidar_progress_geometry_validation_enabled'" in text
+    assert "'lidar_progress_axial_wall_min_distance_m'" in text
+    assert "'lidar_progress_axial_wall_max_distance_m'" in text
+    assert "'lidar_progress_axial_wall_max_abs_lateral_m'" in text
+    assert "'lidar_progress_axial_wall_min_points'" in text
+    assert "'lidar_progress_axial_wall_min_span_y_m'" in text
+    assert "'lidar_progress_axial_wall_max_rms_error_m'" in text
+    assert "'lidar_progress_axial_wall_max_abs_yaw_error_rad'" in text
     assert "default_value='true'" in text
+    assert "default_value='0.05'" in text
+    assert "default_value='2.00'" in text
+    assert "default_value='0.35'" in text
+    assert "default_value='8'" in text
+    assert "default_value='0.08'" in text
+    assert "default_value='0.025'" in text
     assert "'pre_translation_grid_yaw_align_start_threshold_rad'" in text
     assert "default_value='0.035'" in text
     assert "'pre_translation_grid_yaw_align_target_rad'" in text
@@ -63,3 +80,5 @@ def test_control_node_defaults_to_grid_yaw_correction_enabled():
 
     assert "self._bool_param(\n            'grid_alignment_control_enabled',\n            True" in text
     assert "self._bool_param(\n            'grid_yaw_correction_enabled',\n            True" in text
+    assert "self._bool_param(\n            'pre_translation_grid_yaw_align_enabled',\n            False" in text
+    assert "self._bool_param(\n            'lidar_progress_geometry_validation_enabled',\n            True" in text

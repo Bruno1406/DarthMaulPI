@@ -17,6 +17,7 @@ from darth_maul_control.geometry import (
 from darth_maul_control.scan_geometry import (
     GridAlignmentEstimate,
     LidarProgressEstimate,
+    LongitudinalWallEstimate,
     SectorRange,
     WallLineEstimate,
     cardinal_sector_ranges,
@@ -30,6 +31,8 @@ from darth_maul_control.scan_geometry import (
     grid_yaw_pre_align_complete,
     grid_yaw_correction_radps,
     invalid_grid_alignment,
+    invalid_longitudinal_wall,
+    longitudinal_wall_estimates_from_scan,
     should_pre_align_grid_yaw,
 )
 from darth_maul_control.velocity_limiter import VelocityLimiter, VelocityLimits
@@ -66,6 +69,12 @@ class LidarRangeSnapshot:
     rear: SectorRange
     left: SectorRange
     right: SectorRange
+
+
+@dataclass(frozen=True)
+class LongitudinalWallSnapshot:
+    front: LongitudinalWallEstimate
+    rear: LongitudinalWallEstimate
 
 
 @dataclass(frozen=True)
@@ -355,7 +364,7 @@ class DarthMaulControlNode(Node):
             self.translation_progress_source = 'odom_only'
         self.pre_translation_grid_yaw_align_enabled = self._bool_param(
             'pre_translation_grid_yaw_align_enabled',
-            True,
+            False,
         )
         self.pre_translation_grid_yaw_align_start_threshold_rad = (
             self._positive_float_param(
@@ -399,6 +408,49 @@ class DarthMaulControlNode(Node):
         self.lidar_progress_allow_single_source = self._bool_param(
             'lidar_progress_allow_single_source',
             True,
+        )
+        self.lidar_progress_geometry_validation_enabled = self._bool_param(
+            'lidar_progress_geometry_validation_enabled',
+            True,
+        )
+        self.lidar_progress_axial_wall_min_distance_m = self._positive_float_param(
+            'lidar_progress_axial_wall_min_distance_m',
+            0.05,
+        )
+        self.lidar_progress_axial_wall_max_distance_m = self._positive_float_param(
+            'lidar_progress_axial_wall_max_distance_m',
+            2.00,
+        )
+        if (
+            self.lidar_progress_axial_wall_max_distance_m
+            <= self.lidar_progress_axial_wall_min_distance_m
+        ):
+            self.get_logger().warning(
+                'Invalid LiDAR progress axial distance window; using [0.05, 2.00]'
+            )
+            self.lidar_progress_axial_wall_min_distance_m = 0.05
+            self.lidar_progress_axial_wall_max_distance_m = 2.00
+        self.lidar_progress_axial_wall_max_abs_lateral_m = self._positive_float_param(
+            'lidar_progress_axial_wall_max_abs_lateral_m',
+            0.35,
+        )
+        self.lidar_progress_axial_wall_min_points = self._positive_int_param(
+            'lidar_progress_axial_wall_min_points',
+            8,
+        )
+        self.lidar_progress_axial_wall_min_span_y_m = self._positive_float_param(
+            'lidar_progress_axial_wall_min_span_y_m',
+            0.08,
+        )
+        self.lidar_progress_axial_wall_max_rms_error_m = self._positive_float_param(
+            'lidar_progress_axial_wall_max_rms_error_m',
+            0.025,
+        )
+        self.lidar_progress_axial_wall_max_abs_yaw_error_rad = (
+            self._positive_float_param(
+                'lidar_progress_axial_wall_max_abs_yaw_error_rad',
+                0.35,
+            )
         )
         self.lidar_progress_max_ahead_of_odom_m = self._positive_float_param(
             'lidar_progress_max_ahead_of_odom_m',
@@ -883,6 +935,7 @@ class DarthMaulControlNode(Node):
 
         start = start_snapshot.pose
         start_ranges = self._cardinal_range_snapshot()
+        start_longitudinal_walls = self._longitudinal_wall_snapshot()
         start_alignment = self._grid_alignment_snapshot()
         start_time = time.monotonic()
 
@@ -1047,6 +1100,7 @@ class DarthMaulControlNode(Node):
 
                     start = start_snapshot.pose
                     start_ranges = self._cardinal_range_snapshot()
+                    start_longitudinal_walls = self._longitudinal_wall_snapshot()
                     start_alignment = self._grid_alignment_snapshot()
                     final_position_error = target_distance
                     final_heading_error = 0.0
@@ -1143,6 +1197,8 @@ class DarthMaulControlNode(Node):
                 odom_progress_m=0.0,
                 start_ranges=start_ranges,
                 end_ranges=start_ranges,
+                start_longitudinal_walls=start_longitudinal_walls,
+                end_longitudinal_walls=start_longitudinal_walls,
             )
             start_selection = self._select_translation_progress(
                 odom_progress_m=0.0,
@@ -1184,6 +1240,7 @@ class DarthMaulControlNode(Node):
             final_odom_progress = odom_progress
 
             current_ranges = self._cardinal_range_snapshot()
+            current_longitudinal_walls = self._longitudinal_wall_snapshot()
             current_alignment = self._grid_alignment_snapshot()
             if lidar_required_mode and not lidar_required_start_acquired:
                 current_diagnostics = self._translation_diagnostics(
@@ -1191,6 +1248,8 @@ class DarthMaulControlNode(Node):
                     odom_progress_m=0.0,
                     start_ranges=current_ranges,
                     end_ranges=current_ranges,
+                    start_longitudinal_walls=current_longitudinal_walls,
+                    end_longitudinal_walls=current_longitudinal_walls,
                 )
                 progress_selection = self._select_translation_progress(
                     odom_progress_m=0.0,
@@ -1199,6 +1258,7 @@ class DarthMaulControlNode(Node):
                 if progress_selection.valid:
                     start = current
                     start_ranges = current_ranges
+                    start_longitudinal_walls = current_longitudinal_walls
                     start_alignment = current_alignment
                     odom_progress = 0.0
                     final_odom_progress = 0.0
@@ -1213,6 +1273,8 @@ class DarthMaulControlNode(Node):
                     odom_progress_m=odom_progress,
                     start_ranges=start_ranges,
                     end_ranges=current_ranges,
+                    start_longitudinal_walls=start_longitudinal_walls,
+                    end_longitudinal_walls=current_longitudinal_walls,
                 )
                 progress_selection = self._select_translation_progress(
                     odom_progress_m=odom_progress,
@@ -1339,11 +1401,14 @@ class DarthMaulControlNode(Node):
                     final_odom_progress = odom_progress
 
                     final_ranges = self._cardinal_range_snapshot()
+                    final_longitudinal_walls = self._longitudinal_wall_snapshot()
                     final_diagnostics = self._translation_diagnostics(
                         direction=direction,
                         odom_progress_m=odom_progress,
                         start_ranges=start_ranges,
                         end_ranges=final_ranges,
+                        start_longitudinal_walls=start_longitudinal_walls,
+                        end_longitudinal_walls=final_longitudinal_walls,
                     )
                     final_selection = self._select_translation_progress(
                         odom_progress_m=odom_progress,
@@ -1510,11 +1575,14 @@ class DarthMaulControlNode(Node):
             time.sleep(1.0 / self.control_rate_hz)
 
         end_ranges = self._cardinal_range_snapshot()
+        end_longitudinal_walls = self._longitudinal_wall_snapshot()
         translation_diagnostics = self._translation_diagnostics(
             direction=direction,
             odom_progress_m=final_odom_progress,
             start_ranges=start_ranges,
             end_ranges=end_ranges,
+            start_longitudinal_walls=start_longitudinal_walls,
+            end_longitudinal_walls=end_longitudinal_walls,
         )
 
         final_selection = self._select_translation_progress(
@@ -1819,6 +1887,39 @@ class DarthMaulControlNode(Node):
             right=measurements['right'],
         )
 
+    def _longitudinal_wall_snapshot(self) -> Optional[LongitudinalWallSnapshot]:
+        if not self.lidar_progress_geometry_validation_enabled:
+            return None
+
+        scan = self._fresh_scan_copy()
+        if scan is None:
+            return LongitudinalWallSnapshot(
+                front=invalid_longitudinal_wall(
+                    'front',
+                    'front axial wall invalid: scan unavailable or stale',
+                ),
+                rear=invalid_longitudinal_wall(
+                    'rear',
+                    'rear axial wall invalid: scan unavailable or stale',
+                ),
+            )
+
+        estimates = longitudinal_wall_estimates_from_scan(
+            scan,
+            min_distance_m=self.lidar_progress_axial_wall_min_distance_m,
+            max_distance_m=self.lidar_progress_axial_wall_max_distance_m,
+            max_abs_lateral_m=self.lidar_progress_axial_wall_max_abs_lateral_m,
+            min_points=self.lidar_progress_axial_wall_min_points,
+            min_span_y_m=self.lidar_progress_axial_wall_min_span_y_m,
+            max_rms_error_m=self.lidar_progress_axial_wall_max_rms_error_m,
+            max_abs_yaw_error_rad=self.lidar_progress_axial_wall_max_abs_yaw_error_rad,
+        )
+
+        return LongitudinalWallSnapshot(
+            front=estimates['front'],
+            rear=estimates['rear'],
+        )
+
     def _grid_alignment_from_scan(
         self,
         scan: Optional[LaserScan],
@@ -2057,28 +2158,108 @@ class DarthMaulControlNode(Node):
         odom_progress_m: float,
         start_ranges: Optional[LidarRangeSnapshot],
         end_ranges: Optional[LidarRangeSnapshot],
+        start_longitudinal_walls: Optional[LongitudinalWallSnapshot],
+        end_longitudinal_walls: Optional[LongitudinalWallSnapshot],
     ) -> TranslationDiagnostics:
-        if start_ranges is None or end_ranges is None:
-            return TranslationDiagnostics(
-                odom_progress_m=float(max(0.0, odom_progress_m)),
-                lidar_progress_valid=False,
-                lidar_progress_source='none',
-                lidar_progress_reason='LiDAR range snapshot unavailable or stale',
+        raw_front_valid = bool(
+            start_ranges is not None
+            and end_ranges is not None
+            and start_ranges.front.valid
+            and end_ranges.front.valid
+        )
+        raw_rear_valid = bool(
+            start_ranges is not None
+            and end_ranges is not None
+            and start_ranges.rear.valid
+            and end_ranges.rear.valid
+        )
+        left_valid = bool(
+            start_ranges is not None
+            and end_ranges is not None
+            and start_ranges.left.valid
+            and end_ranges.left.valid
+        )
+        right_valid = bool(
+            start_ranges is not None
+            and end_ranges is not None
+            and start_ranges.right.valid
+            and end_ranges.right.valid
+        )
+
+        raw_front_start = self._range_value(start_ranges.front) if start_ranges else 0.0
+        raw_front_end = self._range_value(end_ranges.front) if end_ranges else 0.0
+        raw_rear_start = self._range_value(start_ranges.rear) if start_ranges else 0.0
+        raw_rear_end = self._range_value(end_ranges.rear) if end_ranges else 0.0
+        left_start = self._range_value(start_ranges.left) if start_ranges else 0.0
+        left_end = self._range_value(end_ranges.left) if end_ranges else 0.0
+        right_start = self._range_value(start_ranges.right) if start_ranges else 0.0
+        right_end = self._range_value(end_ranges.right) if end_ranges else 0.0
+
+        if self.lidar_progress_geometry_validation_enabled:
+            front_valid = bool(
+                start_longitudinal_walls is not None
+                and end_longitudinal_walls is not None
+                and start_longitudinal_walls.front.valid
+                and end_longitudinal_walls.front.valid
+            )
+            rear_valid = bool(
+                start_longitudinal_walls is not None
+                and end_longitudinal_walls is not None
+                and start_longitudinal_walls.rear.valid
+                and end_longitudinal_walls.rear.valid
             )
 
-        front_valid = start_ranges.front.valid and end_ranges.front.valid
-        rear_valid = start_ranges.rear.valid and end_ranges.rear.valid
-        left_valid = start_ranges.left.valid and end_ranges.left.valid
-        right_valid = start_ranges.right.valid and end_ranges.right.valid
+            def wall_reason(face: str) -> str:
+                if start_longitudinal_walls is None or end_longitudinal_walls is None:
+                    return f'{face} axial wall invalid: snapshot unavailable'
+                start_wall = getattr(start_longitudinal_walls, face)
+                end_wall = getattr(end_longitudinal_walls, face)
+                if not start_wall.valid:
+                    return f'{face} axial wall invalid at start: {start_wall.reason}'
+                if not end_wall.valid:
+                    return f'{face} axial wall invalid at end: {end_wall.reason}'
+                return f'{face} axial wall valid'
 
-        front_start = self._range_value(start_ranges.front)
-        front_end = self._range_value(end_ranges.front)
-        rear_start = self._range_value(start_ranges.rear)
-        rear_end = self._range_value(end_ranges.rear)
-        left_start = self._range_value(start_ranges.left)
-        left_end = self._range_value(end_ranges.left)
-        right_start = self._range_value(start_ranges.right)
-        right_end = self._range_value(end_ranges.right)
+            front_reason = wall_reason('front')
+            rear_reason = wall_reason('rear')
+
+            front_start = (
+                float(start_longitudinal_walls.front.distance_m)
+                if start_longitudinal_walls is not None
+                and start_longitudinal_walls.front.valid
+                else 0.0
+            )
+            front_end = (
+                float(end_longitudinal_walls.front.distance_m)
+                if end_longitudinal_walls is not None
+                and end_longitudinal_walls.front.valid
+                else 0.0
+            )
+            rear_start = (
+                float(start_longitudinal_walls.rear.distance_m)
+                if start_longitudinal_walls is not None
+                and start_longitudinal_walls.rear.valid
+                else 0.0
+            )
+            rear_end = (
+                float(end_longitudinal_walls.rear.distance_m)
+                if end_longitudinal_walls is not None
+                and end_longitudinal_walls.rear.valid
+                else 0.0
+            )
+        else:
+            front_valid = raw_front_valid
+            rear_valid = raw_rear_valid
+            front_reason = 'raw cardinal front range valid' if front_valid else (
+                'raw cardinal front range invalid or unavailable'
+            )
+            rear_reason = 'raw cardinal rear range valid' if rear_valid else (
+                'raw cardinal rear range invalid or unavailable'
+            )
+            front_start = raw_front_start
+            front_end = raw_front_end
+            rear_start = raw_rear_start
+            rear_end = raw_rear_end
 
         if direction >= 0.0:
             front_progress = front_start - front_end if front_valid else 0.0
@@ -2095,6 +2276,8 @@ class DarthMaulControlNode(Node):
             max_disagreement_m=self.lidar_progress_max_disagreement_m,
             min_progress_m=self.lidar_progress_min_m,
             allow_single_source=self.lidar_progress_allow_single_source,
+            front_reason=front_reason,
+            rear_reason=rear_reason,
         )
 
         lidar_progress_valid = lidar_estimate.valid

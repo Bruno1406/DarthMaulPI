@@ -65,6 +65,20 @@ class WallLineEstimate:
 
 
 @dataclass(frozen=True)
+class LongitudinalWallEstimate:
+    valid: bool
+    face: str
+    distance_m: float
+    yaw_error_rad: float
+    slope: float
+    intercept_m: float
+    support_count: int
+    span_y_m: float
+    rms_error_m: float
+    reason: str
+
+
+@dataclass(frozen=True)
 class GridAlignmentEstimate:
     valid: bool
     yaw_valid: bool
@@ -88,6 +102,21 @@ def invalid_wall_line(side: str, reason: str) -> WallLineEstimate:
         intercept_m=0.0,
         support_count=0,
         span_x_m=0.0,
+        rms_error_m=0.0,
+        reason=reason,
+    )
+
+
+def invalid_longitudinal_wall(face: str, reason: str) -> LongitudinalWallEstimate:
+    return LongitudinalWallEstimate(
+        valid=False,
+        face=face,
+        distance_m=0.0,
+        yaw_error_rad=0.0,
+        slope=0.0,
+        intercept_m=0.0,
+        support_count=0,
+        span_y_m=0.0,
         rms_error_m=0.0,
         reason=reason,
     )
@@ -234,6 +263,157 @@ def fit_side_wall_line(
         rms_error_m=float(rms),
         reason='valid side wall line',
     )
+
+
+def longitudinal_wall_candidate_points(
+    scan,
+    face: str,
+    min_distance_m: float,
+    max_distance_m: float,
+    max_abs_lateral_m: float,
+) -> List[Tuple[float, float]]:
+    if face not in ('front', 'rear'):
+        raise ValueError(f'Unsupported face {face!r}')
+
+    sign = 1.0 if face == 'front' else -1.0
+    points = []
+
+    for x, y in valid_scan_points_xy(scan):
+        distance = sign * x
+        if (
+            float(min_distance_m) <= distance <= float(max_distance_m)
+            and abs(y) <= float(max_abs_lateral_m)
+        ):
+            points.append((y, distance))
+
+    return points
+
+
+def fit_longitudinal_wall_line(
+    scan,
+    face: str,
+    min_distance_m: float,
+    max_distance_m: float,
+    max_abs_lateral_m: float,
+    min_points: int,
+    min_span_y_m: float,
+    max_rms_error_m: float,
+    max_abs_yaw_error_rad: float,
+) -> LongitudinalWallEstimate:
+    points: Sequence[Tuple[float, float]] = longitudinal_wall_candidate_points(
+        scan,
+        face=face,
+        min_distance_m=float(min_distance_m),
+        max_distance_m=float(max_distance_m),
+        max_abs_lateral_m=float(max_abs_lateral_m),
+    )
+
+    if len(points) < int(min_points):
+        return invalid_longitudinal_wall(
+            face,
+            f'not enough candidate points: {len(points)} < {int(min_points)}',
+        )
+
+    ys = [p[0] for p in points]
+    distances = [p[1] for p in points]
+
+    span_y = max(ys) - min(ys)
+    if span_y < float(min_span_y_m):
+        return invalid_longitudinal_wall(
+            face,
+            (
+                f'y-span too small: {span_y:.3f} m < '
+                f'{float(min_span_y_m):.3f} m; side-wall-like geometry'
+            ),
+        )
+
+    mean_y = sum(ys) / len(ys)
+    mean_distance = sum(distances) / len(distances)
+
+    denom = sum((y - mean_y) ** 2 for y in ys)
+    if denom <= 1e-9:
+        return invalid_longitudinal_wall(face, 'degenerate line fit')
+
+    slope = sum((y - mean_y) * (distance - mean_distance) for y, distance in points)
+    slope /= denom
+    intercept = mean_distance - slope * mean_y
+
+    residuals = [
+        distance - (slope * y + intercept)
+        for y, distance in points
+    ]
+    rms = math.sqrt(sum(r * r for r in residuals) / len(residuals))
+    yaw_error = math.atan(slope)
+
+    if rms > float(max_rms_error_m):
+        return invalid_longitudinal_wall(
+            face,
+            f'line rms too high: {rms:.3f} m > {float(max_rms_error_m):.3f} m',
+        )
+
+    if abs(yaw_error) > float(max_abs_yaw_error_rad):
+        return invalid_longitudinal_wall(
+            face,
+            (
+                f'wall yaw too large: {yaw_error:.3f} rad '
+                f'> {float(max_abs_yaw_error_rad):.3f} rad'
+            ),
+        )
+
+    if intercept <= 0.0:
+        return invalid_longitudinal_wall(
+            face,
+            f'{face} wall intercept not positive: {intercept:.3f}',
+        )
+
+    return LongitudinalWallEstimate(
+        valid=True,
+        face=face,
+        distance_m=float(intercept),
+        yaw_error_rad=float(yaw_error),
+        slope=float(slope),
+        intercept_m=float(intercept),
+        support_count=len(points),
+        span_y_m=float(span_y),
+        rms_error_m=float(rms),
+        reason=f'valid {face} axial wall line',
+    )
+
+
+def longitudinal_wall_estimates_from_scan(
+    scan,
+    min_distance_m: float,
+    max_distance_m: float,
+    max_abs_lateral_m: float,
+    min_points: int,
+    min_span_y_m: float,
+    max_rms_error_m: float,
+    max_abs_yaw_error_rad: float,
+) -> Dict[str, LongitudinalWallEstimate]:
+    return {
+        'front': fit_longitudinal_wall_line(
+            scan,
+            face='front',
+            min_distance_m=min_distance_m,
+            max_distance_m=max_distance_m,
+            max_abs_lateral_m=max_abs_lateral_m,
+            min_points=min_points,
+            min_span_y_m=min_span_y_m,
+            max_rms_error_m=max_rms_error_m,
+            max_abs_yaw_error_rad=max_abs_yaw_error_rad,
+        ),
+        'rear': fit_longitudinal_wall_line(
+            scan,
+            face='rear',
+            min_distance_m=min_distance_m,
+            max_distance_m=max_distance_m,
+            max_abs_lateral_m=max_abs_lateral_m,
+            min_points=min_points,
+            min_span_y_m=min_span_y_m,
+            max_rms_error_m=max_rms_error_m,
+            max_abs_yaw_error_rad=max_abs_yaw_error_rad,
+        ),
+    }
 
 
 def grid_yaw_correction_radps(
@@ -737,7 +917,28 @@ def choose_lidar_progress(
     max_disagreement_m: float,
     min_progress_m: float,
     allow_single_source: bool,
+    front_reason: str = '',
+    rear_reason: str = '',
 ) -> LidarProgressEstimate:
+    def rejection_reason(
+        name: str,
+        valid: bool,
+        progress_m: float,
+        source_reason: str,
+    ) -> str:
+        if source_reason:
+            return source_reason
+        if not valid:
+            return f'{name} invalid'
+        if not math.isfinite(progress_m):
+            return f'{name} progress non-finite'
+        if progress_m < min_progress_m:
+            return (
+                f'{name} progress {float(progress_m):.3f} m '
+                f'< {float(min_progress_m):.3f} m'
+            )
+        return f'{name} progress valid'
+
     front_ok = (
         front_valid
         and math.isfinite(front_progress_m)
@@ -747,6 +948,18 @@ def choose_lidar_progress(
         rear_valid
         and math.isfinite(rear_progress_m)
         and rear_progress_m >= min_progress_m
+    )
+    front_rejection = rejection_reason(
+        'front',
+        front_valid,
+        front_progress_m,
+        front_reason,
+    )
+    rear_rejection = rejection_reason(
+        'rear',
+        rear_valid,
+        rear_progress_m,
+        rear_reason,
     )
 
     if front_ok and rear_ok:
@@ -777,7 +990,10 @@ def choose_lidar_progress(
             progress_m=0.0,
             source='none',
             disagreement_m=0.0,
-            reason='single-source LiDAR progress disabled',
+            reason=(
+                'single-source LiDAR progress disabled: '
+                f'front={front_rejection}; rear={rear_rejection}'
+            ),
         )
 
     if front_ok:
@@ -786,7 +1002,7 @@ def choose_lidar_progress(
             progress_m=float(front_progress_m),
             source='front',
             disagreement_m=0.0,
-            reason='front progress valid',
+            reason=f'front progress valid; rear rejected: {rear_rejection}',
         )
 
     if rear_ok:
@@ -795,7 +1011,7 @@ def choose_lidar_progress(
             progress_m=float(rear_progress_m),
             source='rear',
             disagreement_m=0.0,
-            reason='rear progress valid',
+            reason=f'rear progress valid; front rejected: {front_rejection}',
         )
 
     return LidarProgressEstimate(
@@ -803,7 +1019,10 @@ def choose_lidar_progress(
         progress_m=0.0,
         source='none',
         disagreement_m=0.0,
-        reason='no valid LiDAR progress source',
+        reason=(
+            'no valid LiDAR progress source: '
+            f'front={front_rejection}; rear={rear_rejection}'
+        ),
     )
 
 

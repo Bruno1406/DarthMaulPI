@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 259
-Skipped files: 12508
+Skipped files: 12539
 
 # Included File Index
 
@@ -271,7 +271,7 @@ Skipped files: 12508
 - binary, media, generated, or not useful as text: 57
 - not UTF-8 text: 1
 - previous merged output: 1
-- skipped directory: 12449
+- skipped directory: 12480
 
 # File Contents
 
@@ -3162,9 +3162,9 @@ darth_maul_control:
     translation_progress_source: lidar_required
 
     # Pre-translation grid-yaw acquisition.
-    # If a forward translation begins with a valid but large LiDAR grid-yaw error,
-    # rotate in place first, then reset front/rear LiDAR distance baselines before driving.
-    pre_translation_grid_yaw_align_enabled: true
+    # Experimental/debug option only. Default false because raw front/rear
+    # distance progress must not be contaminated by rotate-in-place side-wall aliasing.
+    pre_translation_grid_yaw_align_enabled: false
 
     # Trigger pre-alignment only when the absolute starting grid-yaw error is above this.
     # 0.035 rad ~= 2.0 deg.
@@ -3199,6 +3199,31 @@ darth_maul_control:
     # Allow one valid source, front-only or rear-only, when the other side is invalid.
     # Needed for long maze corridors where only the rear or front reference is visible.
     lidar_progress_allow_single_source: true
+
+    # Geometry-qualified front/rear LiDAR progress.
+    # A front/rear range may be used for longitudinal progress only if the scan
+    # contains an axial wall line approximately perpendicular to the drive axis.
+    lidar_progress_geometry_validation_enabled: true
+
+    # Candidate front/rear wall points must be this far from the robot along +/-x.
+    lidar_progress_axial_wall_min_distance_m: 0.05
+    lidar_progress_axial_wall_max_distance_m: 2.00
+
+    # Candidate points must be near the robot corridor laterally.
+    # This can be wider than half-cell width because yaw and wall edges spread points.
+    lidar_progress_axial_wall_max_abs_lateral_m: 0.35
+
+    # Minimum support for front/rear wall fitting.
+    lidar_progress_axial_wall_min_points: 8
+
+    # Required lateral span. This rejects side walls masquerading as front/rear walls.
+    lidar_progress_axial_wall_min_span_y_m: 0.08
+
+    # Reject noisy/curved/corner-like front/rear clusters.
+    lidar_progress_axial_wall_max_rms_error_m: 0.025
+
+    # Reject front/rear wall fits whose orientation is too far from axial.
+    lidar_progress_axial_wall_max_abs_yaw_error_rad: 0.35
 
     # Reject LiDAR progress if it is implausibly ahead of odom.
     # Odom is not trusted as truth, but it is still useful as a sanity bound.
@@ -3317,6 +3342,7 @@ from darth_maul_control.geometry import (
 from darth_maul_control.scan_geometry import (
     GridAlignmentEstimate,
     LidarProgressEstimate,
+    LongitudinalWallEstimate,
     SectorRange,
     WallLineEstimate,
     cardinal_sector_ranges,
@@ -3330,6 +3356,8 @@ from darth_maul_control.scan_geometry import (
     grid_yaw_pre_align_complete,
     grid_yaw_correction_radps,
     invalid_grid_alignment,
+    invalid_longitudinal_wall,
+    longitudinal_wall_estimates_from_scan,
     should_pre_align_grid_yaw,
 )
 from darth_maul_control.velocity_limiter import VelocityLimiter, VelocityLimits
@@ -3366,6 +3394,12 @@ class LidarRangeSnapshot:
     rear: SectorRange
     left: SectorRange
     right: SectorRange
+
+
+@dataclass(frozen=True)
+class LongitudinalWallSnapshot:
+    front: LongitudinalWallEstimate
+    rear: LongitudinalWallEstimate
 
 
 @dataclass(frozen=True)
@@ -3655,7 +3689,7 @@ class DarthMaulControlNode(Node):
             self.translation_progress_source = 'odom_only'
         self.pre_translation_grid_yaw_align_enabled = self._bool_param(
             'pre_translation_grid_yaw_align_enabled',
-            True,
+            False,
         )
         self.pre_translation_grid_yaw_align_start_threshold_rad = (
             self._positive_float_param(
@@ -3699,6 +3733,49 @@ class DarthMaulControlNode(Node):
         self.lidar_progress_allow_single_source = self._bool_param(
             'lidar_progress_allow_single_source',
             True,
+        )
+        self.lidar_progress_geometry_validation_enabled = self._bool_param(
+            'lidar_progress_geometry_validation_enabled',
+            True,
+        )
+        self.lidar_progress_axial_wall_min_distance_m = self._positive_float_param(
+            'lidar_progress_axial_wall_min_distance_m',
+            0.05,
+        )
+        self.lidar_progress_axial_wall_max_distance_m = self._positive_float_param(
+            'lidar_progress_axial_wall_max_distance_m',
+            2.00,
+        )
+        if (
+            self.lidar_progress_axial_wall_max_distance_m
+            <= self.lidar_progress_axial_wall_min_distance_m
+        ):
+            self.get_logger().warning(
+                'Invalid LiDAR progress axial distance window; using [0.05, 2.00]'
+            )
+            self.lidar_progress_axial_wall_min_distance_m = 0.05
+            self.lidar_progress_axial_wall_max_distance_m = 2.00
+        self.lidar_progress_axial_wall_max_abs_lateral_m = self._positive_float_param(
+            'lidar_progress_axial_wall_max_abs_lateral_m',
+            0.35,
+        )
+        self.lidar_progress_axial_wall_min_points = self._positive_int_param(
+            'lidar_progress_axial_wall_min_points',
+            8,
+        )
+        self.lidar_progress_axial_wall_min_span_y_m = self._positive_float_param(
+            'lidar_progress_axial_wall_min_span_y_m',
+            0.08,
+        )
+        self.lidar_progress_axial_wall_max_rms_error_m = self._positive_float_param(
+            'lidar_progress_axial_wall_max_rms_error_m',
+            0.025,
+        )
+        self.lidar_progress_axial_wall_max_abs_yaw_error_rad = (
+            self._positive_float_param(
+                'lidar_progress_axial_wall_max_abs_yaw_error_rad',
+                0.35,
+            )
         )
         self.lidar_progress_max_ahead_of_odom_m = self._positive_float_param(
             'lidar_progress_max_ahead_of_odom_m',
@@ -4183,6 +4260,7 @@ class DarthMaulControlNode(Node):
 
         start = start_snapshot.pose
         start_ranges = self._cardinal_range_snapshot()
+        start_longitudinal_walls = self._longitudinal_wall_snapshot()
         start_alignment = self._grid_alignment_snapshot()
         start_time = time.monotonic()
 
@@ -4347,6 +4425,7 @@ class DarthMaulControlNode(Node):
 
                     start = start_snapshot.pose
                     start_ranges = self._cardinal_range_snapshot()
+                    start_longitudinal_walls = self._longitudinal_wall_snapshot()
                     start_alignment = self._grid_alignment_snapshot()
                     final_position_error = target_distance
                     final_heading_error = 0.0
@@ -4443,6 +4522,8 @@ class DarthMaulControlNode(Node):
                 odom_progress_m=0.0,
                 start_ranges=start_ranges,
                 end_ranges=start_ranges,
+                start_longitudinal_walls=start_longitudinal_walls,
+                end_longitudinal_walls=start_longitudinal_walls,
             )
             start_selection = self._select_translation_progress(
                 odom_progress_m=0.0,
@@ -4484,6 +4565,7 @@ class DarthMaulControlNode(Node):
             final_odom_progress = odom_progress
 
             current_ranges = self._cardinal_range_snapshot()
+            current_longitudinal_walls = self._longitudinal_wall_snapshot()
             current_alignment = self._grid_alignment_snapshot()
             if lidar_required_mode and not lidar_required_start_acquired:
                 current_diagnostics = self._translation_diagnostics(
@@ -4491,6 +4573,8 @@ class DarthMaulControlNode(Node):
                     odom_progress_m=0.0,
                     start_ranges=current_ranges,
                     end_ranges=current_ranges,
+                    start_longitudinal_walls=current_longitudinal_walls,
+                    end_longitudinal_walls=current_longitudinal_walls,
                 )
                 progress_selection = self._select_translation_progress(
                     odom_progress_m=0.0,
@@ -4499,6 +4583,7 @@ class DarthMaulControlNode(Node):
                 if progress_selection.valid:
                     start = current
                     start_ranges = current_ranges
+                    start_longitudinal_walls = current_longitudinal_walls
                     start_alignment = current_alignment
                     odom_progress = 0.0
                     final_odom_progress = 0.0
@@ -4513,6 +4598,8 @@ class DarthMaulControlNode(Node):
                     odom_progress_m=odom_progress,
                     start_ranges=start_ranges,
                     end_ranges=current_ranges,
+                    start_longitudinal_walls=start_longitudinal_walls,
+                    end_longitudinal_walls=current_longitudinal_walls,
                 )
                 progress_selection = self._select_translation_progress(
                     odom_progress_m=odom_progress,
@@ -4639,11 +4726,14 @@ class DarthMaulControlNode(Node):
                     final_odom_progress = odom_progress
 
                     final_ranges = self._cardinal_range_snapshot()
+                    final_longitudinal_walls = self._longitudinal_wall_snapshot()
                     final_diagnostics = self._translation_diagnostics(
                         direction=direction,
                         odom_progress_m=odom_progress,
                         start_ranges=start_ranges,
                         end_ranges=final_ranges,
+                        start_longitudinal_walls=start_longitudinal_walls,
+                        end_longitudinal_walls=final_longitudinal_walls,
                     )
                     final_selection = self._select_translation_progress(
                         odom_progress_m=odom_progress,
@@ -4810,11 +4900,14 @@ class DarthMaulControlNode(Node):
             time.sleep(1.0 / self.control_rate_hz)
 
         end_ranges = self._cardinal_range_snapshot()
+        end_longitudinal_walls = self._longitudinal_wall_snapshot()
         translation_diagnostics = self._translation_diagnostics(
             direction=direction,
             odom_progress_m=final_odom_progress,
             start_ranges=start_ranges,
             end_ranges=end_ranges,
+            start_longitudinal_walls=start_longitudinal_walls,
+            end_longitudinal_walls=end_longitudinal_walls,
         )
 
         final_selection = self._select_translation_progress(
@@ -5119,6 +5212,39 @@ class DarthMaulControlNode(Node):
             right=measurements['right'],
         )
 
+    def _longitudinal_wall_snapshot(self) -> Optional[LongitudinalWallSnapshot]:
+        if not self.lidar_progress_geometry_validation_enabled:
+            return None
+
+        scan = self._fresh_scan_copy()
+        if scan is None:
+            return LongitudinalWallSnapshot(
+                front=invalid_longitudinal_wall(
+                    'front',
+                    'front axial wall invalid: scan unavailable or stale',
+                ),
+                rear=invalid_longitudinal_wall(
+                    'rear',
+                    'rear axial wall invalid: scan unavailable or stale',
+                ),
+            )
+
+        estimates = longitudinal_wall_estimates_from_scan(
+            scan,
+            min_distance_m=self.lidar_progress_axial_wall_min_distance_m,
+            max_distance_m=self.lidar_progress_axial_wall_max_distance_m,
+            max_abs_lateral_m=self.lidar_progress_axial_wall_max_abs_lateral_m,
+            min_points=self.lidar_progress_axial_wall_min_points,
+            min_span_y_m=self.lidar_progress_axial_wall_min_span_y_m,
+            max_rms_error_m=self.lidar_progress_axial_wall_max_rms_error_m,
+            max_abs_yaw_error_rad=self.lidar_progress_axial_wall_max_abs_yaw_error_rad,
+        )
+
+        return LongitudinalWallSnapshot(
+            front=estimates['front'],
+            rear=estimates['rear'],
+        )
+
     def _grid_alignment_from_scan(
         self,
         scan: Optional[LaserScan],
@@ -5357,28 +5483,108 @@ class DarthMaulControlNode(Node):
         odom_progress_m: float,
         start_ranges: Optional[LidarRangeSnapshot],
         end_ranges: Optional[LidarRangeSnapshot],
+        start_longitudinal_walls: Optional[LongitudinalWallSnapshot],
+        end_longitudinal_walls: Optional[LongitudinalWallSnapshot],
     ) -> TranslationDiagnostics:
-        if start_ranges is None or end_ranges is None:
-            return TranslationDiagnostics(
-                odom_progress_m=float(max(0.0, odom_progress_m)),
-                lidar_progress_valid=False,
-                lidar_progress_source='none',
-                lidar_progress_reason='LiDAR range snapshot unavailable or stale',
+        raw_front_valid = bool(
+            start_ranges is not None
+            and end_ranges is not None
+            and start_ranges.front.valid
+            and end_ranges.front.valid
+        )
+        raw_rear_valid = bool(
+            start_ranges is not None
+            and end_ranges is not None
+            and start_ranges.rear.valid
+            and end_ranges.rear.valid
+        )
+        left_valid = bool(
+            start_ranges is not None
+            and end_ranges is not None
+            and start_ranges.left.valid
+            and end_ranges.left.valid
+        )
+        right_valid = bool(
+            start_ranges is not None
+            and end_ranges is not None
+            and start_ranges.right.valid
+            and end_ranges.right.valid
+        )
+
+        raw_front_start = self._range_value(start_ranges.front) if start_ranges else 0.0
+        raw_front_end = self._range_value(end_ranges.front) if end_ranges else 0.0
+        raw_rear_start = self._range_value(start_ranges.rear) if start_ranges else 0.0
+        raw_rear_end = self._range_value(end_ranges.rear) if end_ranges else 0.0
+        left_start = self._range_value(start_ranges.left) if start_ranges else 0.0
+        left_end = self._range_value(end_ranges.left) if end_ranges else 0.0
+        right_start = self._range_value(start_ranges.right) if start_ranges else 0.0
+        right_end = self._range_value(end_ranges.right) if end_ranges else 0.0
+
+        if self.lidar_progress_geometry_validation_enabled:
+            front_valid = bool(
+                start_longitudinal_walls is not None
+                and end_longitudinal_walls is not None
+                and start_longitudinal_walls.front.valid
+                and end_longitudinal_walls.front.valid
+            )
+            rear_valid = bool(
+                start_longitudinal_walls is not None
+                and end_longitudinal_walls is not None
+                and start_longitudinal_walls.rear.valid
+                and end_longitudinal_walls.rear.valid
             )
 
-        front_valid = start_ranges.front.valid and end_ranges.front.valid
-        rear_valid = start_ranges.rear.valid and end_ranges.rear.valid
-        left_valid = start_ranges.left.valid and end_ranges.left.valid
-        right_valid = start_ranges.right.valid and end_ranges.right.valid
+            def wall_reason(face: str) -> str:
+                if start_longitudinal_walls is None or end_longitudinal_walls is None:
+                    return f'{face} axial wall invalid: snapshot unavailable'
+                start_wall = getattr(start_longitudinal_walls, face)
+                end_wall = getattr(end_longitudinal_walls, face)
+                if not start_wall.valid:
+                    return f'{face} axial wall invalid at start: {start_wall.reason}'
+                if not end_wall.valid:
+                    return f'{face} axial wall invalid at end: {end_wall.reason}'
+                return f'{face} axial wall valid'
 
-        front_start = self._range_value(start_ranges.front)
-        front_end = self._range_value(end_ranges.front)
-        rear_start = self._range_value(start_ranges.rear)
-        rear_end = self._range_value(end_ranges.rear)
-        left_start = self._range_value(start_ranges.left)
-        left_end = self._range_value(end_ranges.left)
-        right_start = self._range_value(start_ranges.right)
-        right_end = self._range_value(end_ranges.right)
+            front_reason = wall_reason('front')
+            rear_reason = wall_reason('rear')
+
+            front_start = (
+                float(start_longitudinal_walls.front.distance_m)
+                if start_longitudinal_walls is not None
+                and start_longitudinal_walls.front.valid
+                else 0.0
+            )
+            front_end = (
+                float(end_longitudinal_walls.front.distance_m)
+                if end_longitudinal_walls is not None
+                and end_longitudinal_walls.front.valid
+                else 0.0
+            )
+            rear_start = (
+                float(start_longitudinal_walls.rear.distance_m)
+                if start_longitudinal_walls is not None
+                and start_longitudinal_walls.rear.valid
+                else 0.0
+            )
+            rear_end = (
+                float(end_longitudinal_walls.rear.distance_m)
+                if end_longitudinal_walls is not None
+                and end_longitudinal_walls.rear.valid
+                else 0.0
+            )
+        else:
+            front_valid = raw_front_valid
+            rear_valid = raw_rear_valid
+            front_reason = 'raw cardinal front range valid' if front_valid else (
+                'raw cardinal front range invalid or unavailable'
+            )
+            rear_reason = 'raw cardinal rear range valid' if rear_valid else (
+                'raw cardinal rear range invalid or unavailable'
+            )
+            front_start = raw_front_start
+            front_end = raw_front_end
+            rear_start = raw_rear_start
+            rear_end = raw_rear_end
 
         if direction >= 0.0:
             front_progress = front_start - front_end if front_valid else 0.0
@@ -5395,6 +5601,8 @@ class DarthMaulControlNode(Node):
             max_disagreement_m=self.lidar_progress_max_disagreement_m,
             min_progress_m=self.lidar_progress_min_m,
             allow_single_source=self.lidar_progress_allow_single_source,
+            front_reason=front_reason,
+            rear_reason=rear_reason,
         )
 
         lidar_progress_valid = lidar_estimate.valid
@@ -6074,6 +6282,20 @@ class WallLineEstimate:
 
 
 @dataclass(frozen=True)
+class LongitudinalWallEstimate:
+    valid: bool
+    face: str
+    distance_m: float
+    yaw_error_rad: float
+    slope: float
+    intercept_m: float
+    support_count: int
+    span_y_m: float
+    rms_error_m: float
+    reason: str
+
+
+@dataclass(frozen=True)
 class GridAlignmentEstimate:
     valid: bool
     yaw_valid: bool
@@ -6097,6 +6319,21 @@ def invalid_wall_line(side: str, reason: str) -> WallLineEstimate:
         intercept_m=0.0,
         support_count=0,
         span_x_m=0.0,
+        rms_error_m=0.0,
+        reason=reason,
+    )
+
+
+def invalid_longitudinal_wall(face: str, reason: str) -> LongitudinalWallEstimate:
+    return LongitudinalWallEstimate(
+        valid=False,
+        face=face,
+        distance_m=0.0,
+        yaw_error_rad=0.0,
+        slope=0.0,
+        intercept_m=0.0,
+        support_count=0,
+        span_y_m=0.0,
         rms_error_m=0.0,
         reason=reason,
     )
@@ -6243,6 +6480,157 @@ def fit_side_wall_line(
         rms_error_m=float(rms),
         reason='valid side wall line',
     )
+
+
+def longitudinal_wall_candidate_points(
+    scan,
+    face: str,
+    min_distance_m: float,
+    max_distance_m: float,
+    max_abs_lateral_m: float,
+) -> List[Tuple[float, float]]:
+    if face not in ('front', 'rear'):
+        raise ValueError(f'Unsupported face {face!r}')
+
+    sign = 1.0 if face == 'front' else -1.0
+    points = []
+
+    for x, y in valid_scan_points_xy(scan):
+        distance = sign * x
+        if (
+            float(min_distance_m) <= distance <= float(max_distance_m)
+            and abs(y) <= float(max_abs_lateral_m)
+        ):
+            points.append((y, distance))
+
+    return points
+
+
+def fit_longitudinal_wall_line(
+    scan,
+    face: str,
+    min_distance_m: float,
+    max_distance_m: float,
+    max_abs_lateral_m: float,
+    min_points: int,
+    min_span_y_m: float,
+    max_rms_error_m: float,
+    max_abs_yaw_error_rad: float,
+) -> LongitudinalWallEstimate:
+    points: Sequence[Tuple[float, float]] = longitudinal_wall_candidate_points(
+        scan,
+        face=face,
+        min_distance_m=float(min_distance_m),
+        max_distance_m=float(max_distance_m),
+        max_abs_lateral_m=float(max_abs_lateral_m),
+    )
+
+    if len(points) < int(min_points):
+        return invalid_longitudinal_wall(
+            face,
+            f'not enough candidate points: {len(points)} < {int(min_points)}',
+        )
+
+    ys = [p[0] for p in points]
+    distances = [p[1] for p in points]
+
+    span_y = max(ys) - min(ys)
+    if span_y < float(min_span_y_m):
+        return invalid_longitudinal_wall(
+            face,
+            (
+                f'y-span too small: {span_y:.3f} m < '
+                f'{float(min_span_y_m):.3f} m; side-wall-like geometry'
+            ),
+        )
+
+    mean_y = sum(ys) / len(ys)
+    mean_distance = sum(distances) / len(distances)
+
+    denom = sum((y - mean_y) ** 2 for y in ys)
+    if denom <= 1e-9:
+        return invalid_longitudinal_wall(face, 'degenerate line fit')
+
+    slope = sum((y - mean_y) * (distance - mean_distance) for y, distance in points)
+    slope /= denom
+    intercept = mean_distance - slope * mean_y
+
+    residuals = [
+        distance - (slope * y + intercept)
+        for y, distance in points
+    ]
+    rms = math.sqrt(sum(r * r for r in residuals) / len(residuals))
+    yaw_error = math.atan(slope)
+
+    if rms > float(max_rms_error_m):
+        return invalid_longitudinal_wall(
+            face,
+            f'line rms too high: {rms:.3f} m > {float(max_rms_error_m):.3f} m',
+        )
+
+    if abs(yaw_error) > float(max_abs_yaw_error_rad):
+        return invalid_longitudinal_wall(
+            face,
+            (
+                f'wall yaw too large: {yaw_error:.3f} rad '
+                f'> {float(max_abs_yaw_error_rad):.3f} rad'
+            ),
+        )
+
+    if intercept <= 0.0:
+        return invalid_longitudinal_wall(
+            face,
+            f'{face} wall intercept not positive: {intercept:.3f}',
+        )
+
+    return LongitudinalWallEstimate(
+        valid=True,
+        face=face,
+        distance_m=float(intercept),
+        yaw_error_rad=float(yaw_error),
+        slope=float(slope),
+        intercept_m=float(intercept),
+        support_count=len(points),
+        span_y_m=float(span_y),
+        rms_error_m=float(rms),
+        reason=f'valid {face} axial wall line',
+    )
+
+
+def longitudinal_wall_estimates_from_scan(
+    scan,
+    min_distance_m: float,
+    max_distance_m: float,
+    max_abs_lateral_m: float,
+    min_points: int,
+    min_span_y_m: float,
+    max_rms_error_m: float,
+    max_abs_yaw_error_rad: float,
+) -> Dict[str, LongitudinalWallEstimate]:
+    return {
+        'front': fit_longitudinal_wall_line(
+            scan,
+            face='front',
+            min_distance_m=min_distance_m,
+            max_distance_m=max_distance_m,
+            max_abs_lateral_m=max_abs_lateral_m,
+            min_points=min_points,
+            min_span_y_m=min_span_y_m,
+            max_rms_error_m=max_rms_error_m,
+            max_abs_yaw_error_rad=max_abs_yaw_error_rad,
+        ),
+        'rear': fit_longitudinal_wall_line(
+            scan,
+            face='rear',
+            min_distance_m=min_distance_m,
+            max_distance_m=max_distance_m,
+            max_abs_lateral_m=max_abs_lateral_m,
+            min_points=min_points,
+            min_span_y_m=min_span_y_m,
+            max_rms_error_m=max_rms_error_m,
+            max_abs_yaw_error_rad=max_abs_yaw_error_rad,
+        ),
+    }
 
 
 def grid_yaw_correction_radps(
@@ -6746,7 +7134,28 @@ def choose_lidar_progress(
     max_disagreement_m: float,
     min_progress_m: float,
     allow_single_source: bool,
+    front_reason: str = '',
+    rear_reason: str = '',
 ) -> LidarProgressEstimate:
+    def rejection_reason(
+        name: str,
+        valid: bool,
+        progress_m: float,
+        source_reason: str,
+    ) -> str:
+        if source_reason:
+            return source_reason
+        if not valid:
+            return f'{name} invalid'
+        if not math.isfinite(progress_m):
+            return f'{name} progress non-finite'
+        if progress_m < min_progress_m:
+            return (
+                f'{name} progress {float(progress_m):.3f} m '
+                f'< {float(min_progress_m):.3f} m'
+            )
+        return f'{name} progress valid'
+
     front_ok = (
         front_valid
         and math.isfinite(front_progress_m)
@@ -6756,6 +7165,18 @@ def choose_lidar_progress(
         rear_valid
         and math.isfinite(rear_progress_m)
         and rear_progress_m >= min_progress_m
+    )
+    front_rejection = rejection_reason(
+        'front',
+        front_valid,
+        front_progress_m,
+        front_reason,
+    )
+    rear_rejection = rejection_reason(
+        'rear',
+        rear_valid,
+        rear_progress_m,
+        rear_reason,
     )
 
     if front_ok and rear_ok:
@@ -6786,7 +7207,10 @@ def choose_lidar_progress(
             progress_m=0.0,
             source='none',
             disagreement_m=0.0,
-            reason='single-source LiDAR progress disabled',
+            reason=(
+                'single-source LiDAR progress disabled: '
+                f'front={front_rejection}; rear={rear_rejection}'
+            ),
         )
 
     if front_ok:
@@ -6795,7 +7219,7 @@ def choose_lidar_progress(
             progress_m=float(front_progress_m),
             source='front',
             disagreement_m=0.0,
-            reason='front progress valid',
+            reason=f'front progress valid; rear rejected: {rear_rejection}',
         )
 
     if rear_ok:
@@ -6804,7 +7228,7 @@ def choose_lidar_progress(
             progress_m=float(rear_progress_m),
             source='rear',
             disagreement_m=0.0,
-            reason='rear progress valid',
+            reason=f'rear progress valid; front rejected: {front_rejection}',
         )
 
     return LidarProgressEstimate(
@@ -6812,7 +7236,10 @@ def choose_lidar_progress(
         progress_m=0.0,
         source='none',
         disagreement_m=0.0,
-        reason='no valid LiDAR progress source',
+        reason=(
+            'no valid LiDAR progress source: '
+            f'front={front_rejection}; rear={rear_rejection}'
+        ),
     )
 
 
@@ -7018,6 +7445,30 @@ def generate_launch_description():
     translation_lidar_required_invalid_max_consecutive_samples = LaunchConfiguration(
         'translation_lidar_required_invalid_max_consecutive_samples'
     )
+    lidar_progress_geometry_validation_enabled = LaunchConfiguration(
+        'lidar_progress_geometry_validation_enabled'
+    )
+    lidar_progress_axial_wall_min_distance_m = LaunchConfiguration(
+        'lidar_progress_axial_wall_min_distance_m'
+    )
+    lidar_progress_axial_wall_max_distance_m = LaunchConfiguration(
+        'lidar_progress_axial_wall_max_distance_m'
+    )
+    lidar_progress_axial_wall_max_abs_lateral_m = LaunchConfiguration(
+        'lidar_progress_axial_wall_max_abs_lateral_m'
+    )
+    lidar_progress_axial_wall_min_points = LaunchConfiguration(
+        'lidar_progress_axial_wall_min_points'
+    )
+    lidar_progress_axial_wall_min_span_y_m = LaunchConfiguration(
+        'lidar_progress_axial_wall_min_span_y_m'
+    )
+    lidar_progress_axial_wall_max_rms_error_m = LaunchConfiguration(
+        'lidar_progress_axial_wall_max_rms_error_m'
+    )
+    lidar_progress_axial_wall_max_abs_yaw_error_rad = LaunchConfiguration(
+        'lidar_progress_axial_wall_max_abs_yaw_error_rad'
+    )
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -7060,8 +7511,12 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'pre_translation_grid_yaw_align_enabled',
-            default_value='true',
-            description='Enable pre-translation LiDAR grid-yaw alignment.',
+            default_value='false',
+            description=(
+                'Enable experimental pre-translation LiDAR grid-yaw alignment. '
+                'Default false because raw front/rear distance progress must not be '
+                'contaminated by rotate-in-place side-wall aliasing.'
+            ),
         ),
         DeclareLaunchArgument(
             'pre_translation_grid_yaw_align_start_threshold_rad',
@@ -7087,6 +7542,46 @@ def generate_launch_description():
             'translation_lidar_required_invalid_max_consecutive_samples',
             default_value='2',
             description='Consecutive invalid LiDAR progress samples allowed in lidar_required mode.',
+        ),
+        DeclareLaunchArgument(
+            'lidar_progress_geometry_validation_enabled',
+            default_value='true',
+            description='Require axial front/rear wall geometry for LiDAR progress.',
+        ),
+        DeclareLaunchArgument(
+            'lidar_progress_axial_wall_min_distance_m',
+            default_value='0.05',
+            description='Minimum +/-x distance for front/rear axial wall candidates.',
+        ),
+        DeclareLaunchArgument(
+            'lidar_progress_axial_wall_max_distance_m',
+            default_value='2.00',
+            description='Maximum +/-x distance for front/rear axial wall candidates.',
+        ),
+        DeclareLaunchArgument(
+            'lidar_progress_axial_wall_max_abs_lateral_m',
+            default_value='0.35',
+            description='Maximum absolute lateral y for front/rear axial wall candidates.',
+        ),
+        DeclareLaunchArgument(
+            'lidar_progress_axial_wall_min_points',
+            default_value='8',
+            description='Minimum point support for front/rear axial wall fitting.',
+        ),
+        DeclareLaunchArgument(
+            'lidar_progress_axial_wall_min_span_y_m',
+            default_value='0.08',
+            description='Minimum lateral span for front/rear axial wall fitting.',
+        ),
+        DeclareLaunchArgument(
+            'lidar_progress_axial_wall_max_rms_error_m',
+            default_value='0.025',
+            description='Maximum RMS residual for front/rear axial wall fitting.',
+        ),
+        DeclareLaunchArgument(
+            'lidar_progress_axial_wall_max_abs_yaw_error_rad',
+            default_value='0.35',
+            description='Maximum axial wall yaw error accepted for LiDAR progress.',
         ),
         Node(
             package=package_name,
@@ -7143,6 +7638,38 @@ def generate_launch_description():
                         translation_lidar_required_invalid_max_consecutive_samples,
                         value_type=int,
                     ),
+                    'lidar_progress_geometry_validation_enabled': ParameterValue(
+                        lidar_progress_geometry_validation_enabled,
+                        value_type=bool,
+                    ),
+                    'lidar_progress_axial_wall_min_distance_m': ParameterValue(
+                        lidar_progress_axial_wall_min_distance_m,
+                        value_type=float,
+                    ),
+                    'lidar_progress_axial_wall_max_distance_m': ParameterValue(
+                        lidar_progress_axial_wall_max_distance_m,
+                        value_type=float,
+                    ),
+                    'lidar_progress_axial_wall_max_abs_lateral_m': ParameterValue(
+                        lidar_progress_axial_wall_max_abs_lateral_m,
+                        value_type=float,
+                    ),
+                    'lidar_progress_axial_wall_min_points': ParameterValue(
+                        lidar_progress_axial_wall_min_points,
+                        value_type=int,
+                    ),
+                    'lidar_progress_axial_wall_min_span_y_m': ParameterValue(
+                        lidar_progress_axial_wall_min_span_y_m,
+                        value_type=float,
+                    ),
+                    'lidar_progress_axial_wall_max_rms_error_m': ParameterValue(
+                        lidar_progress_axial_wall_max_rms_error_m,
+                        value_type=float,
+                    ),
+                    'lidar_progress_axial_wall_max_abs_yaw_error_rad': ParameterValue(
+                        lidar_progress_axial_wall_max_abs_yaw_error_rad,
+                        value_type=float,
+                    ),
                 },
             ],
             output='screen',
@@ -7169,7 +7696,9 @@ def test_control_params_default_to_lidar_required():
     assert 'translation_progress_source: lidar_required' in text
     assert 'grid_alignment_control_enabled: true' in text
     assert 'grid_yaw_correction_enabled: true' in text
-    assert 'pre_translation_grid_yaw_align_enabled: true' in text
+    assert 'pre_translation_grid_yaw_align_enabled: false' in text
+    assert 'lidar_progress_geometry_validation_enabled: true' in text
+    assert 'lidar_progress_axial_wall_min_span_y_m: 0.08' in text
     assert 'pre_translation_grid_yaw_align_start_threshold_rad: 0.035' in text
     assert 'pre_translation_grid_yaw_align_target_rad: 0.015' in text
     assert 'pre_translation_grid_yaw_align_stable_samples: 3' in text
@@ -7188,7 +7717,22 @@ def test_control_launch_default_to_lidar_required_with_debug_override():
     assert "'grid_alignment_control_enabled'" in text
     assert "'grid_yaw_correction_enabled'" in text
     assert "'pre_translation_grid_yaw_align_enabled'" in text
+    assert "default_value='false'" in text
+    assert "'lidar_progress_geometry_validation_enabled'" in text
+    assert "'lidar_progress_axial_wall_min_distance_m'" in text
+    assert "'lidar_progress_axial_wall_max_distance_m'" in text
+    assert "'lidar_progress_axial_wall_max_abs_lateral_m'" in text
+    assert "'lidar_progress_axial_wall_min_points'" in text
+    assert "'lidar_progress_axial_wall_min_span_y_m'" in text
+    assert "'lidar_progress_axial_wall_max_rms_error_m'" in text
+    assert "'lidar_progress_axial_wall_max_abs_yaw_error_rad'" in text
     assert "default_value='true'" in text
+    assert "default_value='0.05'" in text
+    assert "default_value='2.00'" in text
+    assert "default_value='0.35'" in text
+    assert "default_value='8'" in text
+    assert "default_value='0.08'" in text
+    assert "default_value='0.025'" in text
     assert "'pre_translation_grid_yaw_align_start_threshold_rad'" in text
     assert "default_value='0.035'" in text
     assert "'pre_translation_grid_yaw_align_target_rad'" in text
@@ -7222,6 +7766,8 @@ def test_control_node_defaults_to_grid_yaw_correction_enabled():
 
     assert "self._bool_param(\n            'grid_alignment_control_enabled',\n            True" in text
     assert "self._bool_param(\n            'grid_yaw_correction_enabled',\n            True" in text
+    assert "self._bool_param(\n            'pre_translation_grid_yaw_align_enabled',\n            False" in text
+    assert "self._bool_param(\n            'lidar_progress_geometry_validation_enabled',\n            True" in text
 
 
 # ================== FILE 52: ros2_ws/src/darth_maul_control/test/test_grid_control_logic.py ==================
@@ -7230,12 +7776,163 @@ import pytest
 
 from darth_maul_control.scan_geometry import (
     choose_heading_validation_error,
+    choose_lidar_progress,
+    choose_translation_progress,
     compose_angular_command,
     grid_yaw_pre_align_complete,
     grid_lateral_drift,
     grid_yaw_correction_radps,
     should_pre_align_grid_yaw,
 )
+
+
+def test_geometry_qualified_front_rear_progress_is_averaged():
+    lidar = choose_lidar_progress(
+        front_valid=True,
+        front_progress_m=1.668 - 0.903,
+        rear_valid=True,
+        rear_progress_m=0.863 - 0.106,
+        max_disagreement_m=0.025,
+        min_progress_m=-0.010,
+        allow_single_source=True,
+        front_reason='front axial wall valid',
+        rear_reason='rear axial wall valid',
+    )
+
+    assert lidar.valid
+    assert lidar.source == 'front_rear'
+    assert lidar.disagreement_m == pytest.approx(0.008)
+    assert lidar.progress_m == pytest.approx(0.761)
+
+
+def test_lab_side_wall_alias_uses_rear_only_when_allowed():
+    lidar = choose_lidar_progress(
+        front_valid=False,
+        front_progress_m=0.0,
+        rear_valid=True,
+        rear_progress_m=0.014,
+        max_disagreement_m=0.025,
+        min_progress_m=-0.010,
+        allow_single_source=True,
+        front_reason='front axial wall invalid: y-span too small; side-wall-like geometry',
+        rear_reason='rear axial wall valid',
+    )
+
+    assert lidar.valid
+    assert lidar.source == 'rear'
+    assert lidar.progress_m == pytest.approx(0.014)
+    assert 'front rejected' in lidar.reason
+    assert 'side-wall-like' in lidar.reason
+
+
+def test_lab_side_wall_alias_never_selects_raw_front_jump():
+    lidar = choose_lidar_progress(
+        front_valid=False,
+        front_progress_m=0.506,
+        rear_valid=False,
+        rear_progress_m=0.014,
+        max_disagreement_m=0.025,
+        min_progress_m=-0.010,
+        allow_single_source=True,
+        front_reason='front axial wall invalid: y-span too small; side-wall-like geometry',
+        rear_reason='rear axial wall invalid: not enough candidate points',
+    )
+
+    selection = choose_translation_progress(
+        odom_progress_m=0.029,
+        lidar_estimate=lidar,
+        mode='lidar_required',
+        max_lidar_ahead_of_odom_m=0.060,
+    )
+
+    assert not lidar.valid
+    assert lidar.progress_m == pytest.approx(0.0)
+    assert not selection.valid
+    assert selection.source == 'lidar_required_unavailable'
+    assert selection.progress_m == pytest.approx(0.0)
+    assert 'no valid LiDAR progress source' in selection.reason
+    assert 'side-wall-like' in selection.reason
+    assert 'odom progress 0.029 m ignored' in selection.reason
+
+
+def test_raw_cardinal_progress_fallback_is_explicit_geometry_disabled_path():
+    lidar = choose_lidar_progress(
+        front_valid=True,
+        front_progress_m=0.506,
+        rear_valid=True,
+        rear_progress_m=0.500,
+        max_disagreement_m=0.025,
+        min_progress_m=-0.010,
+        allow_single_source=True,
+        front_reason='raw cardinal front range valid',
+        rear_reason='raw cardinal rear range valid',
+    )
+
+    assert lidar.valid
+    assert lidar.source == 'front_rear'
+    assert lidar.progress_m == pytest.approx(0.503)
+
+
+def test_lidar_required_invalid_geometry_never_falls_back_to_odom():
+    lidar = choose_lidar_progress(
+        front_valid=False,
+        front_progress_m=0.0,
+        rear_valid=False,
+        rear_progress_m=0.0,
+        max_disagreement_m=0.025,
+        min_progress_m=-0.010,
+        allow_single_source=True,
+        front_reason='front axial wall invalid',
+        rear_reason='rear axial wall invalid',
+    )
+
+    selection = choose_translation_progress(
+        odom_progress_m=0.25,
+        lidar_estimate=lidar,
+        mode='lidar_required',
+        max_lidar_ahead_of_odom_m=0.060,
+    )
+
+    assert not selection.valid
+    assert selection.source == 'lidar_required_unavailable'
+    assert selection.progress_m == pytest.approx(0.0)
+    assert 'odom progress 0.250 m ignored' in selection.reason
+
+
+def test_geometry_single_source_rear_allowed():
+    lidar = choose_lidar_progress(
+        front_valid=False,
+        front_progress_m=0.0,
+        rear_valid=True,
+        rear_progress_m=0.757,
+        max_disagreement_m=0.025,
+        min_progress_m=-0.010,
+        allow_single_source=True,
+        front_reason='front axial wall invalid',
+        rear_reason='rear axial wall valid',
+    )
+
+    assert lidar.valid
+    assert lidar.source == 'rear'
+    assert lidar.progress_m == pytest.approx(0.757)
+
+
+def test_geometry_single_source_disabled_rejects_rear_only():
+    lidar = choose_lidar_progress(
+        front_valid=False,
+        front_progress_m=0.0,
+        rear_valid=True,
+        rear_progress_m=0.757,
+        max_disagreement_m=0.025,
+        min_progress_m=-0.010,
+        allow_single_source=False,
+        front_reason='front axial wall invalid',
+        rear_reason='rear axial wall valid',
+    )
+
+    assert not lidar.valid
+    assert lidar.source == 'none'
+    assert 'single-source LiDAR progress disabled' in lidar.reason
 
 
 def test_lateral_drift_computes_signed_drift_per_meter():
@@ -7574,6 +8271,7 @@ from darth_maul_control.scan_geometry import (
     choose_lidar_progress,
     choose_translation_progress,
     estimate_grid_alignment,
+    fit_longitudinal_wall_line,
     fit_side_wall_line,
     sector_range,
     side_wall_candidate_points,
@@ -7629,6 +8327,74 @@ def make_line_scan(
                 best = min(best, r)
 
         ranges[i] = best
+
+    return make_scan(
+        ranges,
+        angle_min=angle_min,
+        angle_increment=angle_increment,
+    )
+
+
+def make_longitudinal_line_scan(
+    face,
+    slope,
+    intercept,
+    y_min,
+    y_max,
+    num_samples=720,
+    angle_min=-math.pi,
+    angle_max=math.pi,
+    range_min=0.05,
+    range_max=12.0,
+):
+    """Create a synthetic scan from front/rear lines: signed_x = slope*y + intercept."""
+    angle_increment = (angle_max - angle_min) / num_samples
+    ranges = [float('inf')] * num_samples
+    sign = 1.0 if face == 'front' else -1.0
+
+    for i in range(num_samples):
+        theta = angle_min + i * angle_increment
+        c = math.cos(theta)
+        s = math.sin(theta)
+        denom = sign * c - slope * s
+        if abs(denom) < 1e-9:
+            continue
+
+        r = intercept / denom
+        if not math.isfinite(r) or r < range_min or r > range_max:
+            continue
+
+        y = r * s
+        if y_min <= y <= y_max:
+            ranges[i] = r
+
+    return make_scan(
+        ranges,
+        angle_min=angle_min,
+        angle_increment=angle_increment,
+    )
+
+
+def make_points_scan(
+    points,
+    num_samples=3600,
+    angle_min=-math.pi,
+    angle_max=math.pi,
+    range_min=0.05,
+    range_max=12.0,
+):
+    angle_increment = (angle_max - angle_min) / num_samples
+    ranges = [float('inf')] * num_samples
+
+    for x, y in points:
+        r = math.hypot(x, y)
+        if not math.isfinite(r) or r < range_min or r > range_max:
+            continue
+
+        theta = math.atan2(y, x)
+        index = int(round((theta - angle_min) / angle_increment))
+        if 0 <= index < num_samples:
+            ranges[index] = min(ranges[index], r)
 
     return make_scan(
         ranges,
@@ -7993,6 +8759,152 @@ def test_fit_side_wall_line_right_parallel_wall():
     assert estimate.valid
     assert estimate.offset_m == pytest.approx(-0.18, abs=0.01)
     assert estimate.yaw_error_rad == pytest.approx(0.0, abs=0.02)
+
+
+def test_fit_longitudinal_wall_line_valid_front_wall():
+    scan = make_longitudinal_line_scan(
+        face='front',
+        slope=0.0,
+        intercept=1.0,
+        y_min=-0.12,
+        y_max=0.12,
+    )
+
+    estimate = fit_longitudinal_wall_line(
+        scan,
+        face='front',
+        min_distance_m=0.05,
+        max_distance_m=2.0,
+        max_abs_lateral_m=0.35,
+        min_points=8,
+        min_span_y_m=0.08,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+    )
+
+    assert estimate.valid
+    assert estimate.distance_m == pytest.approx(1.0, abs=0.01)
+    assert estimate.span_y_m >= 0.08
+    assert estimate.rms_error_m < 0.01
+
+
+def test_fit_longitudinal_wall_line_valid_rear_wall():
+    scan = make_longitudinal_line_scan(
+        face='rear',
+        slope=0.0,
+        intercept=0.3,
+        y_min=-0.12,
+        y_max=0.12,
+    )
+
+    estimate = fit_longitudinal_wall_line(
+        scan,
+        face='rear',
+        min_distance_m=0.05,
+        max_distance_m=2.0,
+        max_abs_lateral_m=0.35,
+        min_points=8,
+        min_span_y_m=0.08,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+    )
+
+    assert estimate.valid
+    assert estimate.distance_m == pytest.approx(0.3, abs=0.01)
+    assert estimate.span_y_m >= 0.08
+
+
+def test_fit_longitudinal_wall_line_rejects_side_wall_as_front_wall():
+    scan = make_line_scan([(0.0, -0.125, 0.10, 0.70)])
+
+    estimate = fit_longitudinal_wall_line(
+        scan,
+        face='front',
+        min_distance_m=0.05,
+        max_distance_m=2.0,
+        max_abs_lateral_m=0.35,
+        min_points=8,
+        min_span_y_m=0.08,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+    )
+
+    assert not estimate.valid
+    assert 'span' in estimate.reason or 'side-wall-like' in estimate.reason
+
+
+def test_fit_longitudinal_wall_line_rejects_noisy_corner_cluster():
+    points = []
+    for i in range(16):
+        y = -0.12 + i * (0.24 / 15.0)
+        noise = 0.06 if i % 2 == 0 else -0.06
+        points.append((1.0 + noise, y))
+    scan = make_points_scan(points)
+
+    estimate = fit_longitudinal_wall_line(
+        scan,
+        face='front',
+        min_distance_m=0.05,
+        max_distance_m=2.0,
+        max_abs_lateral_m=0.35,
+        min_points=8,
+        min_span_y_m=0.08,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+    )
+
+    assert not estimate.valid
+    assert 'rms' in estimate.reason
+
+
+def test_fit_longitudinal_wall_line_rejects_too_few_points():
+    scan = make_points_scan([
+        (1.0, -0.12),
+        (1.0, -0.06),
+        (1.0, 0.0),
+        (1.0, 0.06),
+        (1.0, 0.12),
+    ])
+
+    estimate = fit_longitudinal_wall_line(
+        scan,
+        face='front',
+        min_distance_m=0.05,
+        max_distance_m=2.0,
+        max_abs_lateral_m=0.35,
+        min_points=8,
+        min_span_y_m=0.08,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+    )
+
+    assert not estimate.valid
+    assert 'not enough candidate points' in estimate.reason
+
+
+def test_fit_longitudinal_wall_line_rejects_excessive_axial_wall_yaw():
+    scan = make_longitudinal_line_scan(
+        face='front',
+        slope=0.5,
+        intercept=1.0,
+        y_min=-0.12,
+        y_max=0.12,
+    )
+
+    estimate = fit_longitudinal_wall_line(
+        scan,
+        face='front',
+        min_distance_m=0.05,
+        max_distance_m=2.0,
+        max_abs_lateral_m=0.35,
+        min_points=8,
+        min_span_y_m=0.08,
+        max_rms_error_m=0.025,
+        max_abs_yaw_error_rad=0.35,
+    )
+
+    assert not estimate.valid
+    assert 'yaw too large' in estimate.reason
 
 
 def test_fit_side_wall_line_rejects_far_wall_seen_through_opening():
