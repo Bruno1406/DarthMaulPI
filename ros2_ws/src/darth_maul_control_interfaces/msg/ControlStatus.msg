@@ -42,6 +42,25 @@ bool grid_yaw_correction_active
 float64 grid_yaw_correction_radps
 string grid_yaw_control_reason
 
+# Live long-run grid tracking diagnostics.
+# mode is one of: wall_lock, heading_coast, reacquire, recovery, unavailable.
+string grid_live_mode
+bool grid_context_valid
+int16 grid_virtual_cell
+float64 grid_virtual_cell_progress_m
+bool grid_virtual_cell_boundary_zone
+
+bool grid_expected_front_wall
+bool grid_expected_rear_wall
+bool grid_expected_left_wall
+bool grid_expected_right_wall
+
+bool grid_live_yaw_active
+bool grid_live_lateral_active
+float64 grid_live_yaw_cmd_radps
+float64 grid_live_lateral_cmd_mps
+string grid_live_reason
+
 bool left_wall_line_valid
 float64 left_wall_offset_m
 float64 left_wall_yaw_error_rad

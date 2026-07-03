@@ -17,12 +17,16 @@ REMOVED_CELL_CAP_PARAM = 'max_cells' + '_per_drive'
 
 def assert_commands_close(actual, expected, tol=1e-6):
     assert len(actual) == len(expected)
-    for (actual_name, actual_value), (expected_name, expected_value) in zip(
-        actual,
-        expected,
-    ):
-        assert actual_name == expected_name
-        assert actual_value == pytest.approx(expected_value, abs=tol)
+    for actual_cmd, expected_cmd in zip(actual, expected):
+        expected_name, expected_value = expected_cmd[:2]
+        assert actual_cmd.name == expected_name
+        assert actual_cmd.value == pytest.approx(expected_value, abs=tol)
+
+        if len(expected_cmd) >= 5:
+            _, _, start_idx, heading, run_cells = expected_cmd
+            assert actual_cmd.start_idx == start_idx
+            assert actual_cmd.heading == heading
+            assert actual_cmd.run_cells == run_cells
 
 
 def test_straight_three_cells_one_continuous_drive():
@@ -115,6 +119,21 @@ def test_left_turn_back_to_forward():
         ('drive_forward', 0.508),
         ('rotate', -math.pi / 2.0),
         ('drive_forward', 0.254),
+    ])
+
+
+def test_compressed_commands_include_grid_context_when_path_provided():
+    commands = build_motion_commands(
+        start_orientation=1,
+        orientations=[1, 1, 4, 4],
+        cell_length_m=0.254,
+        path=[1, 2, 3, 10, 17],
+    )
+
+    assert_commands_close(commands, [
+        ('drive_forward', 0.508, 1, 1, 2),
+        ('rotate', math.pi / 2.0),
+        ('drive_forward', 0.508, 3, 4, 2),
     ])
 
 

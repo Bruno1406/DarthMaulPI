@@ -16,10 +16,8 @@ from darth_maul_control.geometry import (
 )
 from darth_maul_control.scan_geometry import (
     GridAlignmentEstimate,
-    LidarParallelityEstimate,
     LidarProgressEstimate,
     SectorRange,
-    SideWallObservation,
     TemporalLidarProgressEstimate,
     WallLineEstimate,
     cardinal_sector_ranges,
@@ -27,21 +25,22 @@ from darth_maul_control.scan_geometry import (
     choose_heading_validation_error,
     choose_temporal_lidar_progress,
     choose_translation_progress,
-    compose_angular_command,
     estimate_grid_alignment,
     finite_median_or_nan,
     grid_lateral_drift,
-    grid_yaw_control_evidence_decision,
-    post_rotation_grid_yaw_refine_decision,
     rotation_timeout_accepts_heading_error,
-    grid_yaw_pre_align_complete,
-    grid_yaw_correction_radps,
     invalid_grid_alignment,
-    invalid_lidar_parallelity,
-    invalid_side_wall_observation,
-    lidar_parallelity_correction_radps,
-    should_pre_align_grid_yaw,
-    side_wall_observation_from_alignment,
+)
+from darth_maul_control.grid_context import (
+    HEADING_COAST,
+    RECOVERY,
+    UNAVAILABLE,
+    GridObservation,
+    GridRunContext,
+    LiveGridCommand,
+    grid_context_from_goal,
+    live_grid_command,
+    observe_grid,
 )
 from darth_maul_control.velocity_limiter import VelocityLimiter, VelocityLimits
 from darth_maul_control_interfaces.action import ExecuteMotionPrimitive
@@ -117,6 +116,20 @@ class TranslationDiagnostics:
     final_grid_yaw_correction_radps: float = 0.0
     grid_yaw_control_reason: str = ''
 
+    live_grid_mode: str = UNAVAILABLE
+    live_grid_context_valid: bool = False
+    live_grid_virtual_cell: int = 0
+    live_grid_boundary_zone: bool = False
+    live_grid_expected_front: bool = False
+    live_grid_expected_rear: bool = False
+    live_grid_expected_left: bool = False
+    live_grid_expected_right: bool = False
+    live_grid_yaw_active: bool = False
+    live_grid_lateral_active: bool = False
+    live_grid_yaw_cmd_radps: float = 0.0
+    live_grid_lateral_cmd_mps: float = 0.0
+    live_grid_reason: str = ''
+
     grid_lateral_start_valid: bool = False
     grid_lateral_start_error_m: float = 0.0
     grid_lateral_end_valid: bool = False
@@ -126,43 +139,26 @@ class TranslationDiagnostics:
     grid_lateral_drift_per_m: float = 0.0
     grid_lateral_drift_reason: str = ''
 
-    lidar_parallelity_valid: bool = False
-    lidar_parallelity_active: bool = False
-    lidar_parallelity_side: str = 'none'
-    lidar_parallelity_stable_samples: int = 0
-    lidar_parallelity_progress_m: float = 0.0
-    lidar_parallelity_start_offset_m: float = 0.0
-    lidar_parallelity_current_offset_m: float = 0.0
-    lidar_parallelity_drift_m: float = 0.0
-    lidar_parallelity_drift_per_m: float = 0.0
-    lidar_parallelity_yaw_rad: float = 0.0
-    lidar_parallelity_drift_yaw_rad: float = 0.0
-    lidar_parallelity_correction_radps: float = 0.0
-    lidar_parallelity_reason: str = ''
-
     lidar_progress_temporal_degraded: bool = False
     lidar_progress_temporal_reason: str = ''
 
 
 @dataclass(frozen=True)
-class GridYawCorrection:
-    active: bool
-    correction_radps: float
-    reason: str
-    source: str
-    using_memory: bool
-
-
-@dataclass(frozen=True)
-class PostRotationGridYawRefineResult:
-    attempted: bool
-    moved: bool
-    success: bool
-    should_abort: bool
-    code: int
-    message: str
-    final_heading_error_rad: float
-    final_alignment: GridAlignmentEstimate
+class LiveGridDiagnostics:
+    mode: str = UNAVAILABLE
+    context_valid: bool = False
+    virtual_cell: int = 0
+    virtual_cell_progress_m: float = 0.0
+    boundary_zone: bool = False
+    expected_front: bool = False
+    expected_rear: bool = False
+    expected_left: bool = False
+    expected_right: bool = False
+    yaw_active: bool = False
+    lateral_active: bool = False
+    yaw_cmd_radps: float = 0.0
+    lateral_cmd_mps: float = 0.0
+    reason: str = ''
 
 
 SUPPORTED_PRIMITIVES = {
@@ -216,23 +212,30 @@ class DarthMaulControlNode(Node):
         self._left_range_m = float('nan')
         self._right_range_m = float('nan')
         self._grid_alignment = invalid_grid_alignment('not initialized')
-        self._last_valid_grid_control_alignment = invalid_grid_alignment(
-            'no valid grid control alignment yet'
-        )
-        self._last_valid_grid_control_alignment_monotonic: Optional[float] = None
-        self._grid_yaw_control_memory_accepting = False
         self._grid_yaw_correction_active = False
         self._grid_yaw_correction_radps = 0.0
         self._grid_yaw_control_reason = ''
-        self._parallel_wall_tracking_active = False
-        self._parallel_wall_side = 'none'
-        self._parallel_wall_source = 'none'
-        self._parallel_wall_start_offset_m = 0.0
-        self._parallel_wall_start_progress_m = 0.0
-        self._parallel_wall_last_offset_m = 0.0
-        self._parallel_wall_last_yaw_error_rad = 0.0
-        self._parallel_wall_stable_samples = 0
-        self._parallel_wall_last_progress_m = 0.0
+        self._grid_live_mode = UNAVAILABLE
+        self._grid_live_reacquire_samples = 0
+        self._grid_live_last_observation = None
+        self._grid_live_last_command = LiveGridCommand(
+            mode=UNAVAILABLE,
+            yaw_active=False,
+            lateral_active=False,
+            angular_z_radps=0.0,
+            linear_y_mps=0.0,
+            speed_scale=1.0,
+            reason='not initialized',
+        )
+        self._grid_live_last_context_valid = False
+        self._grid_live_last_virtual_cell = 0
+        self._grid_live_last_virtual_cell_progress_m = 0.0
+        self._grid_live_last_boundary_zone = False
+        self._grid_live_last_expected_front = False
+        self._grid_live_last_expected_rear = False
+        self._grid_live_last_expected_left = False
+        self._grid_live_last_expected_right = False
+        self._grid_live_last_reason = ''
         self._temporal_lidar_progress_valid = False
         self._temporal_lidar_progress_m = 0.0
         self._temporal_lidar_progress_source = 'none'
@@ -406,34 +409,6 @@ class DarthMaulControlNode(Node):
                 'falling back to odom_only'
             )
             self.translation_progress_source = 'odom_only'
-        self.pre_translation_grid_yaw_align_enabled = self._bool_param(
-            'pre_translation_grid_yaw_align_enabled',
-            False,
-        )
-        self.pre_translation_grid_yaw_align_start_threshold_rad = (
-            self._positive_float_param(
-                'pre_translation_grid_yaw_align_start_threshold_rad',
-                0.035,
-            )
-        )
-        self.pre_translation_grid_yaw_align_target_rad = (
-            self._positive_float_param(
-                'pre_translation_grid_yaw_align_target_rad',
-                0.015,
-            )
-        )
-        self.pre_translation_grid_yaw_align_stable_samples = (
-            self._positive_int_param(
-                'pre_translation_grid_yaw_align_stable_samples',
-                3,
-            )
-        )
-        self.pre_translation_grid_yaw_align_max_invalid_samples = (
-            self._positive_int_param(
-                'pre_translation_grid_yaw_align_max_invalid_samples',
-                3,
-            )
-        )
         self.translation_lidar_required_invalid_max_consecutive_samples = (
             self._nonnegative_int_param(
                 'translation_lidar_required_invalid_max_consecutive_samples',
@@ -536,146 +511,67 @@ class DarthMaulControlNode(Node):
             0.50,
         )
 
-        self.grid_alignment_control_enabled = self._bool_param(
-            'grid_alignment_control_enabled',
+        self.grid_live_control_enabled = self._bool_param(
+            'grid_live_control_enabled',
             True,
         )
-        self.grid_yaw_correction_enabled = self._bool_param(
-            'grid_yaw_correction_enabled',
-            True,
-        )
-        self.k_grid_yaw = self._nonnegative_float_param('k_grid_yaw', 1.20)
-        self.max_grid_yaw_correction_radps = self._nonnegative_float_param(
-            'max_grid_yaw_correction_radps',
-            0.060,
-        )
-        self.grid_yaw_min_confidence_for_control = self._nonnegative_float_param(
-            'grid_yaw_min_confidence_for_control',
-            0.60,
-        )
-        self.grid_yaw_max_abs_error_for_control_rad = self._positive_float_param(
-            'grid_yaw_max_abs_error_for_control_rad',
-            0.20,
-        )
-        self.grid_yaw_memory_timeout_s = self._nonnegative_float_param(
-            'grid_yaw_memory_timeout_s',
-            0.35,
-        )
-        self.grid_yaw_active_heading_hold_scale = self._float_param(
-            'grid_yaw_active_heading_hold_scale',
-            0.0,
-        )
-        self.grid_yaw_active_heading_hold_scale = max(
-            0.0,
-            min(1.0, float(self.grid_yaw_active_heading_hold_scale)),
-        )
-        self.grid_yaw_control_require_strong_evidence = self._bool_param(
-            'grid_yaw_control_require_strong_evidence',
-            True,
-        )
-        self.grid_yaw_control_allow_single_wall = self._bool_param(
-            'grid_yaw_control_allow_single_wall',
-            True,
-        )
-        self.grid_yaw_control_single_wall_min_confidence = self._nonnegative_float_param(
-            'grid_yaw_control_single_wall_min_confidence',
-            0.60,
-        )
-        self.grid_yaw_control_single_wall_max_abs_yaw_error_rad = (
-            self._positive_float_param(
-                'grid_yaw_control_single_wall_max_abs_yaw_error_rad',
-                0.100,
-            )
-        )
-        self.grid_yaw_control_single_wall_max_rms_error_m = self._positive_float_param(
-            'grid_yaw_control_single_wall_max_rms_error_m',
-            0.020,
-        )
-        self.grid_yaw_control_single_wall_min_span_x_m = self._positive_float_param(
-            'grid_yaw_control_single_wall_min_span_x_m',
-            0.220,
-        )
-        self.grid_yaw_control_single_wall_min_support_count = self._positive_int_param(
-            'grid_yaw_control_single_wall_min_support_count',
-            80,
-        )
-        self.lidar_parallelity_control_enabled = self._bool_param(
-            'lidar_parallelity_control_enabled',
-            True,
-        )
-        self.lidar_parallelity_heading_hold_scale = self._nonnegative_float_param(
-            'lidar_parallelity_heading_hold_scale',
-            1.0,
-        )
-        self.lidar_parallelity_heading_hold_scale = max(
-            0.0,
-            min(1.0, self.lidar_parallelity_heading_hold_scale),
-        )
-        self.lidar_parallelity_min_progress_for_control_m = self._positive_float_param(
-            'lidar_parallelity_min_progress_for_control_m',
-            0.040,
-        )
-        self.lidar_parallelity_min_stable_samples = self._positive_int_param(
-            'lidar_parallelity_min_stable_samples',
-            3,
-        )
-        self.lidar_parallelity_max_yaw_jump_rad = self._positive_float_param(
-            'lidar_parallelity_max_yaw_jump_rad',
-            0.025,
-        )
-        self.lidar_parallelity_max_offset_jump_m = self._positive_float_param(
-            'lidar_parallelity_max_offset_jump_m',
+        self.k_grid_lateral = self._nonnegative_float_param('k_grid_lateral', 1.40)
+        self.max_grid_lateral_mps = self._nonnegative_float_param(
+            'max_grid_lateral_mps',
             0.035,
         )
-        self.lidar_parallelity_max_abs_yaw_error_rad = self._positive_float_param(
-            'lidar_parallelity_max_abs_yaw_error_rad',
-            0.100,
+        self.grid_lateral_min_confidence = self._nonnegative_float_param(
+            'grid_lateral_min_confidence',
+            0.55,
         )
-        self.lidar_parallelity_min_confidence = self._nonnegative_float_param(
-            'lidar_parallelity_min_confidence',
-            0.60,
+        self.k_grid_live_yaw = self._nonnegative_float_param('k_grid_live_yaw', 2.20)
+        self.max_grid_live_yaw_correction_radps = self._nonnegative_float_param(
+            'max_grid_live_yaw_correction_radps',
+            0.110,
         )
-        self.lidar_parallelity_max_rms_error_m = self._positive_float_param(
-            'lidar_parallelity_max_rms_error_m',
+        self.grid_live_yaw_min_confidence = self._nonnegative_float_param(
+            'grid_live_yaw_min_confidence',
+            0.55,
+        )
+        self.grid_live_max_abs_yaw_error_rad = self._positive_float_param(
+            'grid_live_max_abs_yaw_error_rad',
+            0.120,
+        )
+        self.grid_live_min_span_x_m = self._positive_float_param(
+            'grid_live_min_span_x_m',
+            0.120,
+        )
+        self.grid_live_min_support_count = self._positive_int_param(
+            'grid_live_min_support_count',
+            8,
+        )
+        self.grid_live_max_rms_error_m = self._positive_float_param(
+            'grid_live_max_rms_error_m',
             0.025,
         )
-        self.lidar_parallelity_min_span_x_m = self._positive_float_param(
-            'lidar_parallelity_min_span_x_m',
-            0.220,
+        self.grid_virtual_cell_boundary_margin_m = self._nonnegative_float_param(
+            'grid_virtual_cell_boundary_margin_m',
+            0.025,
         )
-        self.lidar_parallelity_min_support_count = self._positive_int_param(
-            'lidar_parallelity_min_support_count',
-            80,
+        self.grid_reacquire_stable_samples = self._positive_int_param(
+            'grid_reacquire_stable_samples',
+            3,
         )
-        self.lidar_parallelity_drift_validation_enabled = self._bool_param(
-            'lidar_parallelity_drift_validation_enabled',
-            True,
+        self.grid_reacquire_small_yaw_rad = self._positive_float_param(
+            'grid_reacquire_small_yaw_rad',
+            0.040,
         )
-        self.lidar_parallelity_max_drift_per_m = self._positive_float_param(
-            'lidar_parallelity_max_drift_per_m',
-            0.35,
+        self.grid_reacquire_large_yaw_rad = self._positive_float_param(
+            'grid_reacquire_large_yaw_rad',
+            0.100,
         )
-        self.k_lidar_parallelity_yaw = self._nonnegative_float_param(
-            'k_lidar_parallelity_yaw',
-            0.80,
+        self.grid_reacquire_speed_scale = self._float_param(
+            'grid_reacquire_speed_scale',
+            0.65,
         )
-        self.k_lidar_parallelity_drift = self._nonnegative_float_param(
-            'k_lidar_parallelity_drift',
-            0.20,
-        )
-        self.max_lidar_parallelity_correction_radps = self._positive_float_param(
-            'max_lidar_parallelity_correction_radps',
-            0.060,
-        )
-        self.lidar_parallelity_require_yaw_drift_consistency = self._bool_param(
-            'lidar_parallelity_require_yaw_drift_consistency',
-            True,
-        )
-        self.lidar_parallelity_max_yaw_drift_disagreement_rad = (
-            self._positive_float_param(
-                'lidar_parallelity_max_yaw_drift_disagreement_rad',
-                0.060,
-            )
+        self.grid_reacquire_speed_scale = max(
+            0.0,
+            min(1.0, self.grid_reacquire_speed_scale),
         )
         self.lidar_progress_temporal_filter_enabled = self._bool_param(
             'lidar_progress_temporal_filter_enabled',
@@ -692,64 +588,6 @@ class DarthMaulControlNode(Node):
         self.lidar_progress_temporal_max_degraded_samples = self._positive_int_param(
             'lidar_progress_temporal_max_degraded_samples',
             2,
-        )
-        self.post_rotation_grid_yaw_refine_enabled = self._bool_param(
-            'post_rotation_grid_yaw_refine_enabled',
-            False,
-        )
-        self.post_rotation_grid_yaw_refine_start_threshold_rad = (
-            self._positive_float_param(
-                'post_rotation_grid_yaw_refine_start_threshold_rad',
-                0.030,
-            )
-        )
-        self.post_rotation_grid_yaw_refine_target_rad = (
-            self._positive_float_param(
-                'post_rotation_grid_yaw_refine_target_rad',
-                0.015,
-            )
-        )
-        self.post_rotation_grid_yaw_refine_stable_samples = (
-            self._positive_int_param(
-                'post_rotation_grid_yaw_refine_stable_samples',
-                3,
-            )
-        )
-        self.post_rotation_grid_yaw_refine_timeout_s = self._positive_float_param(
-            'post_rotation_grid_yaw_refine_timeout_s',
-            2.0,
-        )
-        self.post_rotation_grid_yaw_refine_max_invalid_samples = (
-            self._positive_int_param(
-                'post_rotation_grid_yaw_refine_max_invalid_samples',
-                8,
-            )
-        )
-        self.post_rotation_grid_yaw_refine_max_abs_error_rad = (
-            self._positive_float_param(
-                'post_rotation_grid_yaw_refine_max_abs_error_rad',
-                0.20,
-            )
-        )
-        self.post_rotation_grid_yaw_refine_min_confidence = (
-            self._nonnegative_float_param(
-                'post_rotation_grid_yaw_refine_min_confidence',
-                0.60,
-            )
-        )
-        self.post_rotation_grid_yaw_refine_kp = self._nonnegative_float_param(
-            'post_rotation_grid_yaw_refine_kp',
-            1.00,
-        )
-        self.post_rotation_grid_yaw_refine_max_angular_z_radps = (
-            self._positive_float_param(
-                'post_rotation_grid_yaw_refine_max_angular_z_radps',
-                0.080,
-            )
-        )
-        self.post_rotation_grid_yaw_refine_require_valid = self._bool_param(
-            'post_rotation_grid_yaw_refine_require_valid',
-            False,
         )
         self.rotate_timeout_accept_heading_error_rad = self._nonnegative_float_param(
             'rotate_timeout_accept_heading_error_rad',
@@ -881,13 +719,6 @@ class DarthMaulControlNode(Node):
             self._left_range_m = finite_median_or_nan(cardinal['left'])
             self._right_range_m = finite_median_or_nan(cardinal['right'])
             self._grid_alignment = grid_alignment
-            if (
-                self._grid_yaw_control_memory_accepting
-                and grid_alignment.valid
-                and grid_alignment.yaw_valid
-            ):
-                self._last_valid_grid_control_alignment = grid_alignment
-                self._last_valid_grid_control_alignment_monotonic = now
 
     def _goal_callback(self, goal_request) -> GoalResponse:
         primitive = int(goal_request.primitive_type)
@@ -1087,7 +918,6 @@ class DarthMaulControlNode(Node):
             request.heading_tolerance_rad,
             self.default_heading_tolerance_rad,
         )
-
         limits = self._goal_limits(request)
 
         max_speed = min(
@@ -1098,6 +928,8 @@ class DarthMaulControlNode(Node):
 
         timeout_s = self._translation_timeout(request.timeout_s, target_distance, max_speed)
         lidar_required_mode = self.translation_progress_source == 'lidar_required'
+        grid_context = grid_context_from_goal(request)
+        self._reset_live_grid_controller('translation start')
 
         if direction > 0.0 and bool(request.collision_check_enabled):
             if self.require_scan_for_forward and not self._is_scan_fresh():
@@ -1124,11 +956,12 @@ class DarthMaulControlNode(Node):
         start_ranges = self._cardinal_range_snapshot()
         start_alignment = self._grid_alignment_snapshot()
         start_time = time.monotonic()
-        self._reset_lidar_parallelity_tracker('translation start')
         self._reset_temporal_lidar_progress_tracker()
 
         self.get_logger().info(
             f'{name} start grid diagnostics: '
+            f'context_valid={grid_context.valid}, '
+            f'context_reason={grid_context.reason}, '
             f'valid={start_alignment.valid}, '
             f'yaw={start_alignment.yaw_error_rad:.3f} rad, '
             f'lateral={start_alignment.lateral_error_m:.3f} m, '
@@ -1149,241 +982,16 @@ class DarthMaulControlNode(Node):
         final_odom_progress = 0.0
         final_control_progress = 0.0
         final_progress_source_used = (
-            'lidar_required_unavailable'
-            if lidar_required_mode
-            else 'odom'
+            'lidar_required_unavailable' if lidar_required_mode else 'odom'
         )
         final_control_progress_reason = ''
         translation_diagnostics = TranslationDiagnostics()
-        final_grid_yaw_correction = GridYawCorrection(
-            active=False,
-            correction_radps=0.0,
-            reason='not evaluated',
-            source='none',
-            using_memory=False,
-        )
-        final_parallelity = invalid_lidar_parallelity('not evaluated')
         grid_yaw_correction_ever_used = False
         lidar_required_invalid_consecutive_samples = 0
         preserve_failure_progress_diagnostics = False
-        pre_align_failed = False
-        pre_align_used = False
-        pre_align_start_yaw = start_alignment.yaw_error_rad
-        pre_align_final_yaw = start_alignment.yaw_error_rad
-        pre_align_result_message = 'pre_align=skipped: not evaluated'
-
-        if (
-            self.pre_translation_grid_yaw_align_enabled
-            and (
-                not self.grid_alignment_control_enabled
-                or not self.grid_yaw_correction_enabled
-            )
-        ):
-            should_pre_align = False
-            pre_align_reason = 'grid yaw correction disabled'
-        else:
-            should_pre_align, pre_align_reason = should_pre_align_grid_yaw(
-                enabled=self.pre_translation_grid_yaw_align_enabled,
-                direction=direction,
-                alignment_valid=start_alignment.valid,
-                yaw_valid=start_alignment.yaw_valid,
-                yaw_error_rad=start_alignment.yaw_error_rad,
-                confidence=start_alignment.confidence,
-                min_confidence=self.grid_yaw_min_confidence_for_control,
-                start_threshold_rad=self.pre_translation_grid_yaw_align_start_threshold_rad,
-                max_control_error_rad=self.grid_yaw_max_abs_error_for_control_rad,
-            )
-
-        if (
-            direction > 0.0
-            and start_alignment.valid
-            and start_alignment.yaw_valid
-            and abs(start_alignment.yaw_error_rad)
-            > self.grid_yaw_max_abs_error_for_control_rad
-        ):
-            result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
-            result_message = (
-                f'{name} failed before translation: pre-align grid yaw '
-                f'unavailable/inactive; yaw={start_alignment.yaw_error_rad:.3f} rad; '
-                f'reason={pre_align_reason}'
-            )
-            pre_align_result_message = (
-                f'pre_align=failed; pre_align_start_yaw={pre_align_start_yaw:.3f} rad; '
-                f'reason={pre_align_reason}'
-            )
-            pre_align_failed = True
-        elif should_pre_align:
-            pre_align_used = True
-            stable_samples = 0
-            invalid_samples = 0
-            self._begin_grid_yaw_control_memory(start_alignment, accept_updates=True)
-
-            while True:
-                if self._cancel_or_stop_requested(goal_handle):
-                    self._end_grid_yaw_control_memory()
-                    self._reset_lidar_parallelity_tracker('translation canceled')
-                    self._reset_temporal_lidar_progress_tracker()
-                    return self._cancel_result(goal_handle)
-
-                elapsed = time.monotonic() - start_time
-                if elapsed > timeout_s:
-                    result_code = ExecuteMotionPrimitive.Result.TIMEOUT
-                    result_message = f'{name} timed out after {elapsed:.1f}s'
-                    pre_align_result_message = (
-                        f'pre_align=failed; pre_align_start_yaw={pre_align_start_yaw:.3f} rad; '
-                        f'reason=primitive timeout during pre-align'
-                    )
-                    pre_align_failed = True
-                    break
-
-                snapshot = self._get_motion_snapshot()
-                if snapshot is None:
-                    result_code = ExecuteMotionPrimitive.Result.ODOM_UNAVAILABLE
-                    result_message = f'{name} lost odom during pre-align'
-                    pre_align_result_message = (
-                        f'pre_align=failed; pre_align_start_yaw={pre_align_start_yaw:.3f} rad; '
-                        'reason=odom unavailable during pre-align'
-                    )
-                    pre_align_failed = True
-                    break
-
-                current_alignment = self._grid_alignment_snapshot()
-                complete, complete_reason = grid_yaw_pre_align_complete(
-                    alignment_valid=current_alignment.valid,
-                    yaw_valid=current_alignment.yaw_valid,
-                    yaw_error_rad=current_alignment.yaw_error_rad,
-                    confidence=current_alignment.confidence,
-                    min_confidence=self.grid_yaw_min_confidence_for_control,
-                    target_rad=self.pre_translation_grid_yaw_align_target_rad,
-                )
-                grid_yaw = self._grid_yaw_correction(current_alignment)
-                final_grid_yaw_correction = grid_yaw
-                grid_yaw_correction_ever_used = (
-                    grid_yaw_correction_ever_used or grid_yaw.active
-                )
-
-                if complete:
-                    stable_samples += 1
-                    invalid_samples = 0
-                elif grid_yaw.active:
-                    stable_samples = 0
-                    invalid_samples = 0
-                else:
-                    stable_samples = 0
-                    invalid_samples += 1
-
-                if stable_samples >= self.pre_translation_grid_yaw_align_stable_samples:
-                    pre_align_final_yaw = current_alignment.yaw_error_rad
-                    self.publish_zero_twist()
-
-                    start_snapshot = self._get_motion_snapshot()
-                    if start_snapshot is None:
-                        result_code = ExecuteMotionPrimitive.Result.ODOM_UNAVAILABLE
-                        result_message = f'{name} lost odom after pre-align'
-                        pre_align_result_message = (
-                            f'pre_align=failed; '
-                            f'pre_align_start_yaw={pre_align_start_yaw:.3f} rad; '
-                            f'pre_align_final_yaw={pre_align_final_yaw:.3f} rad; '
-                            'reason=odom unavailable after pre-align'
-                        )
-                        pre_align_failed = True
-                        break
-
-                    start = start_snapshot.pose
-                    start_ranges = self._cardinal_range_snapshot()
-                    start_alignment = self._grid_alignment_snapshot()
-                    self._reset_lidar_parallelity_tracker('translation baseline reset')
-                    self._reset_temporal_lidar_progress_tracker()
-                    final_position_error = target_distance
-                    final_heading_error = 0.0
-                    final_odom_progress = 0.0
-                    final_control_progress = 0.0
-                    final_progress_source_used = (
-                        'lidar_required_unavailable'
-                        if lidar_required_mode
-                        else 'odom'
-                    )
-                    final_control_progress_reason = ''
-                    self._begin_grid_yaw_control_memory(
-                        start_alignment,
-                        accept_updates=True,
-                    )
-                    pre_align_result_message = (
-                        f'pre_align=used; '
-                        f'pre_align_start_yaw={pre_align_start_yaw:.3f} rad; '
-                        f'pre_align_final_yaw={pre_align_final_yaw:.3f} rad; '
-                        'translation baseline reset after pre-align'
-                    )
-                    break
-
-                if (
-                    invalid_samples
-                    > self.pre_translation_grid_yaw_align_max_invalid_samples
-                ):
-                    result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
-                    result_message = (
-                        f'{name} failed before translation: pre-align grid yaw '
-                        f'unavailable/inactive; yaw={current_alignment.yaw_error_rad:.3f} rad; '
-                        f'reason={grid_yaw.reason}; complete={complete_reason}'
-                    )
-                    pre_align_result_message = (
-                        f'pre_align=failed; '
-                        f'pre_align_start_yaw={pre_align_start_yaw:.3f} rad; '
-                        f'pre_align_final_yaw={current_alignment.yaw_error_rad:.3f} rad; '
-                        f'reason={grid_yaw.reason}; complete={complete_reason}'
-                    )
-                    pre_align_failed = True
-                    break
-
-                cmd = Twist()
-                cmd.linear.x = 0.0
-                cmd.linear.y = 0.0
-                cmd.angular.z = grid_yaw.correction_radps if grid_yaw.active else 0.0
-                cmd = self._limiter.clamp(cmd, limits)
-                cmd = self._apply_acceleration_limits(cmd)
-                self._cmd_vel_pub.publish(cmd)
-                self._set_grid_yaw_control_status(
-                    grid_yaw.active,
-                    grid_yaw.correction_radps,
-                    grid_yaw.reason,
-                )
-
-                self._update_motion_state(
-                    distance_remaining=target_distance,
-                    distance_traveled=0.0,
-                    heading_error=current_alignment.yaw_error_rad,
-                    status=(
-                        f'{name} pre-aligning grid yaw: '
-                        f'yaw={current_alignment.yaw_error_rad:.3f} rad, '
-                        f'target={self.pre_translation_grid_yaw_align_target_rad:.3f} rad, '
-                        f'stable={stable_samples}/'
-                        f'{self.pre_translation_grid_yaw_align_stable_samples}, '
-                        f'correction={grid_yaw.correction_radps:.3f} rad/s, '
-                        f'source={current_alignment.source}'
-                    ),
-                )
-
-                self._publish_feedback(
-                    goal_handle,
-                    progress=0.0,
-                    distance_remaining=target_distance,
-                    heading_remaining=current_alignment.yaw_error_rad,
-                    state=f'{name}_PRE_ALIGN',
-                )
-
-                time.sleep(1.0 / self.control_rate_hz)
-        else:
-            if 'within threshold' in pre_align_reason:
-                pre_align_result_message = (
-                    'pre_align=skipped: start grid yaw within threshold'
-                )
-            elif 'no valid grid yaw' in pre_align_reason:
-                pre_align_result_message = 'pre_align=skipped: no valid grid yaw'
-            else:
-                pre_align_result_message = f'pre_align=skipped: {pre_align_reason}'
 
         lidar_required_start_acquired = True
-        if not pre_align_failed and lidar_required_mode:
+        if lidar_required_mode:
             start_diagnostics = self._translation_diagnostics(
                 direction=direction,
                 odom_progress_m=0.0,
@@ -1397,16 +1005,9 @@ class DarthMaulControlNode(Node):
             )
             lidar_required_start_acquired = start_selection.valid
 
-        if not pre_align_failed and not pre_align_used:
-            self._begin_grid_yaw_control_memory(
-                start_alignment,
-                accept_updates=direction > 0.0,
-            )
-
-        while not pre_align_failed:
+        while True:
             if self._cancel_or_stop_requested(goal_handle):
-                self._end_grid_yaw_control_memory()
-                self._reset_lidar_parallelity_tracker('translation canceled')
+                self._reset_live_grid_controller('translation canceled')
                 self._reset_temporal_lidar_progress_tracker()
                 return self._cancel_result(goal_handle)
 
@@ -1423,7 +1024,6 @@ class DarthMaulControlNode(Node):
                 break
 
             current = snapshot.pose
-
             progress_signed, _cross_track = self._translation_errors(
                 start,
                 current,
@@ -1450,15 +1050,11 @@ class DarthMaulControlNode(Node):
                     start = current
                     start_ranges = current_ranges
                     start_alignment = current_alignment
-                    self._reset_lidar_parallelity_tracker('lidar baseline acquired')
+                    self._reset_live_grid_controller('lidar baseline acquired')
                     self._reset_temporal_lidar_progress_tracker()
                     odom_progress = 0.0
                     final_odom_progress = 0.0
                     lidar_required_start_acquired = True
-                    self._begin_grid_yaw_control_memory(
-                        start_alignment,
-                        accept_updates=direction > 0.0,
-                    )
             else:
                 current_diagnostics = self._translation_diagnostics(
                     direction=direction,
@@ -1502,16 +1098,12 @@ class DarthMaulControlNode(Node):
                         break
 
                     self._update_motion_state(
-                        distance_remaining=max(
-                            0.0,
-                            target_distance - final_control_progress,
-                        ),
+                        distance_remaining=max(0.0, target_distance - final_control_progress),
                         distance_traveled=max(0.0, final_control_progress),
                         heading_error=0.0,
                         status=(
                             f'{name}: waiting for required LiDAR progress; '
-                            'invalid_samples='
-                            f'{lidar_required_invalid_consecutive_samples}/'
+                            f'invalid_samples={lidar_required_invalid_consecutive_samples}/'
                             f'{self.translation_lidar_required_invalid_max_consecutive_samples}, '
                             f'odom_progress={odom_progress:.3f} m ignored, '
                             f'control_progress={final_control_progress:.3f} m, '
@@ -1520,15 +1112,8 @@ class DarthMaulControlNode(Node):
                     )
                     self._publish_feedback(
                         goal_handle,
-                        progress=clamp(
-                            final_control_progress / max(target_distance, 1e-6),
-                            0.0,
-                            1.0,
-                        ),
-                        distance_remaining=max(
-                            0.0,
-                            target_distance - final_control_progress,
-                        ),
+                        progress=clamp(final_control_progress / max(target_distance, 1e-6), 0.0, 1.0),
+                        distance_remaining=max(0.0, target_distance - final_control_progress),
                         heading_remaining=0.0,
                         state=name,
                     )
@@ -1645,10 +1230,8 @@ class DarthMaulControlNode(Node):
                     ),
                     grid_yaw_correction_used=grid_yaw_correction_ever_used,
                     grid_alignment_confidence=final_alignment_for_validation.confidence,
-                    min_grid_confidence=self.grid_yaw_min_confidence_for_control,
-                    max_grid_yaw_abs_error_rad=(
-                        self.grid_yaw_max_abs_error_for_control_rad
-                    ),
+                    min_grid_confidence=self.grid_live_yaw_min_confidence,
+                    max_grid_yaw_abs_error_rad=self.grid_live_max_abs_yaw_error_rad,
                     grid_alignment_source=final_alignment_for_validation.source,
                 )
 
@@ -1682,66 +1265,50 @@ class DarthMaulControlNode(Node):
                 )
                 break
 
-            cmd = Twist()
             speed_mag = clamp(
                 self.k_distance * max(remaining, 0.0),
                 self.min_linear_x_mps,
                 max_speed,
             )
-            cmd.linear.x = direction * speed_mag
-
             raw_heading_correction = self.k_heading * heading_error
 
-            parallelity = invalid_lidar_parallelity(
-                'LiDAR parallelity only applies to forward translation'
+            live_observation = self._live_grid_observation(
+                grid_context,
+                current_alignment,
+                control_progress,
             )
+            live_command = self._live_grid_command(
+                live_observation,
+                odom_heading_correction_radps=raw_heading_correction,
+            )
+
+            if live_command.mode == RECOVERY:
+                self.publish_zero_twist()
+                result_code = ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
+                result_message = f'{name} entered live-grid recovery: {live_command.reason}'
+                break
+
+            speed_mag *= live_command.speed_scale
+
+            cmd = Twist()
+            cmd.linear.x = direction * speed_mag
             if direction > 0.0:
-                # DRIVE_FORWARD does not use one-frame grid yaw as the active controller.
-                # Active yaw trim comes from the LiDAR local corridor observer, which
-                # requires side-wall continuity over forward motion.
-                parallelity = self._update_lidar_parallelity_tracker(
-                    current_alignment,
-                    control_progress_m=control_progress,
-                )
-
-            grid_yaw = GridYawCorrection(
-                active=parallelity.active,
-                correction_radps=(
-                    parallelity.correction_radps if parallelity.active else 0.0
-                ),
-                reason=parallelity.reason,
-                source=parallelity.side,
-                using_memory=False,
-            )
-
-            final_grid_yaw_correction = grid_yaw
-            final_parallelity = parallelity
-            grid_yaw_correction_ever_used = (
-                grid_yaw_correction_ever_used or grid_yaw.active
-            )
-
-            cmd.linear.y = 0.0
-            heading_hold_scale = (
-                self.lidar_parallelity_heading_hold_scale
-                if parallelity.active
-                else 1.0
-            )
-
-            heading_correction = heading_hold_scale * raw_heading_correction
-            cmd.angular.z = compose_angular_command(
-                heading_correction_radps=raw_heading_correction,
-                grid_yaw_correction_radps=grid_yaw.correction_radps,
-                grid_yaw_active=parallelity.active,
-                grid_yaw_active_heading_hold_scale=heading_hold_scale,
-            )
+                cmd.linear.y = live_command.linear_y_mps if live_command.lateral_active else 0.0
+                cmd.angular.z = live_command.angular_z_radps
+            else:
+                cmd.linear.y = 0.0
+                cmd.angular.z = raw_heading_correction
 
             cmd = self._limiter.clamp(cmd, limits)
             cmd = self._apply_acceleration_limits(cmd)
             self._cmd_vel_pub.publish(cmd)
             self._set_grid_yaw_control_status(
-                grid_yaw.active,
-                grid_yaw.correction_radps,
-                grid_yaw.reason,
+                live_command.yaw_active,
+                live_command.angular_z_radps if live_command.yaw_active else 0.0,
+                live_command.reason,
+            )
+            grid_yaw_correction_ever_used = (
+                grid_yaw_correction_ever_used or live_command.yaw_active
             )
 
             self._update_motion_state(
@@ -1753,19 +1320,24 @@ class DarthMaulControlNode(Node):
                     f'progress_source={progress_selection.source}, '
                     f'odom_progress={odom_progress:.3f} m, '
                     f'control_progress={control_progress:.3f} m, '
-                    f'grid_valid={current_alignment.valid}, '
-                    f'grid_yaw={current_alignment.yaw_error_rad:.3f} rad, '
-                    f'grid_lat={current_alignment.lateral_error_m:.3f} m, '
-                    f'grid_source={current_alignment.source}, '
-                    f'lidar_parallelity_active={parallelity.active}, '
-                    f'lidar_parallelity_side={parallelity.side}, '
-                    f'lidar_parallelity_stable={parallelity.stable_samples}, '
-                    f'lidar_parallelity_corr={grid_yaw.correction_radps:.3f} rad/s, '
-                    f'heading_hold_scale={heading_hold_scale:.2f}, '
-                    f'heading_correction={heading_correction:.3f} rad/s, '
-                    f'heading_error={heading_error:.3f} rad, '
-                    f'angular_z_cmd={cmd.angular.z:.3f} rad/s, '
-                    f'linear_y={cmd.linear.y:.3f} m/s'
+                    f'grid_live_mode={live_command.mode}, '
+                    f'grid_context_valid={live_observation.context_valid}, '
+                    f'virtual_cell={live_observation.virtual_cell.cell_idx}, '
+                    f'cell_progress={live_observation.virtual_cell.distance_into_cell_m:.3f} m, '
+                    f'boundary_zone={live_observation.virtual_cell.boundary_zone}, '
+                    f'expected_walls=F{int(live_observation.expected.front)}'
+                    f'R{int(live_observation.expected.rear)}'
+                    f'L{int(live_observation.expected.left)}'
+                    f'R{int(live_observation.expected.right)}, '
+                    f'obs_source={live_observation.source}, '
+                    f'obs_conf={live_observation.confidence:.2f}, '
+                    f'lat_valid={live_observation.lateral_valid}, '
+                    f'lat_error={live_observation.lateral_error_m:.3f} m, '
+                    f'yaw_valid={live_observation.yaw_valid}, '
+                    f'yaw_error={live_observation.yaw_error_rad:.3f} rad, '
+                    f'linear_y={cmd.linear.y:.3f} m/s, '
+                    f'angular_z={cmd.angular.z:.3f} rad/s, '
+                    f'live_reason={live_command.reason}'
                 ),
             )
 
@@ -1780,23 +1352,24 @@ class DarthMaulControlNode(Node):
             time.sleep(1.0 / self.control_rate_hz)
 
         end_ranges = self._cardinal_range_snapshot()
-        translation_diagnostics = self._translation_diagnostics(
-            direction=direction,
-            odom_progress_m=final_odom_progress,
-            start_ranges=start_ranges,
-            end_ranges=end_ranges,
-            track_lidar_progress=True,
-        )
+        if not preserve_failure_progress_diagnostics:
+            translation_diagnostics = self._translation_diagnostics(
+                direction=direction,
+                odom_progress_m=final_odom_progress,
+                start_ranges=start_ranges,
+                end_ranges=end_ranges,
+                track_lidar_progress=True,
+            )
 
-        final_selection = self._select_translation_progress(
-            odom_progress_m=final_odom_progress,
-            diagnostics=translation_diagnostics,
-        )
+            final_selection = self._select_translation_progress(
+                odom_progress_m=final_odom_progress,
+                diagnostics=translation_diagnostics,
+            )
 
-        if final_selection.valid and not preserve_failure_progress_diagnostics:
-            final_control_progress = max(0.0, final_selection.progress_m)
-            final_progress_source_used = final_selection.source
-            final_control_progress_reason = final_selection.reason
+            if final_selection.valid:
+                final_control_progress = max(0.0, final_selection.progress_m)
+                final_progress_source_used = final_selection.source
+                final_control_progress_reason = final_selection.reason
 
         translation_diagnostics = replace(
             translation_diagnostics,
@@ -1811,12 +1384,28 @@ class DarthMaulControlNode(Node):
             final_alignment,
             final_control_progress,
         )
+        last_cmd = self._grid_live_last_command
 
         translation_diagnostics = replace(
             translation_diagnostics,
             grid_yaw_correction_used=grid_yaw_correction_ever_used,
-            final_grid_yaw_correction_radps=final_grid_yaw_correction.correction_radps,
-            grid_yaw_control_reason=final_grid_yaw_correction.reason,
+            final_grid_yaw_correction_radps=(
+                last_cmd.angular_z_radps if last_cmd.yaw_active else 0.0
+            ),
+            grid_yaw_control_reason=last_cmd.reason,
+            live_grid_mode=last_cmd.mode,
+            live_grid_context_valid=self._grid_live_last_context_valid,
+            live_grid_virtual_cell=self._grid_live_last_virtual_cell,
+            live_grid_boundary_zone=self._grid_live_last_boundary_zone,
+            live_grid_expected_front=self._grid_live_last_expected_front,
+            live_grid_expected_rear=self._grid_live_last_expected_rear,
+            live_grid_expected_left=self._grid_live_last_expected_left,
+            live_grid_expected_right=self._grid_live_last_expected_right,
+            live_grid_yaw_active=last_cmd.yaw_active,
+            live_grid_lateral_active=last_cmd.lateral_active,
+            live_grid_yaw_cmd_radps=last_cmd.angular_z_radps,
+            live_grid_lateral_cmd_mps=last_cmd.linear_y_mps,
+            live_grid_reason=last_cmd.reason,
             grid_lateral_start_valid=drift['start_valid'],
             grid_lateral_start_error_m=drift['start_error'],
             grid_lateral_end_valid=drift['end_valid'],
@@ -1825,23 +1414,10 @@ class DarthMaulControlNode(Node):
             grid_lateral_drift_m=drift['drift'],
             grid_lateral_drift_per_m=drift['drift_per_m'],
             grid_lateral_drift_reason=drift['reason'],
-            lidar_parallelity_valid=final_parallelity.valid,
-            lidar_parallelity_active=final_parallelity.active,
-            lidar_parallelity_side=final_parallelity.side,
-            lidar_parallelity_stable_samples=final_parallelity.stable_samples,
-            lidar_parallelity_progress_m=final_parallelity.progress_m,
-            lidar_parallelity_start_offset_m=final_parallelity.start_offset_m,
-            lidar_parallelity_current_offset_m=final_parallelity.current_offset_m,
-            lidar_parallelity_drift_m=final_parallelity.offset_drift_m,
-            lidar_parallelity_drift_per_m=final_parallelity.drift_per_m,
-            lidar_parallelity_yaw_rad=final_parallelity.yaw_error_rad,
-            lidar_parallelity_drift_yaw_rad=final_parallelity.drift_yaw_error_rad,
-            lidar_parallelity_correction_radps=final_parallelity.correction_radps,
-            lidar_parallelity_reason=final_parallelity.reason,
         )
 
         result_message = self._append_translation_diagnostics(
-            f'{result_message}; {pre_align_result_message}',
+            result_message,
             translation_diagnostics,
         )
         result_message = self._append_grid_alignment_diagnostics(
@@ -1864,21 +1440,15 @@ class DarthMaulControlNode(Node):
         self.get_logger().info(
             f'{name} diagnostics: '
             f'odom_progress={translation_diagnostics.odom_progress_m:.3f} m, '
-            f'front_valid={translation_diagnostics.front_range_valid}, '
-            f'front_progress={translation_diagnostics.front_progress_m:.3f} m, '
-            f'rear_valid={translation_diagnostics.rear_range_valid}, '
-            f'rear_progress={translation_diagnostics.rear_progress_m:.3f} m, '
             f'lidar_valid={translation_diagnostics.lidar_progress_valid}, '
             f'lidar_progress={translation_diagnostics.lidar_progress_m:.3f} m, '
-            f'lidar_minus_odom={translation_diagnostics.lidar_minus_odom_m:.3f} m, '
             f'control_progress={translation_diagnostics.final_control_progress_m:.3f} m, '
             f'progress_source={translation_diagnostics.progress_source_used}, '
-            f'lidar_source={translation_diagnostics.lidar_progress_source}, '
-            f'lidar_disagreement={translation_diagnostics.lidar_progress_disagreement_m:.3f} m'
+            f'live_grid_mode={translation_diagnostics.live_grid_mode}, '
+            f'live_grid_lateral_active={translation_diagnostics.live_grid_lateral_active}'
         )
 
-        self._end_grid_yaw_control_memory()
-        self._reset_lidar_parallelity_tracker('translation finished')
+        self._reset_live_grid_controller('translation finished')
         self._reset_temporal_lidar_progress_tracker()
 
         return self._finish_motion_result(
@@ -1891,330 +1461,6 @@ class DarthMaulControlNode(Node):
             translation_diagnostics=translation_diagnostics,
             grid_alignment=final_alignment,
         )
-
-    def _post_rotation_refine_correction(
-        self,
-        alignment: GridAlignmentEstimate,
-    ) -> GridYawCorrection:
-        if not self.grid_alignment_control_enabled:
-            return GridYawCorrection(
-                False,
-                0.0,
-                'post-rotation refinement disabled: grid alignment control disabled',
-                'none',
-                False,
-            )
-
-        if not self.grid_yaw_correction_enabled:
-            return GridYawCorrection(
-                False,
-                0.0,
-                'post-rotation refinement disabled: grid yaw correction disabled',
-                'none',
-                False,
-            )
-
-        if not alignment.valid or not alignment.yaw_valid:
-            return GridYawCorrection(
-                False,
-                0.0,
-                f'post-rotation grid yaw invalid: {alignment.reason}',
-                alignment.source,
-                False,
-            )
-
-        if alignment.confidence < self.post_rotation_grid_yaw_refine_min_confidence:
-            return GridYawCorrection(
-                False,
-                0.0,
-                (
-                    'post-rotation grid confidence too low: '
-                    f'{alignment.confidence:.2f} '
-                    f'< {self.post_rotation_grid_yaw_refine_min_confidence:.2f}'
-                ),
-                alignment.source,
-                False,
-            )
-
-        abs_error = abs(alignment.yaw_error_rad)
-        if abs_error > self.post_rotation_grid_yaw_refine_max_abs_error_rad:
-            return GridYawCorrection(
-                False,
-                0.0,
-                (
-                    'post-rotation grid yaw error too large to refine safely: '
-                    f'{alignment.yaw_error_rad:.3f} rad > '
-                    f'{self.post_rotation_grid_yaw_refine_max_abs_error_rad:.3f} rad'
-                ),
-                alignment.source,
-                False,
-            )
-
-        correction = grid_yaw_correction_radps(
-            alignment.yaw_error_rad,
-            self.post_rotation_grid_yaw_refine_kp,
-            self.post_rotation_grid_yaw_refine_max_angular_z_radps,
-        )
-
-        return GridYawCorrection(
-            active=True,
-            correction_radps=float(correction),
-            reason=(
-                f'post-rotation grid yaw correction from {alignment.source}: '
-                f'yaw_error={alignment.yaw_error_rad:.3f} rad, '
-                f'confidence={alignment.confidence:.2f}, '
-                f'correction={correction:.3f} rad/s'
-            ),
-            source=alignment.source,
-            using_memory=False,
-        )
-
-    def _refine_post_rotation_grid_yaw(
-        self,
-        goal_handle,
-        limits: VelocityLimits,
-        target_yaw: float,
-    ) -> PostRotationGridYawRefineResult:
-        if not self.post_rotation_grid_yaw_refine_enabled:
-            alignment = self._grid_alignment_snapshot()
-            snapshot = self._get_motion_snapshot()
-            final_heading_error = 0.0
-            if snapshot is not None:
-                final_heading_error = abs(normalize_angle(target_yaw - snapshot.pose.yaw))
-            return PostRotationGridYawRefineResult(
-                attempted=False,
-                moved=False,
-                success=True,
-                should_abort=False,
-                code=ExecuteMotionPrimitive.Result.SUCCESS,
-                message='post_rotation_refine=skipped: disabled',
-                final_heading_error_rad=final_heading_error,
-                final_alignment=alignment,
-            )
-
-        start_time = time.monotonic()
-        stable_samples = 0
-        invalid_samples = 0
-        moved = False
-        last_reason = 'not evaluated'
-        last_alignment = self._grid_alignment_snapshot()
-        last_heading_error = 0.0
-
-        # Do not reuse straight-drive grid yaw memory during post-rotation refinement.
-        self._end_grid_yaw_control_memory()
-
-        while True:
-            if self._cancel_or_stop_requested(goal_handle):
-                return PostRotationGridYawRefineResult(
-                    attempted=True,
-                    moved=moved,
-                    success=False,
-                    should_abort=True,
-                    code=ExecuteMotionPrimitive.Result.CANCELED,
-                    message='post_rotation_refine=canceled',
-                    final_heading_error_rad=last_heading_error,
-                    final_alignment=last_alignment,
-                )
-
-            elapsed = time.monotonic() - start_time
-            if elapsed > self.post_rotation_grid_yaw_refine_timeout_s:
-                self.publish_zero_twist()
-                message = (
-                    'post_rotation_refine=timeout; '
-                    f'moved={moved}; '
-                    f'stable={stable_samples}/'
-                    f'{self.post_rotation_grid_yaw_refine_stable_samples}; '
-                    f'invalid={invalid_samples}; '
-                    f'last_reason={last_reason}'
-                )
-                if self.post_rotation_grid_yaw_refine_require_valid:
-                    return PostRotationGridYawRefineResult(
-                        attempted=True,
-                        moved=moved,
-                        success=False,
-                        should_abort=True,
-                        code=ExecuteMotionPrimitive.Result.INTERNAL_ERROR,
-                        message=message,
-                        final_heading_error_rad=last_heading_error,
-                        final_alignment=last_alignment,
-                    )
-
-                return PostRotationGridYawRefineResult(
-                    attempted=True,
-                    moved=moved,
-                    success=True,
-                    should_abort=False,
-                    code=ExecuteMotionPrimitive.Result.SUCCESS,
-                    message=message + '; non_strict_continue=true',
-                    final_heading_error_rad=last_heading_error,
-                    final_alignment=last_alignment,
-                )
-
-            snapshot = self._get_motion_snapshot()
-            if snapshot is None:
-                self.publish_zero_twist()
-                return PostRotationGridYawRefineResult(
-                    attempted=True,
-                    moved=moved,
-                    success=False,
-                    should_abort=True,
-                    code=ExecuteMotionPrimitive.Result.ODOM_UNAVAILABLE,
-                    message='post_rotation_refine=failed: odom unavailable',
-                    final_heading_error_rad=last_heading_error,
-                    final_alignment=last_alignment,
-                )
-
-            last_heading_error = abs(normalize_angle(target_yaw - snapshot.pose.yaw))
-            alignment = self._grid_alignment_snapshot()
-            last_alignment = alignment
-
-            complete, complete_reason = grid_yaw_pre_align_complete(
-                alignment_valid=alignment.valid,
-                yaw_valid=alignment.yaw_valid,
-                yaw_error_rad=alignment.yaw_error_rad,
-                confidence=alignment.confidence,
-                min_confidence=self.post_rotation_grid_yaw_refine_min_confidence,
-                target_rad=self.post_rotation_grid_yaw_refine_target_rad,
-            )
-
-            correction = self._post_rotation_refine_correction(alignment)
-            last_reason = correction.reason if correction.reason else complete_reason
-
-            if complete:
-                stable_samples += 1
-                invalid_samples = 0
-                self.publish_zero_twist()
-                self._set_grid_yaw_control_status(
-                    False,
-                    0.0,
-                    complete_reason,
-                )
-            elif correction.active:
-                stable_samples = 0
-                invalid_samples = 0
-                status_active = correction.active
-                status_correction = correction.correction_radps
-                status_reason = correction.reason
-
-                decision = post_rotation_grid_yaw_refine_decision(
-                    yaw_error_rad=alignment.yaw_error_rad,
-                    target_rad=self.post_rotation_grid_yaw_refine_target_rad,
-                    start_threshold_rad=(
-                        self.post_rotation_grid_yaw_refine_start_threshold_rad
-                    ),
-                )
-                if decision.stable:
-                    stable_samples += 1
-                    invalid_samples = 0
-                    self.publish_zero_twist()
-                    last_reason = decision.reason
-                    status_active = False
-                    status_correction = 0.0
-                    status_reason = decision.reason
-                elif decision.should_correct:
-                    cmd = Twist()
-                    cmd.linear.x = 0.0
-                    cmd.linear.y = 0.0
-                    cmd.angular.z = correction.correction_radps
-                    cmd = self._limiter.clamp(cmd, limits)
-                    cmd = self._apply_acceleration_limits(cmd)
-                    self._cmd_vel_pub.publish(cmd)
-                    moved = True
-
-                self._set_grid_yaw_control_status(
-                    status_active,
-                    status_correction,
-                    status_reason,
-                )
-            else:
-                stable_samples = 0
-                invalid_samples += 1
-                self.publish_zero_twist()
-                self._set_grid_yaw_control_status(
-                    False,
-                    0.0,
-                    correction.reason,
-                )
-
-            self._update_motion_state(
-                distance_remaining=0.0,
-                distance_traveled=0.0,
-                heading_error=alignment.yaw_error_rad if alignment.yaw_valid else 0.0,
-                status=(
-                    'ROTATE_RELATIVE post-rotation grid refine: '
-                    f'valid={alignment.valid}, '
-                    f'yaw_valid={alignment.yaw_valid}, '
-                    f'yaw={alignment.yaw_error_rad:.3f} rad, '
-                    f'source={alignment.source}, '
-                    f'confidence={alignment.confidence:.2f}, '
-                    f'stable={stable_samples}/'
-                    f'{self.post_rotation_grid_yaw_refine_stable_samples}, '
-                    f'invalid={invalid_samples}/'
-                    f'{self.post_rotation_grid_yaw_refine_max_invalid_samples}, '
-                    f'correction={correction.correction_radps:.3f} rad/s, '
-                    f'reason={last_reason}'
-                ),
-            )
-
-            self._publish_feedback(
-                goal_handle,
-                progress=1.0,
-                distance_remaining=0.0,
-                heading_remaining=alignment.yaw_error_rad if alignment.yaw_valid else 0.0,
-                state='ROTATE_RELATIVE_POST_GRID_REFINE',
-            )
-
-            if stable_samples >= self.post_rotation_grid_yaw_refine_stable_samples:
-                self.publish_zero_twist()
-                return PostRotationGridYawRefineResult(
-                    attempted=True,
-                    moved=moved,
-                    success=True,
-                    should_abort=False,
-                    code=ExecuteMotionPrimitive.Result.SUCCESS,
-                    message=(
-                        'post_rotation_refine=succeeded; '
-                        f'moved={moved}; '
-                        f'final_grid_yaw={alignment.yaw_error_rad:.3f} rad; '
-                        f'source={alignment.source}; '
-                        f'confidence={alignment.confidence:.2f}; '
-                        f'reason={complete_reason}'
-                    ),
-                    final_heading_error_rad=last_heading_error,
-                    final_alignment=alignment,
-                )
-
-            if invalid_samples > self.post_rotation_grid_yaw_refine_max_invalid_samples:
-                self.publish_zero_twist()
-                message = (
-                    'post_rotation_refine=unavailable; '
-                    f'invalid={invalid_samples}; '
-                    f'last_reason={last_reason}'
-                )
-                if self.post_rotation_grid_yaw_refine_require_valid:
-                    return PostRotationGridYawRefineResult(
-                        attempted=True,
-                        moved=moved,
-                        success=False,
-                        should_abort=True,
-                        code=ExecuteMotionPrimitive.Result.INTERNAL_ERROR,
-                        message=message,
-                        final_heading_error_rad=last_heading_error,
-                        final_alignment=alignment,
-                    )
-
-                return PostRotationGridYawRefineResult(
-                    attempted=True,
-                    moved=moved,
-                    success=True,
-                    should_abort=False,
-                    code=ExecuteMotionPrimitive.Result.SUCCESS,
-                    message=message + '; non_strict_continue=true',
-                    final_heading_error_rad=last_heading_error,
-                    final_alignment=alignment,
-                )
-
-            time.sleep(1.0 / self.control_rate_hz)
 
     def _execute_rotate(self, goal_handle):
         request = goal_handle.request
@@ -2317,26 +1563,8 @@ class DarthMaulControlNode(Node):
                 if self.enforce_final_error and final_heading_error > heading_tol * 1.5:
                     result_code = ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
                     result_message = (
-                        f'ROTATE_RELATIVE final heading error too large before '
-                        f'post-rotation refine: {final_heading_error:.3f} rad'
-                    )
-                    break
-
-                refine = self._refine_post_rotation_grid_yaw(
-                    goal_handle,
-                    limits,
-                    target_yaw,
-                )
-                final_heading_error = refine.final_heading_error_rad
-
-                if refine.should_abort:
-                    if refine.code == ExecuteMotionPrimitive.Result.CANCELED:
-                        return self._cancel_result(goal_handle)
-
-                    result_success = False
-                    result_code = refine.code
-                    result_message = (
-                        f'ROTATE_RELATIVE failed after odom turn: {refine.message}'
+                        f'ROTATE_RELATIVE final heading error too large: '
+                        f'{final_heading_error:.3f} rad'
                     )
                     break
 
@@ -2344,8 +1572,7 @@ class DarthMaulControlNode(Node):
                 result_code = ExecuteMotionPrimitive.Result.SUCCESS
                 result_message = (
                     f'ROTATE_RELATIVE succeeded: '
-                    f'heading_error={final_heading_error:.3f} rad; '
-                    f'{refine.message}'
+                    f'heading_error={final_heading_error:.3f} rad'
                 )
                 break
 
@@ -2499,222 +1726,110 @@ class DarthMaulControlNode(Node):
         scan = self._fresh_scan_copy()
         return self._grid_alignment_from_scan(scan)
 
-    def _clear_grid_yaw_control_memory_locked(self) -> None:
-        self._last_valid_grid_control_alignment = invalid_grid_alignment(
-            'no valid grid control alignment for current translation'
+    def _reset_live_grid_controller(self, reason: str = '') -> None:
+        self._grid_live_mode = UNAVAILABLE
+        self._grid_live_reacquire_samples = 0
+        self._grid_live_last_observation = None
+        self._grid_live_last_command = LiveGridCommand(
+            mode=UNAVAILABLE,
+            yaw_active=False,
+            lateral_active=False,
+            angular_z_radps=0.0,
+            linear_y_mps=0.0,
+            speed_scale=1.0,
+            reason=reason or 'reset',
         )
-        self._last_valid_grid_control_alignment_monotonic = None
-        self._grid_yaw_control_memory_accepting = False
+        self._grid_live_last_context_valid = False
+        self._grid_live_last_virtual_cell = 0
+        self._grid_live_last_virtual_cell_progress_m = 0.0
+        self._grid_live_last_boundary_zone = False
+        self._grid_live_last_expected_front = False
+        self._grid_live_last_expected_rear = False
+        self._grid_live_last_expected_left = False
+        self._grid_live_last_expected_right = False
+        self._grid_live_last_reason = reason or 'reset'
 
-    def _begin_grid_yaw_control_memory(
+    def _live_grid_observation(
         self,
-        seed: GridAlignmentEstimate,
-        accept_updates: bool,
-    ) -> None:
-        now = time.monotonic()
-        with self._state_lock:
-            self._grid_yaw_control_memory_accepting = bool(accept_updates)
-            if accept_updates and seed.valid and seed.yaw_valid:
-                self._last_valid_grid_control_alignment = seed
-                self._last_valid_grid_control_alignment_monotonic = now
-            else:
-                self._last_valid_grid_control_alignment = invalid_grid_alignment(
-                    'no valid grid control alignment for current translation'
-                )
-                self._last_valid_grid_control_alignment_monotonic = None
-
-    def _end_grid_yaw_control_memory(self) -> None:
-        with self._state_lock:
-            self._clear_grid_yaw_control_memory_locked()
-
-    def _grid_alignment_for_yaw_control(
-        self,
-        current: GridAlignmentEstimate,
-    ) -> tuple[GridAlignmentEstimate, bool, str]:
-        """Return current or short-memory grid alignment for yaw control."""
-        if current.valid and current.yaw_valid:
-            return current, False, 'current valid grid alignment'
-
-        if self.grid_yaw_memory_timeout_s <= 0.0:
-            return current, False, f'grid yaw invalid and memory disabled: {current.reason}'
-
-        with self._state_lock:
-            memory = self._last_valid_grid_control_alignment
-            memory_time = self._last_valid_grid_control_alignment_monotonic
-
-        if memory_time is None or not memory.valid or not memory.yaw_valid:
-            return current, False, f'grid yaw invalid and no valid memory: {current.reason}'
-
-        age = time.monotonic() - memory_time
-        if age > self.grid_yaw_memory_timeout_s:
-            return current, False, (
-                f'grid yaw invalid and memory stale: age={age:.3f}s '
-                f'> {self.grid_yaw_memory_timeout_s:.3f}s; current={current.reason}'
-            )
-
-        return memory, True, (
-            f'using grid yaw memory age={age:.3f}s because current invalid: {current.reason}'
-        )
-
-    def _grid_yaw_contributing_wall_line(
-        self,
+        context: GridRunContext,
         alignment: GridAlignmentEstimate,
-    ) -> WallLineEstimate | None:
-        if alignment.source == 'left':
-            return alignment.left
-        if alignment.source == 'right':
-            return alignment.right
-        return None
-
-    def _grid_yaw_single_wall_quality_ok(
-        self,
-        alignment: GridAlignmentEstimate,
-    ) -> tuple[bool, str]:
-        wall = self._grid_yaw_contributing_wall_line(alignment)
-        if wall is None:
-            return False, f'source {alignment.source} is not a single wall'
-
-        strong, reason = grid_yaw_control_evidence_decision(
-            source=alignment.source,
-            valid=alignment.valid,
-            yaw_valid=alignment.yaw_valid,
-            confidence=alignment.confidence,
-            yaw_error_rad=alignment.yaw_error_rad,
-            wall_valid=wall.valid,
-            wall_rms_error_m=wall.rms_error_m,
-            wall_span_x_m=wall.span_x_m,
-            wall_support_count=wall.support_count,
-            require_strong_evidence=self.grid_yaw_control_require_strong_evidence,
-            allow_single_wall=True,
-            min_confidence_for_left_right=self.grid_yaw_min_confidence_for_control,
-            single_wall_min_confidence=(
-                self.grid_yaw_control_single_wall_min_confidence
-            ),
-            single_wall_max_abs_yaw_error_rad=(
-                self.grid_yaw_control_single_wall_max_abs_yaw_error_rad
-            ),
-            single_wall_max_rms_error_m=(
-                self.grid_yaw_control_single_wall_max_rms_error_m
-            ),
-            single_wall_min_span_x_m=self.grid_yaw_control_single_wall_min_span_x_m,
-            single_wall_min_support_count=(
-                self.grid_yaw_control_single_wall_min_support_count
-            ),
+        progress_m: float,
+    ) -> GridObservation:
+        return observe_grid(
+            context=context,
+            alignment=alignment,
+            progress_m=progress_m,
+            cell_length_m=self.cell_length_m,
+            boundary_margin_m=self.grid_virtual_cell_boundary_margin_m,
+            expected_half_width_m=self.grid_alignment_expected_half_width_m,
+            adjacent_wall_tolerance_m=self.grid_alignment_adjacent_wall_tolerance_m,
+            pair_width_tolerance_m=self.grid_alignment_pair_width_tolerance_m,
+            max_abs_yaw_error_rad=self.grid_live_max_abs_yaw_error_rad,
+            max_rms_error_m=self.grid_live_max_rms_error_m,
+            min_span_x_m=self.grid_live_min_span_x_m,
+            min_support_count=self.grid_live_min_support_count,
         )
-        if not strong and not wall.valid:
-            return False, f'{alignment.source} wall invalid: {wall.reason}'
-        return strong, reason
 
-    def _grid_yaw_has_strong_control_evidence(
+    def _live_grid_command(
         self,
-        alignment: GridAlignmentEstimate,
-    ) -> tuple[bool, str]:
-        if not self.grid_yaw_control_require_strong_evidence:
-            return True, 'strong-evidence gate disabled'
-
-        if not alignment.valid:
-            return False, f'grid alignment invalid: {alignment.reason}'
-
-        if not alignment.yaw_valid:
-            return False, f'grid yaw invalid: {alignment.reason}'
-
-        if alignment.source == 'left_right':
-            if alignment.confidence < self.grid_yaw_min_confidence_for_control:
-                return (
-                    False,
-                    (
-                        'left_right confidence too low: '
-                        f'{alignment.confidence:.2f} '
-                        f'< {self.grid_yaw_min_confidence_for_control:.2f}'
-                    ),
-                )
-            return True, 'left_right adjacent-wall evidence accepted for active control'
-
-        if alignment.source in ('left', 'right'):
-            if not self.grid_yaw_control_allow_single_wall:
-                return (
-                    False,
-                    (
-                        'single-wall active control disabled by default: '
-                        f'source={alignment.source}, confidence={alignment.confidence:.2f}'
-                    ),
-                )
-            return self._grid_yaw_single_wall_quality_ok(alignment)
-
-        return False, f'unsupported grid yaw source for active control: {alignment.source}'
-
-    def _grid_yaw_correction(
-        self,
-        current: GridAlignmentEstimate,
-    ) -> GridYawCorrection:
-        if not self.grid_alignment_control_enabled:
-            return GridYawCorrection(False, 0.0, 'grid alignment control disabled', 'none', False)
-
-        if not self.grid_yaw_correction_enabled:
-            return GridYawCorrection(False, 0.0, 'grid yaw correction disabled', 'none', False)
-
-        alignment, using_memory, memory_reason = self._grid_alignment_for_yaw_control(current)
-
-        if not alignment.valid or not alignment.yaw_valid:
-            return GridYawCorrection(False, 0.0, memory_reason, alignment.source, using_memory)
-
-        if alignment.confidence < self.grid_yaw_min_confidence_for_control:
-            return GridYawCorrection(
-                False,
-                0.0,
-                (
-                    f'grid confidence too low: {alignment.confidence:.2f} '
-                    f'< {self.grid_yaw_min_confidence_for_control:.2f}'
-                ),
-                alignment.source,
-                using_memory,
+        observation: GridObservation,
+        odom_heading_correction_radps: float,
+    ) -> LiveGridCommand:
+        if not self.grid_live_control_enabled:
+            return LiveGridCommand(
+                HEADING_COAST,
+                yaw_active=False,
+                lateral_active=False,
+                angular_z_radps=float(odom_heading_correction_radps),
+                linear_y_mps=0.0,
+                speed_scale=1.0,
+                reason='grid live control disabled',
             )
 
-        abs_error = abs(alignment.yaw_error_rad)
-        if abs_error > self.grid_yaw_max_abs_error_for_control_rad:
-            return GridYawCorrection(
-                False,
-                0.0,
-                (
-                    f'grid yaw error too large for control: {alignment.yaw_error_rad:.3f} rad '
-                    f'> {self.grid_yaw_max_abs_error_for_control_rad:.3f} rad'
-                ),
-                alignment.source,
-                using_memory,
-            )
-
-        strong, strong_reason = self._grid_yaw_has_strong_control_evidence(alignment)
-        if not strong:
-            return GridYawCorrection(
-                active=False,
-                correction_radps=0.0,
-                reason='grid yaw diagnostic only: ' + strong_reason,
-                source=alignment.source,
-                using_memory=using_memory,
-            )
-
-        correction = grid_yaw_correction_radps(
-            alignment.yaw_error_rad,
-            self.k_grid_yaw,
-            self.max_grid_yaw_correction_radps,
+        min_confidence = max(
+            self.grid_live_yaw_min_confidence,
+            self.grid_lateral_min_confidence,
         )
 
-        reason = (
-            f'grid yaw correction from {alignment.source}: '
-            f'yaw_error={alignment.yaw_error_rad:.3f} rad, '
-            f'confidence={alignment.confidence:.2f}, '
-            f'correction={correction:.3f} rad/s'
-        )
-        if using_memory:
-            reason += '; ' + memory_reason
+        if self._grid_live_mode == HEADING_COAST and observation.yaw_valid:
+            self._grid_live_reacquire_samples += 1
+        elif observation.yaw_valid:
+            self._grid_live_reacquire_samples = self.grid_reacquire_stable_samples
+        else:
+            self._grid_live_reacquire_samples = 0
 
-        return GridYawCorrection(
-            active=True,
-            correction_radps=float(correction),
-            reason=reason,
-            source=alignment.source,
-            using_memory=using_memory,
+        command = live_grid_command(
+            observation=observation,
+            previous_mode=self._grid_live_mode,
+            odom_heading_correction_radps=odom_heading_correction_radps,
+            k_yaw=self.k_grid_live_yaw,
+            max_yaw_correction_radps=self.max_grid_live_yaw_correction_radps,
+            k_lateral=self.k_grid_lateral,
+            max_lateral_mps=min(self.max_grid_lateral_mps, self.max_linear_y_mps),
+            min_confidence=min_confidence,
+            reacquire_stable_samples=self.grid_reacquire_stable_samples,
+            current_reacquire_samples=self._grid_live_reacquire_samples,
+            small_reacquire_yaw_rad=self.grid_reacquire_small_yaw_rad,
+            large_reacquire_yaw_rad=self.grid_reacquire_large_yaw_rad,
+            reacquire_speed_scale=self.grid_reacquire_speed_scale,
         )
+
+        self._grid_live_mode = command.mode
+        self._grid_live_last_command = command
+        self._grid_live_last_observation = observation
+        self._grid_live_last_context_valid = observation.context_valid
+        self._grid_live_last_virtual_cell = observation.virtual_cell.cell_idx
+        self._grid_live_last_virtual_cell_progress_m = (
+            observation.virtual_cell.distance_into_cell_m
+        )
+        self._grid_live_last_boundary_zone = observation.virtual_cell.boundary_zone
+        self._grid_live_last_expected_front = observation.expected.front
+        self._grid_live_last_expected_rear = observation.expected.rear
+        self._grid_live_last_expected_left = observation.expected.left
+        self._grid_live_last_expected_right = observation.expected.right
+        self._grid_live_last_reason = command.reason
+
+        return command
 
     def _lateral_drift_diagnostics(
         self,
@@ -2798,17 +1913,6 @@ class DarthMaulControlNode(Node):
     def _range_value(measurement: SectorRange) -> float:
         return float(measurement.median_m) if measurement.valid else 0.0
 
-    def _reset_lidar_parallelity_tracker(self, reason: str = '') -> None:
-        self._parallel_wall_tracking_active = False
-        self._parallel_wall_side = 'none'
-        self._parallel_wall_source = 'none'
-        self._parallel_wall_start_offset_m = 0.0
-        self._parallel_wall_start_progress_m = 0.0
-        self._parallel_wall_last_offset_m = 0.0
-        self._parallel_wall_last_yaw_error_rad = 0.0
-        self._parallel_wall_stable_samples = 0
-        self._parallel_wall_last_progress_m = 0.0
-
     def _reset_temporal_lidar_progress_tracker(self) -> None:
         self._temporal_lidar_progress_valid = False
         self._temporal_lidar_progress_m = 0.0
@@ -2869,242 +1973,6 @@ class DarthMaulControlNode(Node):
             self._temporal_lidar_degraded_samples = tracked.degraded_samples
 
         return tracked
-
-    def _update_lidar_parallelity_tracker(
-        self,
-        alignment: GridAlignmentEstimate,
-        *,
-        control_progress_m: float,
-    ) -> LidarParallelityEstimate:
-        if not self.lidar_parallelity_control_enabled:
-            self._reset_lidar_parallelity_tracker('parallelity disabled')
-            return invalid_lidar_parallelity('LiDAR parallelity control disabled')
-
-        if not self.grid_alignment_control_enabled or not self.grid_yaw_correction_enabled:
-            self._reset_lidar_parallelity_tracker('grid alignment/yaw disabled')
-            return invalid_lidar_parallelity('grid alignment/yaw correction disabled')
-
-        observation: SideWallObservation = side_wall_observation_from_alignment(
-            alignment,
-            preferred_side=self._parallel_wall_side,
-            min_confidence=self.lidar_parallelity_min_confidence,
-            max_abs_yaw_error_rad=self.lidar_parallelity_max_abs_yaw_error_rad,
-            max_rms_error_m=self.lidar_parallelity_max_rms_error_m,
-            min_span_x_m=self.lidar_parallelity_min_span_x_m,
-            min_support_count=self.lidar_parallelity_min_support_count,
-        )
-
-        if not observation.valid:
-            self._reset_lidar_parallelity_tracker(observation.reason)
-            return invalid_lidar_parallelity(
-                'no tracked side wall: ' + observation.reason
-            )
-
-        if (
-            not self._parallel_wall_tracking_active
-            or self._parallel_wall_side != observation.side
-            or self._parallel_wall_source != observation.source
-        ):
-            self._parallel_wall_tracking_active = True
-            self._parallel_wall_side = observation.side
-            self._parallel_wall_source = observation.source
-            self._parallel_wall_start_offset_m = observation.offset_m
-            self._parallel_wall_start_progress_m = control_progress_m
-            self._parallel_wall_last_offset_m = observation.offset_m
-            self._parallel_wall_last_yaw_error_rad = observation.yaw_error_rad
-            self._parallel_wall_stable_samples = 1
-            self._parallel_wall_last_progress_m = control_progress_m
-
-            return LidarParallelityEstimate(
-                valid=True,
-                active=False,
-                side=observation.side,
-                stable_samples=1,
-                progress_m=control_progress_m,
-                start_offset_m=observation.offset_m,
-                current_offset_m=observation.offset_m,
-                offset_drift_m=0.0,
-                drift_per_m=0.0,
-                yaw_error_rad=observation.yaw_error_rad,
-                drift_yaw_error_rad=0.0,
-                fused_error_rad=0.0,
-                correction_radps=0.0,
-                reason=(
-                    'LiDAR parallelity collecting stable side wall: 1/'
-                    f'{self.lidar_parallelity_min_stable_samples}; '
-                    f'{observation.reason}'
-                ),
-            )
-
-        yaw_jump = abs(observation.yaw_error_rad - self._parallel_wall_last_yaw_error_rad)
-        offset_jump = abs(observation.offset_m - self._parallel_wall_last_offset_m)
-        same_sign = (
-            abs(observation.yaw_error_rad) < 1e-6
-            or abs(self._parallel_wall_last_yaw_error_rad) < 1e-6
-            or (
-                observation.yaw_error_rad > 0.0
-            ) == (self._parallel_wall_last_yaw_error_rad > 0.0)
-        )
-
-        if (
-            yaw_jump > self.lidar_parallelity_max_yaw_jump_rad
-            or offset_jump > self.lidar_parallelity_max_offset_jump_m
-            or not same_sign
-        ):
-            self._parallel_wall_start_offset_m = observation.offset_m
-            self._parallel_wall_start_progress_m = control_progress_m
-            self._parallel_wall_last_offset_m = observation.offset_m
-            self._parallel_wall_last_yaw_error_rad = observation.yaw_error_rad
-            self._parallel_wall_stable_samples = 1
-            self._parallel_wall_last_progress_m = control_progress_m
-
-            return LidarParallelityEstimate(
-                valid=True,
-                active=False,
-                side=observation.side,
-                stable_samples=1,
-                progress_m=control_progress_m,
-                start_offset_m=observation.offset_m,
-                current_offset_m=observation.offset_m,
-                offset_drift_m=0.0,
-                drift_per_m=0.0,
-                yaw_error_rad=observation.yaw_error_rad,
-                drift_yaw_error_rad=0.0,
-                fused_error_rad=0.0,
-                correction_radps=0.0,
-                reason=(
-                    f'LiDAR parallelity reset: yaw_jump={yaw_jump:.3f} rad, '
-                    f'offset_jump={offset_jump:.3f} m, same_sign={same_sign}'
-                ),
-            )
-
-        self._parallel_wall_stable_samples += 1
-        self._parallel_wall_last_offset_m = observation.offset_m
-        self._parallel_wall_last_yaw_error_rad = observation.yaw_error_rad
-        self._parallel_wall_last_progress_m = control_progress_m
-
-        offset_drift_m = observation.offset_m - self._parallel_wall_start_offset_m
-        tracking_progress_m = max(
-            0.0,
-            control_progress_m - self._parallel_wall_start_progress_m,
-        )
-        if tracking_progress_m <= 1e-6:
-            drift_per_m = 0.0
-        else:
-            drift_per_m = offset_drift_m / tracking_progress_m
-
-        drift_yaw = math.atan(drift_per_m)
-        if (
-            self.lidar_parallelity_drift_validation_enabled
-            and abs(drift_per_m) > self.lidar_parallelity_max_drift_per_m
-        ):
-            return LidarParallelityEstimate(
-                valid=True,
-                active=False,
-                side=observation.side,
-                stable_samples=self._parallel_wall_stable_samples,
-                progress_m=control_progress_m,
-                start_offset_m=self._parallel_wall_start_offset_m,
-                current_offset_m=observation.offset_m,
-                offset_drift_m=offset_drift_m,
-                drift_per_m=drift_per_m,
-                yaw_error_rad=observation.yaw_error_rad,
-                drift_yaw_error_rad=drift_yaw,
-                fused_error_rad=0.0,
-                correction_radps=0.0,
-                reason=(
-                    'LiDAR parallelity drift too large/aliased: '
-                    f'{drift_per_m:.3f} > '
-                    f'{self.lidar_parallelity_max_drift_per_m:.3f}; '
-                    f'tracking_progress={tracking_progress_m:.3f} m'
-                ),
-            )
-
-        if control_progress_m < self.lidar_parallelity_min_progress_for_control_m:
-            return LidarParallelityEstimate(
-                valid=True,
-                active=False,
-                side=observation.side,
-                stable_samples=self._parallel_wall_stable_samples,
-                progress_m=control_progress_m,
-                start_offset_m=self._parallel_wall_start_offset_m,
-                current_offset_m=observation.offset_m,
-                offset_drift_m=offset_drift_m,
-                drift_per_m=drift_per_m,
-                yaw_error_rad=observation.yaw_error_rad,
-                drift_yaw_error_rad=drift_yaw,
-                fused_error_rad=0.0,
-                correction_radps=0.0,
-                reason=(
-                    'LiDAR parallelity waiting for progress: '
-                    f'{control_progress_m:.3f} m < '
-                    f'{self.lidar_parallelity_min_progress_for_control_m:.3f} m; '
-                    f'tracking_progress={tracking_progress_m:.3f} m'
-                ),
-            )
-
-        if self._parallel_wall_stable_samples < self.lidar_parallelity_min_stable_samples:
-            return LidarParallelityEstimate(
-                valid=True,
-                active=False,
-                side=observation.side,
-                stable_samples=self._parallel_wall_stable_samples,
-                progress_m=control_progress_m,
-                start_offset_m=self._parallel_wall_start_offset_m,
-                current_offset_m=observation.offset_m,
-                offset_drift_m=offset_drift_m,
-                drift_per_m=drift_per_m,
-                yaw_error_rad=observation.yaw_error_rad,
-                drift_yaw_error_rad=drift_yaw,
-                fused_error_rad=0.0,
-                correction_radps=0.0,
-                reason=(
-                    'LiDAR parallelity collecting stable samples: '
-                    f'{self._parallel_wall_stable_samples}/'
-                    f'{self.lidar_parallelity_min_stable_samples}; '
-                    f'tracking_progress={tracking_progress_m:.3f} m'
-                ),
-            )
-
-        correction, drift_yaw_error_rad, correction_reason = (
-            lidar_parallelity_correction_radps(
-                yaw_error_rad=observation.yaw_error_rad,
-                drift_per_m=drift_per_m,
-                k_yaw=self.k_lidar_parallelity_yaw,
-                k_drift=self.k_lidar_parallelity_drift,
-                max_correction_radps=self.max_lidar_parallelity_correction_radps,
-                require_consistency=(
-                    self.lidar_parallelity_require_yaw_drift_consistency
-                ),
-                max_yaw_drift_disagreement_rad=(
-                    self.lidar_parallelity_max_yaw_drift_disagreement_rad
-                ),
-            )
-        )
-        correction_reason = (
-            f'{correction_reason}; tracking_progress={tracking_progress_m:.3f} m'
-        )
-        active = abs(correction) > 1e-6
-
-        return LidarParallelityEstimate(
-            valid=True,
-            active=active,
-            side=observation.side,
-            stable_samples=self._parallel_wall_stable_samples,
-            progress_m=control_progress_m,
-            start_offset_m=self._parallel_wall_start_offset_m,
-            current_offset_m=observation.offset_m,
-            offset_drift_m=offset_drift_m,
-            drift_per_m=drift_per_m,
-            yaw_error_rad=observation.yaw_error_rad,
-            drift_yaw_error_rad=drift_yaw_error_rad,
-            fused_error_rad=(
-                self.k_lidar_parallelity_yaw * observation.yaw_error_rad
-                + self.k_lidar_parallelity_drift * drift_yaw_error_rad
-            ),
-            correction_radps=correction,
-            reason=correction_reason,
-        )
 
     def _translation_diagnostics(
         self,
@@ -3267,26 +2135,19 @@ class DarthMaulControlNode(Node):
             f'grid_lateral_drift={diagnostics.grid_lateral_drift_m:.3f} m; '
             f'grid_lateral_drift_per_m={diagnostics.grid_lateral_drift_per_m:.3f}; '
             f'grid_lateral_drift_reason={diagnostics.grid_lateral_drift_reason}; '
-            f'lidar_parallelity_valid={diagnostics.lidar_parallelity_valid}; '
-            f'lidar_parallelity_active={diagnostics.lidar_parallelity_active}; '
-            f'lidar_parallelity_side={diagnostics.lidar_parallelity_side}; '
-            f'lidar_parallelity_stable_samples='
-            f'{diagnostics.lidar_parallelity_stable_samples}; '
-            f'lidar_parallelity_progress='
-            f'{diagnostics.lidar_parallelity_progress_m:.3f} m; '
-            f'lidar_parallelity_start_offset='
-            f'{diagnostics.lidar_parallelity_start_offset_m:.3f} m; '
-            f'lidar_parallelity_current_offset='
-            f'{diagnostics.lidar_parallelity_current_offset_m:.3f} m; '
-            f'lidar_parallelity_drift={diagnostics.lidar_parallelity_drift_m:.3f} m; '
-            f'lidar_parallelity_drift_per_m='
-            f'{diagnostics.lidar_parallelity_drift_per_m:.3f}; '
-            f'lidar_parallelity_yaw={diagnostics.lidar_parallelity_yaw_rad:.3f} rad; '
-            f'lidar_parallelity_drift_yaw='
-            f'{diagnostics.lidar_parallelity_drift_yaw_rad:.3f} rad; '
-            f'lidar_parallelity_correction='
-            f'{diagnostics.lidar_parallelity_correction_radps:.3f} rad/s; '
-            f'lidar_parallelity_reason={diagnostics.lidar_parallelity_reason}; '
+            f'live_grid_mode={diagnostics.live_grid_mode}; '
+            f'live_grid_context_valid={diagnostics.live_grid_context_valid}; '
+            f'live_grid_virtual_cell={diagnostics.live_grid_virtual_cell}; '
+            f'live_grid_boundary_zone={diagnostics.live_grid_boundary_zone}; '
+            f'live_grid_expected_front={diagnostics.live_grid_expected_front}; '
+            f'live_grid_expected_rear={diagnostics.live_grid_expected_rear}; '
+            f'live_grid_expected_left={diagnostics.live_grid_expected_left}; '
+            f'live_grid_expected_right={diagnostics.live_grid_expected_right}; '
+            f'live_grid_yaw_active={diagnostics.live_grid_yaw_active}; '
+            f'live_grid_lateral_active={diagnostics.live_grid_lateral_active}; '
+            f'live_grid_yaw_cmd={diagnostics.live_grid_yaw_cmd_radps:.3f} rad/s; '
+            f'live_grid_lateral_cmd={diagnostics.live_grid_lateral_cmd_mps:.3f} m/s; '
+            f'live_grid_reason={diagnostics.live_grid_reason}; '
             f'lidar_progress_temporal_degraded='
             f'{diagnostics.lidar_progress_temporal_degraded}; '
             f'lidar_progress_temporal_reason='
@@ -3642,7 +2503,6 @@ class DarthMaulControlNode(Node):
                 self._grid_yaw_correction_active = False
                 self._grid_yaw_correction_radps = 0.0
                 self._grid_yaw_control_reason = ''
-                self._clear_grid_yaw_control_memory_locked()
 
     def _is_odom_fresh(self) -> bool:
         with self._odom_lock:
@@ -3688,6 +2548,20 @@ class DarthMaulControlNode(Node):
             grid_yaw_correction_active = self._grid_yaw_correction_active
             grid_yaw_correction_radps = self._grid_yaw_correction_radps
             grid_yaw_control_reason = self._grid_yaw_control_reason
+            grid_live_mode = self._grid_live_last_command.mode
+            grid_context_valid = self._grid_live_last_context_valid
+            grid_virtual_cell = self._grid_live_last_virtual_cell
+            grid_virtual_cell_progress = self._grid_live_last_virtual_cell_progress_m
+            grid_boundary_zone = self._grid_live_last_boundary_zone
+            grid_expected_front = self._grid_live_last_expected_front
+            grid_expected_rear = self._grid_live_last_expected_rear
+            grid_expected_left = self._grid_live_last_expected_left
+            grid_expected_right = self._grid_live_last_expected_right
+            grid_live_yaw_active = self._grid_live_last_command.yaw_active
+            grid_live_lateral_active = self._grid_live_last_command.lateral_active
+            grid_live_yaw_cmd = self._grid_live_last_command.angular_z_radps
+            grid_live_lateral_cmd = self._grid_live_last_command.linear_y_mps
+            grid_live_reason = self._grid_live_last_command.reason
 
         msg = ControlStatus()
         msg.stamp = self.get_clock().now().to_msg()
@@ -3715,6 +2589,20 @@ class DarthMaulControlNode(Node):
         msg.grid_yaw_correction_active = bool(grid_yaw_correction_active)
         msg.grid_yaw_correction_radps = float(grid_yaw_correction_radps)
         msg.grid_yaw_control_reason = str(grid_yaw_control_reason)
+        msg.grid_live_mode = str(grid_live_mode)
+        msg.grid_context_valid = bool(grid_context_valid)
+        msg.grid_virtual_cell = int(grid_virtual_cell)
+        msg.grid_virtual_cell_progress_m = float(grid_virtual_cell_progress)
+        msg.grid_virtual_cell_boundary_zone = bool(grid_boundary_zone)
+        msg.grid_expected_front_wall = bool(grid_expected_front)
+        msg.grid_expected_rear_wall = bool(grid_expected_rear)
+        msg.grid_expected_left_wall = bool(grid_expected_left)
+        msg.grid_expected_right_wall = bool(grid_expected_right)
+        msg.grid_live_yaw_active = bool(grid_live_yaw_active)
+        msg.grid_live_lateral_active = bool(grid_live_lateral_active)
+        msg.grid_live_yaw_cmd_radps = float(grid_live_yaw_cmd)
+        msg.grid_live_lateral_cmd_mps = float(grid_live_lateral_cmd)
+        msg.grid_live_reason = str(grid_live_reason)
 
         msg.left_wall_line_valid = bool(grid_alignment.left.valid)
         msg.left_wall_offset_m = float(grid_alignment.left.offset_m)

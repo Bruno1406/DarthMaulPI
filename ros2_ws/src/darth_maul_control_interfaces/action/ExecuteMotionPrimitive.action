@@ -34,6 +34,29 @@ float32 timeout_s
 # If true, forward motion requires fresh LiDAR and stops if front is blocked.
 bool collision_check_enabled
 
+# Optional known-grid context for map-aware live corridor tracking.
+# Defaults/empty mean "no map context", so the controller falls back to
+# odom heading hold plus mapless diagnostics.
+#
+# grid_l uses the README maze encoding:
+#   1 = +x wall
+#   2 = -x wall
+#   4 = +y wall
+#   8 = -y wall
+#   15 = missing/unreachable cell
+#
+# grid_heading uses the same encoding as start_orientation:
+#   1 = +x
+#   2 = -x
+#   4 = +y
+#   8 = -y
+uint8 grid_n
+uint8 grid_m
+int16 grid_start_idx
+uint8 grid_heading
+uint8 grid_run_cells
+uint8[] grid_l
+
 ---
 # Result
 

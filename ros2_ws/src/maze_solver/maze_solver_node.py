@@ -1,7 +1,7 @@
 import math
 import time
 from dataclasses import dataclass
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Sequence
 
 import rclpy
 from darth_maul_control_interfaces.action import ExecuteMotionPrimitive
@@ -23,6 +23,15 @@ class SearchNode:
 
 
 VALID_ORIENTATIONS = {1, 2, 4, 8}
+
+
+@dataclass(frozen=True)
+class MotionCommand:
+    name: str
+    value: float
+    start_idx: int = 0
+    heading: int = 0
+    run_cells: int = 0
 
 
 def parse_bool_parameter(value: Any) -> bool:
@@ -183,19 +192,23 @@ def build_motion_commands(
     start_orientation: int,
     orientations: List[int],
     cell_length_m: float,
-) -> List[Tuple[str, float]]:
+    path: Optional[List[int]] = None,
+) -> List[MotionCommand]:
     """Build known-maze motion commands using maximal straight-run compression.
 
-    This function is for known complete paths. It emits one drive command for
-    each maximal same-orientation run and one rotate command only when the
-    planned direction changes. It intentionally does not split straight runs by
-    cell count. Future unknown-maze exploration should stop at semantic
-    perception/planning checkpoints, not via an arbitrary max-cells cap.
+    If path is provided, drive_forward commands include grid metadata:
+    start_idx, heading, and run_cells.
     """
-    commands: List[Tuple[str, float]] = []
+    commands: List[MotionCommand] = []
 
     if not orientations:
         return commands
+
+    if path is not None and len(path) != len(orientations) + 1:
+        raise ValueError(
+            f'path length must equal len(orientations)+1; '
+            f'got len(path)={len(path)}, len(orientations)={len(orientations)}'
+        )
 
     current_orientation = int(start_orientation)
     index = 0
@@ -212,10 +225,19 @@ def build_motion_commands(
 
         turn = turn_between_orientations(current_orientation, run_orientation)
         if abs(turn) > 1.0e-6:
-            commands.append(('rotate', turn))
+            commands.append(MotionCommand('rotate', float(turn)))
 
         distance_m = float(run_length) * float(cell_length_m)
-        commands.append(('drive_forward', distance_m))
+        start_idx = int(path[index]) if path is not None else 0
+        commands.append(
+            MotionCommand(
+                'drive_forward',
+                distance_m,
+                start_idx=start_idx,
+                heading=run_orientation,
+                run_cells=run_length,
+            )
+        )
 
         current_orientation = run_orientation
         index += run_length
@@ -288,8 +310,11 @@ class MazeSolverNode(Node):
             '/darth_maul_control/execute_motion_primitive',
         )
 
-        self.command_queue: List[Tuple[str, float]] = []
-        self.current_command: Optional[Tuple[str, float]] = None
+        self.command_queue: List[MotionCommand] = []
+        self.current_command: Optional[MotionCommand] = None
+        self.current_maze_n = 0
+        self.current_maze_m = 0
+        self.current_maze_l = []
 
         self._request_maze()
 
@@ -360,6 +385,9 @@ class MazeSolverNode(Node):
             return
 
         self.get_logger().info('Received valid maze.')
+        self.current_maze_n = int(maze.n)
+        self.current_maze_m = int(maze.m)
+        self.current_maze_l = [int(value) for value in maze.l]
 
         grid = self._ros_maze_to_matrix(maze)
         graph = self._build_graph(grid)
@@ -385,6 +413,7 @@ class MazeSolverNode(Node):
             commands = self._orientations_to_commands(
                 int(maze.start_orientation),
                 orientations,
+                path,
             )
         except ValueError as exc:
             self._fatal(str(exc))
@@ -404,13 +433,13 @@ class MazeSolverNode(Node):
         self.get_logger().info(
             f'Built {len(commands)} motion commands using maximal straight-run compression'
         )
-        for command_index, (command_name, command_value) in enumerate(
-            commands,
-            start=1,
-        ):
+        for command_index, motion_command in enumerate(commands, start=1):
             self.get_logger().info(
                 f'Motion command {command_index}/{len(commands)}: '
-                f'{command_name} {command_value:.3f}'
+                f'{motion_command.name} {motion_command.value:.3f}, '
+                f'start_idx={motion_command.start_idx}, '
+                f'heading={motion_command.heading}, '
+                f'run_cells={motion_command.run_cells}'
             )
 
         if not self.execute_motions:
@@ -538,11 +567,12 @@ class MazeSolverNode(Node):
 
         return orientations
 
-    def _orientations_to_commands(self, start_orientation, orientations):
+    def _orientations_to_commands(self, start_orientation, orientations, path):
         return build_motion_commands(
             int(start_orientation),
             list(orientations),
             self.cell_length_m,
+            path=list(path),
         )
 
     def _turn_between_orientations(self, current, target):
@@ -571,8 +601,10 @@ class MazeSolverNode(Node):
             self._finish_successfully('All motion commands finished.')
             return
 
-        command, value = self.command_queue.pop(0)
-        self.current_command = (command, value)
+        motion_command = self.command_queue.pop(0)
+        command = motion_command.name
+        value = motion_command.value
+        self.current_command = motion_command
 
         goal = ExecuteMotionPrimitive.Goal()
 
@@ -580,6 +612,12 @@ class MazeSolverNode(Node):
             goal.primitive_type = ExecuteMotionPrimitive.Goal.DRIVE_FORWARD
             goal.value = float(value)
             goal.collision_check_enabled = True
+            goal.grid_n = int(self.current_maze_n)
+            goal.grid_m = int(self.current_maze_m)
+            goal.grid_start_idx = int(motion_command.start_idx)
+            goal.grid_heading = int(motion_command.heading)
+            goal.grid_run_cells = int(motion_command.run_cells)
+            goal.grid_l = list(self.current_maze_l)
         elif command == 'rotate':
             goal.primitive_type = ExecuteMotionPrimitive.Goal.ROTATE_RELATIVE
             goal.value = float(value)
@@ -595,7 +633,12 @@ class MazeSolverNode(Node):
         goal.max_angular_z_radps = 0.0
         goal.timeout_s = 0.0
 
-        self.get_logger().info(f'Sending motion command: {command}, {value}')
+        self.get_logger().info(
+            f'Sending motion command: {command}, {value:.3f}, '
+            f'start_idx={motion_command.start_idx}, '
+            f'heading={motion_command.heading}, '
+            f'run_cells={motion_command.run_cells}'
+        )
         future = self.motion_client.send_goal_async(
             goal,
             feedback_callback=self._handle_motion_feedback,
