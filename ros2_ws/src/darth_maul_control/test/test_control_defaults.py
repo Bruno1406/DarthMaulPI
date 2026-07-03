@@ -66,14 +66,36 @@ def test_live_grid_control_defaults_present():
     assert 'translation_progress_source: lidar_required' in text
     assert 'grid_live_control_enabled: true' in text
     assert 'k_grid_lateral: 1.40' in text
-    assert 'max_grid_lateral_mps: 0.035' in text
+    assert 'max_linear_x_mps: 0.070' in text
+    assert 'max_grid_lateral_mps: 0.025' in text
+    assert 'grid_manhattan_yaw_enabled: true' in text
     assert 'k_grid_live_yaw: 2.20' in text
-    assert 'max_grid_live_yaw_correction_radps: 0.110' in text
+    assert 'max_grid_live_yaw_correction_radps: 0.080' in text
     assert 'grid_virtual_cell_boundary_margin_m: 0.025' in text
     assert 'grid_reacquire_large_yaw_rad: 0.100' in text
     assert 'lidar_parallelity_' not in text
     assert 'pre_translation_grid_yaw_align_' not in text
     assert 'post_rotation_grid_yaw_refine_' not in text
+
+
+def test_manhattan_yaw_defaults_present():
+    text = (PACKAGE_ROOT / 'config' / 'control_params.yaml').read_text()
+
+    assert 'grid_manhattan_yaw_enabled: true' in text
+    assert 'grid_manhattan_yaw_min_segment_length_m: 0.120' in text
+    assert 'grid_manhattan_yaw_max_line_rms_m: 0.020' in text
+    assert 'grid_manhattan_yaw_min_concentration: 0.70' in text
+    assert 'grid_manhattan_yaw_max_abs_error_rad: 0.140' in text
+
+
+def test_control_node_splits_yaw_and_lateral_observations():
+    text = (PACKAGE_ROOT / 'darth_maul_control' / 'control_node.py').read_text()
+
+    assert 'estimate_manhattan_grid_yaw(' in text
+    assert 'observe_centering_from_expected_side_walls(' in text
+    assert 'observation.yaw.valid' in text
+    assert 'observation.centering.valid' in text
+    assert 'cmd.linear.y = live_command.linear_y_mps' in text
 
 
 def test_control_node_uses_live_lateral_command_not_hardcoded_zero():

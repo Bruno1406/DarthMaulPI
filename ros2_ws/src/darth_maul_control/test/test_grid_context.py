@@ -4,15 +4,20 @@ from types import SimpleNamespace
 import pytest
 
 from darth_maul_control.grid_context import (
+    GRID_YAW_LOCK,
     HEADING_COAST,
+    LATERAL_COAST,
     WALL_LOCK,
     GridRunContext,
     advance_cell,
     expected_walls_for_cell,
+    invalid_centering,
     live_grid_command,
-    observe_grid,
+    make_grid_observation,
+    observe_centering_from_expected_side_walls,
     virtual_cell_for_progress,
 )
+from darth_maul_control.grid_yaw import GridYawObservation, invalid_grid_yaw
 from darth_maul_control.scan_geometry import estimate_grid_alignment
 
 
@@ -72,6 +77,38 @@ def alignment_from_lines(lines, half_width=0.20):
     )
 
 
+def valid_yaw(error=0.0, confidence=0.8, source='manhattan_lines'):
+    return GridYawObservation(
+        valid=True,
+        yaw_error_rad=error,
+        confidence=confidence,
+        source=source,
+        line_count=1,
+        dominant_axis_rad=error,
+        total_weight=1.0,
+        concentration=1.0,
+        reason='test yaw',
+    )
+
+
+def observe_centering(context, alignment):
+    return observe_centering_from_expected_side_walls(
+        context=context,
+        alignment=alignment,
+        progress_m=0.10,
+        cell_length_m=0.254,
+        boundary_margin_m=0.025,
+        expected_half_width_m=0.20,
+        adjacent_wall_tolerance_m=0.08,
+        pair_width_tolerance_m=0.08,
+        max_abs_yaw_error_rad=0.12,
+        max_rms_error_m=0.025,
+        min_span_x_m=0.12,
+        min_support_count=8,
+        min_confidence=0.55,
+    )
+
+
 def test_advance_cell_uses_readme_indexing():
     assert advance_cell(1, 1, 7, 11) == 2
     assert advance_cell(1, 4, 7, 11) == 8
@@ -118,26 +155,20 @@ def test_observation_accepts_expected_both_side_walls():
         (0.0, -0.20, -0.20, 0.45),
     ])
 
-    obs = observe_grid(
+    virtual, expected, centering = observe_centering(context, alignment)
+    obs = make_grid_observation(
         context=context,
-        alignment=alignment,
-        progress_m=0.10,
-        cell_length_m=0.254,
-        boundary_margin_m=0.025,
-        expected_half_width_m=0.20,
-        adjacent_wall_tolerance_m=0.08,
-        pair_width_tolerance_m=0.08,
-        max_abs_yaw_error_rad=0.12,
-        max_rms_error_m=0.025,
-        min_span_x_m=0.12,
-        min_support_count=8,
+        yaw=valid_yaw(),
+        centering=centering,
+        virtual=virtual,
+        expected=expected,
     )
 
-    assert obs.mode == WALL_LOCK
-    assert obs.yaw_valid
-    assert obs.lateral_valid
-    assert obs.source == 'left_right'
-    assert obs.lateral_error_m == pytest.approx(0.0, abs=0.02)
+    assert obs.combined_mode == WALL_LOCK
+    assert obs.yaw.valid
+    assert obs.centering.valid
+    assert obs.centering.source == 'left_right'
+    assert obs.centering.lateral_error_m == pytest.approx(0.0, abs=0.02)
 
 
 def test_observation_rejects_wall_when_map_says_open_side():
@@ -147,77 +178,53 @@ def test_observation_rejects_wall_when_map_says_open_side():
         (0.0, -0.20, -0.20, 0.45),
     ])
 
-    obs = observe_grid(
+    virtual, expected, centering = observe_centering(context, alignment)
+    obs = make_grid_observation(
         context=context,
-        alignment=alignment,
-        progress_m=0.10,
-        cell_length_m=0.254,
-        boundary_margin_m=0.025,
-        expected_half_width_m=0.20,
-        adjacent_wall_tolerance_m=0.08,
-        pair_width_tolerance_m=0.08,
-        max_abs_yaw_error_rad=0.12,
-        max_rms_error_m=0.025,
-        min_span_x_m=0.12,
-        min_support_count=8,
+        yaw=invalid_grid_yaw('no lines'),
+        centering=centering,
+        virtual=virtual,
+        expected=expected,
     )
 
-    assert obs.mode == HEADING_COAST
-    assert not obs.yaw_valid
-    assert not obs.lateral_valid
+    assert obs.combined_mode == HEADING_COAST
+    assert not obs.yaw.valid
+    assert not obs.centering.valid
 
 
 def test_lateral_error_sign_left_wall_robot_right_of_center():
     context = GridRunContext(True, 2, 2, 1, 1, 1, tuple([4, 0, 0, 0]), 'test')
     alignment = alignment_from_lines([(0.0, 0.25, -0.20, 0.45)])
 
-    obs = observe_grid(
-        context=context,
-        alignment=alignment,
-        progress_m=0.10,
-        cell_length_m=0.254,
-        boundary_margin_m=0.025,
-        expected_half_width_m=0.20,
-        adjacent_wall_tolerance_m=0.08,
-        pair_width_tolerance_m=0.08,
-        max_abs_yaw_error_rad=0.12,
-        max_rms_error_m=0.025,
-        min_span_x_m=0.12,
-        min_support_count=8,
-    )
+    _virtual, _expected, centering = observe_centering(context, alignment)
 
-    assert obs.mode == WALL_LOCK
-    assert obs.source == 'left'
-    assert obs.lateral_error_m > 0.0
+    assert centering.valid
+    assert centering.source == 'left'
+    assert centering.lateral_error_m > 0.0
 
 
 def test_live_grid_command_uses_wall_yaw_and_lateral_when_locked():
     context = GridRunContext(True, 2, 2, 1, 1, 1, tuple([4, 0, 0, 0]), 'test')
     alignment = alignment_from_lines([(0.05, 0.25, -0.20, 0.45)])
-    obs = observe_grid(
+    virtual, expected, centering = observe_centering(context, alignment)
+    obs = make_grid_observation(
         context=context,
-        alignment=alignment,
-        progress_m=0.10,
-        cell_length_m=0.254,
-        boundary_margin_m=0.025,
-        expected_half_width_m=0.20,
-        adjacent_wall_tolerance_m=0.08,
-        pair_width_tolerance_m=0.08,
-        max_abs_yaw_error_rad=0.12,
-        max_rms_error_m=0.025,
-        min_span_x_m=0.12,
-        min_support_count=8,
+        yaw=valid_yaw(0.05),
+        centering=centering,
+        virtual=virtual,
+        expected=expected,
     )
 
     cmd = live_grid_command(
         observation=obs,
-        previous_mode=WALL_LOCK,
+        previous_yaw_mode=GRID_YAW_LOCK,
         odom_heading_correction_radps=0.0,
         k_yaw=2.0,
         max_yaw_correction_radps=0.12,
         k_lateral=1.4,
         max_lateral_mps=0.035,
-        min_confidence=0.55,
+        yaw_min_confidence=0.55,
+        lateral_min_confidence=0.55,
         reacquire_stable_samples=3,
         current_reacquire_samples=3,
         small_reacquire_yaw_rad=0.04,
@@ -234,30 +241,25 @@ def test_live_grid_command_uses_wall_yaw_and_lateral_when_locked():
 def test_live_grid_command_falls_back_to_odom_heading_when_blind():
     context = GridRunContext(True, 2, 2, 1, 1, 1, tuple([0, 0, 0, 0]), 'test')
     alignment = alignment_from_lines([(0.0, 0.20, -0.20, 0.45)])
-    obs = observe_grid(
+    virtual, expected, centering = observe_centering(context, alignment)
+    obs = make_grid_observation(
         context=context,
-        alignment=alignment,
-        progress_m=0.10,
-        cell_length_m=0.254,
-        boundary_margin_m=0.025,
-        expected_half_width_m=0.20,
-        adjacent_wall_tolerance_m=0.08,
-        pair_width_tolerance_m=0.08,
-        max_abs_yaw_error_rad=0.12,
-        max_rms_error_m=0.025,
-        min_span_x_m=0.12,
-        min_support_count=8,
+        yaw=invalid_grid_yaw('no lines'),
+        centering=centering,
+        virtual=virtual,
+        expected=expected,
     )
 
     cmd = live_grid_command(
         observation=obs,
-        previous_mode=WALL_LOCK,
+        previous_yaw_mode=GRID_YAW_LOCK,
         odom_heading_correction_radps=0.07,
         k_yaw=2.0,
         max_yaw_correction_radps=0.12,
         k_lateral=1.4,
         max_lateral_mps=0.035,
-        min_confidence=0.55,
+        yaw_min_confidence=0.55,
+        lateral_min_confidence=0.55,
         reacquire_stable_samples=3,
         current_reacquire_samples=0,
         small_reacquire_yaw_rad=0.04,
@@ -269,4 +271,58 @@ def test_live_grid_command_falls_back_to_odom_heading_when_blind():
     assert not cmd.yaw_active
     assert not cmd.lateral_active
     assert cmd.angular_z_radps == pytest.approx(0.07)
+    assert cmd.linear_y_mps == pytest.approx(0.0)
+
+
+def test_front_wall_yaw_can_be_valid_while_lateral_is_invalid():
+    context = GridRunContext(True, 2, 2, 1, 1, 1, tuple([0, 0, 0, 0]), 'test')
+    alignment = alignment_from_lines([])
+
+    virtual, expected, centering = observe_centering(context, alignment)
+    obs = make_grid_observation(
+        context=context,
+        yaw=valid_yaw(0.03),
+        centering=centering,
+        virtual=virtual,
+        expected=expected,
+    )
+
+    assert obs.yaw.valid
+    assert not obs.centering.valid
+    assert obs.yaw_mode == GRID_YAW_LOCK
+    assert obs.lateral_mode == LATERAL_COAST
+
+
+def test_live_grid_command_uses_yaw_without_lateral():
+    context = GridRunContext(True, 2, 2, 1, 1, 1, tuple([0, 0, 0, 0]), 'test')
+    virtual = virtual_cell_for_progress(context, 0.10, 0.254, 0.025)
+    expected = expected_walls_for_cell(context, virtual.cell_idx)
+    obs = make_grid_observation(
+        context=context,
+        yaw=valid_yaw(0.04),
+        centering=invalid_centering('no side wall'),
+        virtual=virtual,
+        expected=expected,
+    )
+
+    cmd = live_grid_command(
+        observation=obs,
+        previous_yaw_mode=GRID_YAW_LOCK,
+        odom_heading_correction_radps=0.0,
+        k_yaw=2.0,
+        max_yaw_correction_radps=0.12,
+        k_lateral=1.4,
+        max_lateral_mps=0.035,
+        yaw_min_confidence=0.55,
+        lateral_min_confidence=0.55,
+        reacquire_stable_samples=3,
+        current_reacquire_samples=3,
+        small_reacquire_yaw_rad=0.04,
+        large_reacquire_yaw_rad=0.10,
+        reacquire_speed_scale=0.65,
+    )
+
+    assert cmd.yaw_active
+    assert not cmd.lateral_active
+    assert cmd.angular_z_radps == pytest.approx(0.08)
     assert cmd.linear_y_mps == pytest.approx(0.0)

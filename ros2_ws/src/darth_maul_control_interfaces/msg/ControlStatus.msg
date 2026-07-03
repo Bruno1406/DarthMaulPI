@@ -61,6 +61,23 @@ float64 grid_live_yaw_cmd_radps
 float64 grid_live_lateral_cmd_mps
 string grid_live_reason
 
+# Split yaw/centering live-control diagnostics.
+# grid_yaw_valid/grid_yaw_error_rad and grid_lateral_valid/grid_lateral_error_m
+# are kept above for backward compatibility and now carry these split values.
+string grid_yaw_mode
+float64 grid_yaw_confidence
+string grid_yaw_source
+int32 grid_yaw_line_count
+float64 grid_yaw_dominant_axis_rad
+float64 grid_yaw_total_weight
+float64 grid_yaw_concentration
+string grid_yaw_reason
+
+string grid_lateral_mode
+float64 grid_lateral_confidence
+string grid_lateral_source
+string grid_lateral_reason
+
 bool left_wall_line_valid
 float64 left_wall_offset_m
 float64 left_wall_yaw_error_rad

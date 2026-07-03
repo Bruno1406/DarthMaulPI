@@ -21,7 +21,7 @@ darth_maul_control:
     default_reverse_speed_mps: 0.050
     default_angular_speed_radps: 0.280
 
-    max_linear_x_mps: 0.090
+    max_linear_x_mps: 0.070
     max_linear_y_mps: 0.035
     max_angular_z_radps: 0.350
 
@@ -137,23 +137,51 @@ darth_maul_control:
     # This is the active straight-drive controller:
     #   linear.x  = front/rear LiDAR distance progress
     #   linear.y  = side-wall lateral centering when an expected side wall is observable
-    #   angular.z = side-wall yaw when an expected side wall is observable
-    #   fallback  = odom/IMU heading hold when side-wall geometry is unobservable
+    #   angular.z = global Manhattan yaw from clean LiDAR wall lines
+    #   fallback  = odom/IMU heading hold when Manhattan yaw is unobservable
     grid_live_control_enabled: true
+
+    # Global Manhattan yaw estimator.
+    #
+    # This uses all clean wall line segments in the LiDAR scan to estimate
+    # the robot yaw error relative to the orthogonal maze grid. It does not
+    # require adjacent side walls and must not be used for lateral centering.
+    grid_manhattan_yaw_enabled: true
+    grid_manhattan_yaw_min_range_m: 0.08
+    grid_manhattan_yaw_max_range_m: 2.50
+    grid_manhattan_yaw_max_point_gap_m: 0.055
+    grid_manhattan_yaw_max_range_jump_m: 0.080
+    grid_manhattan_yaw_min_cluster_points: 8
+    grid_manhattan_yaw_min_segment_points: 8
+    grid_manhattan_yaw_min_segment_length_m: 0.120
+    grid_manhattan_yaw_max_line_rms_m: 0.020
+    grid_manhattan_yaw_min_line_count: 1
+    grid_manhattan_yaw_min_total_weight: 0.20
+    grid_manhattan_yaw_min_concentration: 0.70
+    grid_manhattan_yaw_min_confidence: 0.55
+    grid_manhattan_yaw_max_abs_error_rad: 0.140
 
     # Positive lateral error means the desired grid centerline is left of the robot.
     # Positive cmd.linear.y should strafe left.
     k_grid_lateral: 1.40
-    max_grid_lateral_mps: 0.035
+    max_grid_lateral_mps: 0.025
     grid_lateral_min_confidence: 0.55
 
-    # Wall-yaw correction during live straight driving.
+    # Controller gain for global Manhattan yaw.
+    # Reuses the live yaw command cap, but yaw observation is no longer
+    # tied to expected adjacent side walls.
     k_grid_live_yaw: 2.20
-    max_grid_live_yaw_correction_radps: 0.110
+    max_grid_live_yaw_correction_radps: 0.080
+
+    # Legacy side-wall yaw confidence parameter retained for compatibility.
+    # Global yaw authority uses grid_manhattan_yaw_min_confidence.
     grid_live_yaw_min_confidence: 0.55
+
+    # Side-wall yaw quality gate for local centering lines.
+    # This is not the global Manhattan yaw max error.
     grid_live_max_abs_yaw_error_rad: 0.120
 
-    # Stricter wall-line quality for active control than diagnostics.
+    # Stricter side-wall-line quality for local centering than diagnostics.
     grid_live_min_span_x_m: 0.120
     grid_live_min_support_count: 8
     grid_live_max_rms_error_m: 0.025

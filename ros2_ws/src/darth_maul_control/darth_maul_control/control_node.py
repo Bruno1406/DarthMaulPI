@@ -33,14 +33,22 @@ from darth_maul_control.scan_geometry import (
 )
 from darth_maul_control.grid_context import (
     HEADING_COAST,
-    RECOVERY,
+    LATERAL_COAST,
     UNAVAILABLE,
+    YAW_RECOVERY,
     GridObservation,
     GridRunContext,
     LiveGridCommand,
     grid_context_from_goal,
+    invalid_centering,
     live_grid_command,
-    observe_grid,
+    make_grid_observation,
+    observe_centering_from_expected_side_walls,
+)
+from darth_maul_control.grid_yaw import (
+    GridYawObservation,
+    estimate_manhattan_grid_yaw,
+    invalid_grid_yaw,
 )
 from darth_maul_control.velocity_limiter import VelocityLimiter, VelocityLimits
 from darth_maul_control_interfaces.action import ExecuteMotionPrimitive
@@ -216,10 +224,16 @@ class DarthMaulControlNode(Node):
         self._grid_yaw_correction_radps = 0.0
         self._grid_yaw_control_reason = ''
         self._grid_live_mode = UNAVAILABLE
+        self._grid_yaw_mode = UNAVAILABLE
+        self._grid_lateral_mode = UNAVAILABLE
         self._grid_live_reacquire_samples = 0
         self._grid_live_last_observation = None
+        self._grid_live_last_yaw_observation = invalid_grid_yaw('not initialized')
+        self._grid_live_last_centering_observation = invalid_centering('not initialized')
         self._grid_live_last_command = LiveGridCommand(
             mode=UNAVAILABLE,
+            yaw_mode=UNAVAILABLE,
+            lateral_mode=UNAVAILABLE,
             yaw_active=False,
             lateral_active=False,
             angular_z_radps=0.0,
@@ -528,6 +542,78 @@ class DarthMaulControlNode(Node):
         self.max_grid_live_yaw_correction_radps = self._nonnegative_float_param(
             'max_grid_live_yaw_correction_radps',
             0.110,
+        )
+        self.grid_manhattan_yaw_enabled = self._bool_param(
+            'grid_manhattan_yaw_enabled',
+            True,
+        )
+        self.grid_manhattan_yaw_min_range_m = self._positive_float_param(
+            'grid_manhattan_yaw_min_range_m',
+            0.08,
+        )
+        self.grid_manhattan_yaw_max_range_m = self._positive_float_param(
+            'grid_manhattan_yaw_max_range_m',
+            2.50,
+        )
+        self.grid_manhattan_yaw_max_point_gap_m = self._positive_float_param(
+            'grid_manhattan_yaw_max_point_gap_m',
+            0.055,
+        )
+        self.grid_manhattan_yaw_max_range_jump_m = self._positive_float_param(
+            'grid_manhattan_yaw_max_range_jump_m',
+            0.080,
+        )
+        self.grid_manhattan_yaw_min_cluster_points = self._positive_int_param(
+            'grid_manhattan_yaw_min_cluster_points',
+            8,
+        )
+        self.grid_manhattan_yaw_min_segment_points = self._positive_int_param(
+            'grid_manhattan_yaw_min_segment_points',
+            8,
+        )
+        self.grid_manhattan_yaw_min_segment_length_m = self._positive_float_param(
+            'grid_manhattan_yaw_min_segment_length_m',
+            0.120,
+        )
+        self.grid_manhattan_yaw_max_line_rms_m = self._positive_float_param(
+            'grid_manhattan_yaw_max_line_rms_m',
+            0.020,
+        )
+        self.grid_manhattan_yaw_min_line_count = self._positive_int_param(
+            'grid_manhattan_yaw_min_line_count',
+            1,
+        )
+        self.grid_manhattan_yaw_min_total_weight = self._positive_float_param(
+            'grid_manhattan_yaw_min_total_weight',
+            0.20,
+        )
+        self.grid_manhattan_yaw_min_concentration = self._nonnegative_float_param(
+            'grid_manhattan_yaw_min_concentration',
+            0.70,
+        )
+        self.grid_manhattan_yaw_min_confidence = self._nonnegative_float_param(
+            'grid_manhattan_yaw_min_confidence',
+            0.55,
+        )
+        self.grid_manhattan_yaw_max_abs_error_rad = self._positive_float_param(
+            'grid_manhattan_yaw_max_abs_error_rad',
+            0.140,
+        )
+
+        if self.grid_manhattan_yaw_max_range_m <= self.grid_manhattan_yaw_min_range_m:
+            self.get_logger().warning(
+                'Invalid grid Manhattan yaw range window; using [0.08, 2.50]'
+            )
+            self.grid_manhattan_yaw_min_range_m = 0.08
+            self.grid_manhattan_yaw_max_range_m = 2.50
+
+        self.grid_manhattan_yaw_min_concentration = max(
+            0.0,
+            min(1.0, self.grid_manhattan_yaw_min_concentration),
+        )
+        self.grid_manhattan_yaw_min_confidence = max(
+            0.0,
+            min(1.0, self.grid_manhattan_yaw_min_confidence),
         )
         self.grid_live_yaw_min_confidence = self._nonnegative_float_param(
             'grid_live_yaw_min_confidence',
@@ -1217,22 +1303,21 @@ class DarthMaulControlNode(Node):
                     final_position_error = abs(remaining)
                     final_heading_error = abs(heading_error)
 
-                final_alignment_for_validation = self._grid_alignment_snapshot()
+                final_yaw_observation = self._manhattan_yaw_observation()
+                self._grid_live_last_yaw_observation = final_yaw_observation
+
                 (
                     final_heading_validation_error,
                     final_heading_validation_source,
                 ) = choose_heading_validation_error(
                     odom_heading_error_rad=final_heading_error,
-                    grid_yaw_error_rad=final_alignment_for_validation.yaw_error_rad,
-                    grid_yaw_valid=(
-                        final_alignment_for_validation.valid
-                        and final_alignment_for_validation.yaw_valid
-                    ),
+                    grid_yaw_error_rad=final_yaw_observation.yaw_error_rad,
+                    grid_yaw_valid=final_yaw_observation.valid,
                     grid_yaw_correction_used=grid_yaw_correction_ever_used,
-                    grid_alignment_confidence=final_alignment_for_validation.confidence,
-                    min_grid_confidence=self.grid_live_yaw_min_confidence,
-                    max_grid_yaw_abs_error_rad=self.grid_live_max_abs_yaw_error_rad,
-                    grid_alignment_source=final_alignment_for_validation.source,
+                    grid_alignment_confidence=final_yaw_observation.confidence,
+                    min_grid_confidence=self.grid_manhattan_yaw_min_confidence,
+                    max_grid_yaw_abs_error_rad=self.grid_manhattan_yaw_max_abs_error_rad,
+                    grid_alignment_source=final_yaw_observation.source,
                 )
 
                 if (
@@ -1282,10 +1367,12 @@ class DarthMaulControlNode(Node):
                 odom_heading_correction_radps=raw_heading_correction,
             )
 
-            if live_command.mode == RECOVERY:
+            if live_command.yaw_mode == YAW_RECOVERY:
                 self.publish_zero_twist()
                 result_code = ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
-                result_message = f'{name} entered live-grid recovery: {live_command.reason}'
+                result_message = (
+                    f'{name} entered live-grid yaw recovery: {live_command.reason}'
+                )
                 break
 
             speed_mag *= live_command.speed_scale
@@ -1320,21 +1407,26 @@ class DarthMaulControlNode(Node):
                     f'progress_source={progress_selection.source}, '
                     f'odom_progress={odom_progress:.3f} m, '
                     f'control_progress={control_progress:.3f} m, '
-                    f'grid_live_mode={live_command.mode}, '
+                    f'grid_yaw_mode={live_command.yaw_mode}, '
+                    f'grid_lateral_mode={live_command.lateral_mode}, '
                     f'grid_context_valid={live_observation.context_valid}, '
                     f'virtual_cell={live_observation.virtual_cell.cell_idx}, '
                     f'cell_progress={live_observation.virtual_cell.distance_into_cell_m:.3f} m, '
                     f'boundary_zone={live_observation.virtual_cell.boundary_zone}, '
                     f'expected_walls=F{int(live_observation.expected.front)}'
-                    f'R{int(live_observation.expected.rear)}'
+                    f'B{int(live_observation.expected.rear)}'
                     f'L{int(live_observation.expected.left)}'
                     f'R{int(live_observation.expected.right)}, '
-                    f'obs_source={live_observation.source}, '
-                    f'obs_conf={live_observation.confidence:.2f}, '
-                    f'lat_valid={live_observation.lateral_valid}, '
-                    f'lat_error={live_observation.lateral_error_m:.3f} m, '
-                    f'yaw_valid={live_observation.yaw_valid}, '
-                    f'yaw_error={live_observation.yaw_error_rad:.3f} rad, '
+                    f'yaw_valid={live_observation.yaw.valid}, '
+                    f'yaw_source={live_observation.yaw.source}, '
+                    f'yaw_error={live_observation.yaw.yaw_error_rad:.3f} rad, '
+                    f'yaw_conf={live_observation.yaw.confidence:.2f}, '
+                    f'yaw_lines={live_observation.yaw.line_count}, '
+                    f'yaw_conc={live_observation.yaw.concentration:.2f}, '
+                    f'lat_valid={live_observation.centering.valid}, '
+                    f'lat_source={live_observation.centering.source}, '
+                    f'lat_error={live_observation.centering.lateral_error_m:.3f} m, '
+                    f'lat_conf={live_observation.centering.confidence:.2f}, '
                     f'linear_y={cmd.linear.y:.3f} m/s, '
                     f'angular_z={cmd.angular.z:.3f} rad/s, '
                     f'live_reason={live_command.reason}'
@@ -1726,12 +1818,42 @@ class DarthMaulControlNode(Node):
         scan = self._fresh_scan_copy()
         return self._grid_alignment_from_scan(scan)
 
+    def _manhattan_yaw_observation(self) -> GridYawObservation:
+        if not self.grid_manhattan_yaw_enabled:
+            return invalid_grid_yaw('grid Manhattan yaw disabled')
+
+        scan = self._fresh_scan_copy()
+        if scan is None:
+            return invalid_grid_yaw('no fresh scan for Manhattan yaw')
+
+        return estimate_manhattan_grid_yaw(
+            scan,
+            min_range_m=self.grid_manhattan_yaw_min_range_m,
+            max_range_m=self.grid_manhattan_yaw_max_range_m,
+            max_point_gap_m=self.grid_manhattan_yaw_max_point_gap_m,
+            max_range_jump_m=self.grid_manhattan_yaw_max_range_jump_m,
+            min_cluster_points=self.grid_manhattan_yaw_min_cluster_points,
+            min_segment_points=self.grid_manhattan_yaw_min_segment_points,
+            min_segment_length_m=self.grid_manhattan_yaw_min_segment_length_m,
+            max_line_rms_m=self.grid_manhattan_yaw_max_line_rms_m,
+            min_line_count=self.grid_manhattan_yaw_min_line_count,
+            min_total_weight=self.grid_manhattan_yaw_min_total_weight,
+            min_concentration=self.grid_manhattan_yaw_min_concentration,
+            max_abs_yaw_error_rad=self.grid_manhattan_yaw_max_abs_error_rad,
+        )
+
     def _reset_live_grid_controller(self, reason: str = '') -> None:
         self._grid_live_mode = UNAVAILABLE
+        self._grid_yaw_mode = UNAVAILABLE
+        self._grid_lateral_mode = UNAVAILABLE
         self._grid_live_reacquire_samples = 0
         self._grid_live_last_observation = None
+        self._grid_live_last_yaw_observation = invalid_grid_yaw(reason or 'reset')
+        self._grid_live_last_centering_observation = invalid_centering(reason or 'reset')
         self._grid_live_last_command = LiveGridCommand(
             mode=UNAVAILABLE,
+            yaw_mode=UNAVAILABLE,
+            lateral_mode=UNAVAILABLE,
             yaw_active=False,
             lateral_active=False,
             angular_z_radps=0.0,
@@ -1755,7 +1877,9 @@ class DarthMaulControlNode(Node):
         alignment: GridAlignmentEstimate,
         progress_m: float,
     ) -> GridObservation:
-        return observe_grid(
+        yaw = self._manhattan_yaw_observation()
+
+        virtual, expected, centering = observe_centering_from_expected_side_walls(
             context=context,
             alignment=alignment,
             progress_m=progress_m,
@@ -1768,6 +1892,15 @@ class DarthMaulControlNode(Node):
             max_rms_error_m=self.grid_live_max_rms_error_m,
             min_span_x_m=self.grid_live_min_span_x_m,
             min_support_count=self.grid_live_min_support_count,
+            min_confidence=self.grid_lateral_min_confidence,
+        )
+
+        return make_grid_observation(
+            context=context,
+            yaw=yaw,
+            centering=centering,
+            virtual=virtual,
+            expected=expected,
         )
 
     def _live_grid_command(
@@ -1777,7 +1910,9 @@ class DarthMaulControlNode(Node):
     ) -> LiveGridCommand:
         if not self.grid_live_control_enabled:
             return LiveGridCommand(
-                HEADING_COAST,
+                mode=HEADING_COAST,
+                yaw_mode=HEADING_COAST,
+                lateral_mode=LATERAL_COAST,
                 yaw_active=False,
                 lateral_active=False,
                 angular_z_radps=float(odom_heading_correction_radps),
@@ -1786,27 +1921,23 @@ class DarthMaulControlNode(Node):
                 reason='grid live control disabled',
             )
 
-        min_confidence = max(
-            self.grid_live_yaw_min_confidence,
-            self.grid_lateral_min_confidence,
-        )
-
-        if self._grid_live_mode == HEADING_COAST and observation.yaw_valid:
+        if self._grid_yaw_mode == HEADING_COAST and observation.yaw.valid:
             self._grid_live_reacquire_samples += 1
-        elif observation.yaw_valid:
+        elif observation.yaw.valid:
             self._grid_live_reacquire_samples = self.grid_reacquire_stable_samples
         else:
             self._grid_live_reacquire_samples = 0
 
         command = live_grid_command(
             observation=observation,
-            previous_mode=self._grid_live_mode,
+            previous_yaw_mode=self._grid_yaw_mode,
             odom_heading_correction_radps=odom_heading_correction_radps,
             k_yaw=self.k_grid_live_yaw,
             max_yaw_correction_radps=self.max_grid_live_yaw_correction_radps,
             k_lateral=self.k_grid_lateral,
             max_lateral_mps=min(self.max_grid_lateral_mps, self.max_linear_y_mps),
-            min_confidence=min_confidence,
+            yaw_min_confidence=self.grid_manhattan_yaw_min_confidence,
+            lateral_min_confidence=self.grid_lateral_min_confidence,
             reacquire_stable_samples=self.grid_reacquire_stable_samples,
             current_reacquire_samples=self._grid_live_reacquire_samples,
             small_reacquire_yaw_rad=self.grid_reacquire_small_yaw_rad,
@@ -1815,8 +1946,12 @@ class DarthMaulControlNode(Node):
         )
 
         self._grid_live_mode = command.mode
+        self._grid_yaw_mode = command.yaw_mode
+        self._grid_lateral_mode = command.lateral_mode
         self._grid_live_last_command = command
         self._grid_live_last_observation = observation
+        self._grid_live_last_yaw_observation = observation.yaw
+        self._grid_live_last_centering_observation = observation.centering
         self._grid_live_last_context_valid = observation.context_valid
         self._grid_live_last_virtual_cell = observation.virtual_cell.cell_idx
         self._grid_live_last_virtual_cell_progress_m = (
@@ -2562,6 +2697,10 @@ class DarthMaulControlNode(Node):
             grid_live_yaw_cmd = self._grid_live_last_command.angular_z_radps
             grid_live_lateral_cmd = self._grid_live_last_command.linear_y_mps
             grid_live_reason = self._grid_live_last_command.reason
+            yaw_obs = self._grid_live_last_yaw_observation
+            center_obs = self._grid_live_last_centering_observation
+            grid_yaw_mode = self._grid_yaw_mode
+            grid_lateral_mode = self._grid_lateral_mode
 
         msg = ControlStatus()
         msg.stamp = self.get_clock().now().to_msg()
@@ -2580,10 +2719,6 @@ class DarthMaulControlNode(Node):
         msg.left_range_m = left_range
         msg.right_range_m = right_range
         msg.grid_alignment_valid = bool(grid_alignment.valid)
-        msg.grid_yaw_valid = bool(grid_alignment.yaw_valid)
-        msg.grid_yaw_error_rad = float(grid_alignment.yaw_error_rad)
-        msg.grid_lateral_valid = bool(grid_alignment.lateral_valid)
-        msg.grid_lateral_error_m = float(grid_alignment.lateral_error_m)
         msg.grid_alignment_source = str(grid_alignment.source)
         msg.grid_alignment_confidence = float(grid_alignment.confidence)
         msg.grid_yaw_correction_active = bool(grid_yaw_correction_active)
@@ -2603,6 +2738,22 @@ class DarthMaulControlNode(Node):
         msg.grid_live_yaw_cmd_radps = float(grid_live_yaw_cmd)
         msg.grid_live_lateral_cmd_mps = float(grid_live_lateral_cmd)
         msg.grid_live_reason = str(grid_live_reason)
+        msg.grid_yaw_mode = str(grid_yaw_mode)
+        msg.grid_yaw_valid = bool(yaw_obs.valid)
+        msg.grid_yaw_error_rad = float(yaw_obs.yaw_error_rad)
+        msg.grid_yaw_confidence = float(yaw_obs.confidence)
+        msg.grid_yaw_source = str(yaw_obs.source)
+        msg.grid_yaw_line_count = int(yaw_obs.line_count)
+        msg.grid_yaw_dominant_axis_rad = float(yaw_obs.dominant_axis_rad)
+        msg.grid_yaw_total_weight = float(yaw_obs.total_weight)
+        msg.grid_yaw_concentration = float(yaw_obs.concentration)
+        msg.grid_yaw_reason = str(yaw_obs.reason)
+        msg.grid_lateral_mode = str(grid_lateral_mode)
+        msg.grid_lateral_valid = bool(center_obs.valid)
+        msg.grid_lateral_error_m = float(center_obs.lateral_error_m)
+        msg.grid_lateral_confidence = float(center_obs.confidence)
+        msg.grid_lateral_source = str(center_obs.source)
+        msg.grid_lateral_reason = str(center_obs.reason)
 
         msg.left_wall_line_valid = bool(grid_alignment.left.valid)
         msg.left_wall_offset_m = float(grid_alignment.left.offset_m)

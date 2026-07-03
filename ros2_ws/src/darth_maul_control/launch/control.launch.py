@@ -47,6 +47,42 @@ def generate_launch_description():
     max_grid_live_yaw_correction_radps = LaunchConfiguration(
         'max_grid_live_yaw_correction_radps'
     )
+    grid_manhattan_yaw_enabled = LaunchConfiguration('grid_manhattan_yaw_enabled')
+    grid_manhattan_yaw_min_range_m = LaunchConfiguration('grid_manhattan_yaw_min_range_m')
+    grid_manhattan_yaw_max_range_m = LaunchConfiguration('grid_manhattan_yaw_max_range_m')
+    grid_manhattan_yaw_max_point_gap_m = LaunchConfiguration(
+        'grid_manhattan_yaw_max_point_gap_m'
+    )
+    grid_manhattan_yaw_max_range_jump_m = LaunchConfiguration(
+        'grid_manhattan_yaw_max_range_jump_m'
+    )
+    grid_manhattan_yaw_min_cluster_points = LaunchConfiguration(
+        'grid_manhattan_yaw_min_cluster_points'
+    )
+    grid_manhattan_yaw_min_segment_points = LaunchConfiguration(
+        'grid_manhattan_yaw_min_segment_points'
+    )
+    grid_manhattan_yaw_min_segment_length_m = LaunchConfiguration(
+        'grid_manhattan_yaw_min_segment_length_m'
+    )
+    grid_manhattan_yaw_max_line_rms_m = LaunchConfiguration(
+        'grid_manhattan_yaw_max_line_rms_m'
+    )
+    grid_manhattan_yaw_min_line_count = LaunchConfiguration(
+        'grid_manhattan_yaw_min_line_count'
+    )
+    grid_manhattan_yaw_min_total_weight = LaunchConfiguration(
+        'grid_manhattan_yaw_min_total_weight'
+    )
+    grid_manhattan_yaw_min_concentration = LaunchConfiguration(
+        'grid_manhattan_yaw_min_concentration'
+    )
+    grid_manhattan_yaw_min_confidence = LaunchConfiguration(
+        'grid_manhattan_yaw_min_confidence'
+    )
+    grid_manhattan_yaw_max_abs_error_rad = LaunchConfiguration(
+        'grid_manhattan_yaw_max_abs_error_rad'
+    )
     grid_live_yaw_min_confidence = LaunchConfiguration(
         'grid_live_yaw_min_confidence'
     )
@@ -90,10 +126,24 @@ def generate_launch_description():
         _declare('lidar_progress_temporal_max_degraded_samples', '2'),
         _declare('grid_live_control_enabled', 'true'),
         _declare('k_grid_lateral', '1.40'),
-        _declare('max_grid_lateral_mps', '0.035'),
+        _declare('max_grid_lateral_mps', '0.025'),
         _declare('grid_lateral_min_confidence', '0.55'),
         _declare('k_grid_live_yaw', '2.20'),
-        _declare('max_grid_live_yaw_correction_radps', '0.110'),
+        _declare('max_grid_live_yaw_correction_radps', '0.080'),
+        _declare('grid_manhattan_yaw_enabled', 'true'),
+        _declare('grid_manhattan_yaw_min_range_m', '0.08'),
+        _declare('grid_manhattan_yaw_max_range_m', '2.50'),
+        _declare('grid_manhattan_yaw_max_point_gap_m', '0.055'),
+        _declare('grid_manhattan_yaw_max_range_jump_m', '0.080'),
+        _declare('grid_manhattan_yaw_min_cluster_points', '8'),
+        _declare('grid_manhattan_yaw_min_segment_points', '8'),
+        _declare('grid_manhattan_yaw_min_segment_length_m', '0.120'),
+        _declare('grid_manhattan_yaw_max_line_rms_m', '0.020'),
+        _declare('grid_manhattan_yaw_min_line_count', '1'),
+        _declare('grid_manhattan_yaw_min_total_weight', '0.20'),
+        _declare('grid_manhattan_yaw_min_concentration', '0.70'),
+        _declare('grid_manhattan_yaw_min_confidence', '0.55'),
+        _declare('grid_manhattan_yaw_max_abs_error_rad', '0.140'),
         _declare('grid_live_yaw_min_confidence', '0.55'),
         _declare('grid_live_max_abs_yaw_error_rad', '0.120'),
         _declare('grid_live_min_span_x_m', '0.120'),
@@ -162,6 +212,62 @@ def generate_launch_description():
                     ),
                     'max_grid_live_yaw_correction_radps': ParameterValue(
                         max_grid_live_yaw_correction_radps,
+                        value_type=float,
+                    ),
+                    'grid_manhattan_yaw_enabled': ParameterValue(
+                        grid_manhattan_yaw_enabled,
+                        value_type=bool,
+                    ),
+                    'grid_manhattan_yaw_min_range_m': ParameterValue(
+                        grid_manhattan_yaw_min_range_m,
+                        value_type=float,
+                    ),
+                    'grid_manhattan_yaw_max_range_m': ParameterValue(
+                        grid_manhattan_yaw_max_range_m,
+                        value_type=float,
+                    ),
+                    'grid_manhattan_yaw_max_point_gap_m': ParameterValue(
+                        grid_manhattan_yaw_max_point_gap_m,
+                        value_type=float,
+                    ),
+                    'grid_manhattan_yaw_max_range_jump_m': ParameterValue(
+                        grid_manhattan_yaw_max_range_jump_m,
+                        value_type=float,
+                    ),
+                    'grid_manhattan_yaw_min_cluster_points': ParameterValue(
+                        grid_manhattan_yaw_min_cluster_points,
+                        value_type=int,
+                    ),
+                    'grid_manhattan_yaw_min_segment_points': ParameterValue(
+                        grid_manhattan_yaw_min_segment_points,
+                        value_type=int,
+                    ),
+                    'grid_manhattan_yaw_min_segment_length_m': ParameterValue(
+                        grid_manhattan_yaw_min_segment_length_m,
+                        value_type=float,
+                    ),
+                    'grid_manhattan_yaw_max_line_rms_m': ParameterValue(
+                        grid_manhattan_yaw_max_line_rms_m,
+                        value_type=float,
+                    ),
+                    'grid_manhattan_yaw_min_line_count': ParameterValue(
+                        grid_manhattan_yaw_min_line_count,
+                        value_type=int,
+                    ),
+                    'grid_manhattan_yaw_min_total_weight': ParameterValue(
+                        grid_manhattan_yaw_min_total_weight,
+                        value_type=float,
+                    ),
+                    'grid_manhattan_yaw_min_concentration': ParameterValue(
+                        grid_manhattan_yaw_min_concentration,
+                        value_type=float,
+                    ),
+                    'grid_manhattan_yaw_min_confidence': ParameterValue(
+                        grid_manhattan_yaw_min_confidence,
+                        value_type=float,
+                    ),
+                    'grid_manhattan_yaw_max_abs_error_rad': ParameterValue(
+                        grid_manhattan_yaw_max_abs_error_rad,
                         value_type=float,
                     ),
                     'grid_live_yaw_min_confidence': ParameterValue(

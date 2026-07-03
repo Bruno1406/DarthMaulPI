@@ -5,6 +5,7 @@ import math
 from typing import Sequence
 
 from darth_maul_control.geometry import clamp
+from darth_maul_control.grid_yaw import GridYawObservation
 from darth_maul_control.scan_geometry import (
     GridAlignmentEstimate,
     WallLineEstimate,
@@ -43,8 +44,15 @@ RIGHT_OF = {
     POS_Y: POS_X,
 }
 
-WALL_LOCK = 'wall_lock'
+GRID_YAW_LOCK = 'grid_yaw_lock'
 HEADING_COAST = 'heading_coast'
+YAW_REACQUIRE = 'yaw_reacquire'
+YAW_RECOVERY = 'yaw_recovery'
+CENTER_LOCK = 'center_lock'
+LATERAL_COAST = 'lateral_coast'
+
+# Keep these old names only for compatibility with older tests/status.
+WALL_LOCK = 'wall_lock'
 REACQUIRE = 'reacquire'
 RECOVERY = 'recovery'
 UNAVAILABLE = 'unavailable'
@@ -86,19 +94,11 @@ class ExpectedWalls:
 
 
 @dataclass(frozen=True)
-class GridObservation:
-    context_valid: bool
-    mode: str
-    virtual_cell: VirtualCellEstimate
-    expected: ExpectedWalls
-
-    yaw_valid: bool
-    yaw_error_rad: float
-    lateral_valid: bool
+class GridCenteringObservation:
+    valid: bool
     lateral_error_m: float
-
-    source: str
     confidence: float
+    source: str
     matched_expected_wall_ids: tuple[str, ...]
     left_usable: bool
     right_usable: bool
@@ -106,8 +106,25 @@ class GridObservation:
 
 
 @dataclass(frozen=True)
+class GridObservation:
+    context_valid: bool
+    virtual_cell: VirtualCellEstimate
+    expected: ExpectedWalls
+
+    yaw: GridYawObservation
+    centering: GridCenteringObservation
+
+    yaw_mode: str
+    lateral_mode: str
+    combined_mode: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class LiveGridCommand:
     mode: str
+    yaw_mode: str
+    lateral_mode: str
     yaw_active: bool
     lateral_active: bool
     angular_z_radps: float
@@ -254,6 +271,19 @@ def expected_walls_for_cell(context: GridRunContext, cell_idx: int) -> ExpectedW
     )
 
 
+def invalid_centering(reason: str) -> GridCenteringObservation:
+    return GridCenteringObservation(
+        valid=False,
+        lateral_error_m=0.0,
+        confidence=0.0,
+        source='none',
+        matched_expected_wall_ids=(),
+        left_usable=False,
+        right_usable=False,
+        reason=reason,
+    )
+
+
 def _wall_quality_ok(
     wall: WallLineEstimate,
     *,
@@ -312,7 +342,7 @@ def _wall_reject_reason(
     return f'{side} wall accepted'
 
 
-def observe_grid(
+def observe_centering_from_expected_side_walls(
     *,
     context: GridRunContext,
     alignment: GridAlignmentEstimate,
@@ -326,7 +356,8 @@ def observe_grid(
     max_rms_error_m: float,
     min_span_x_m: float,
     min_support_count: int,
-) -> GridObservation:
+    min_confidence: float,
+) -> tuple[VirtualCellEstimate, ExpectedWalls, GridCenteringObservation]:
     virtual = virtual_cell_for_progress(
         context,
         progress_m=progress_m,
@@ -340,22 +371,8 @@ def observe_grid(
     )
 
     if not context.valid or not virtual.valid or not expected.valid:
-        return GridObservation(
-            False,
-            UNAVAILABLE,
-            virtual,
-            expected,
-            False,
-            0.0,
-            False,
-            0.0,
-            'none',
-            0.0,
-            (),
-            False,
-            False,
-            f'grid context unavailable: {context.reason}; {virtual.reason}; {expected.reason}',
-        )
+        reason = f'grid context unavailable: {context.reason}; {virtual.reason}; {expected.reason}'
+        return virtual, expected, invalid_centering(reason)
 
     left_ok = bool(
         expected.left
@@ -411,188 +428,225 @@ def observe_grid(
         observed_width = float(alignment.left.offset_m) - float(alignment.right.offset_m)
         expected_width = 2.0 * float(expected_half_width_m)
         width_error = observed_width - expected_width
+
         if abs(width_error) <= float(pair_width_tolerance_m):
-            yaw_error = (alignment.left.yaw_error_rad + alignment.right.yaw_error_rad) / 2.0
             lateral_error = (alignment.left.offset_m + alignment.right.offset_m) / 2.0
-            return GridObservation(
-                True,
-                WALL_LOCK,
-                virtual,
-                expected,
-                True,
-                float(yaw_error),
-                True,
-                float(lateral_error),
-                'left_right',
-                1.0 * boundary_scale,
-                ('left', 'right'),
-                True,
-                True,
-                (
-                    f'left/right expected side walls accepted; '
-                    f'virtual_cell={virtual.cell_idx}; width_error={width_error:.3f}; '
+            confidence = 1.0 * boundary_scale
+            if confidence >= float(min_confidence):
+                return virtual, expected, GridCenteringObservation(
+                    valid=True,
+                    lateral_error_m=float(lateral_error),
+                    confidence=float(confidence),
+                    source='left_right',
+                    matched_expected_wall_ids=('left', 'right'),
+                    left_usable=True,
+                    right_usable=True,
+                    reason=(
+                        f'left/right expected side walls accepted; '
+                        f'virtual_cell={virtual.cell_idx}; width_error={width_error:.3f}; '
+                        f'boundary_zone={virtual.boundary_zone}'
+                    ),
+                )
+
+    if left_ok:
+        confidence = 0.60 * boundary_scale
+        if confidence >= float(min_confidence):
+            return virtual, expected, GridCenteringObservation(
+                valid=True,
+                lateral_error_m=float(wall_offset_error_m(alignment.left, expected_half_width_m)),
+                confidence=float(confidence),
+                source='left',
+                matched_expected_wall_ids=('left',),
+                left_usable=True,
+                right_usable=False,
+                reason=(
+                    f'expected left wall accepted; {right_reason}; '
                     f'boundary_zone={virtual.boundary_zone}'
                 ),
             )
 
-    if left_ok:
-        return GridObservation(
-            True,
-            WALL_LOCK,
-            virtual,
-            expected,
-            True,
-            float(alignment.left.yaw_error_rad),
-            True,
-            float(wall_offset_error_m(alignment.left, expected_half_width_m)),
-            'left',
-            0.60 * boundary_scale,
-            ('left',),
-            True,
-            False,
-            f'expected left wall accepted; {right_reason}; boundary_zone={virtual.boundary_zone}',
-        )
-
     if right_ok:
-        return GridObservation(
-            True,
-            WALL_LOCK,
-            virtual,
-            expected,
-            True,
-            float(alignment.right.yaw_error_rad),
-            True,
-            float(wall_offset_error_m(alignment.right, expected_half_width_m)),
-            'right',
-            0.60 * boundary_scale,
-            ('right',),
-            False,
-            True,
-            f'expected right wall accepted; {left_reason}; boundary_zone={virtual.boundary_zone}',
-        )
+        confidence = 0.60 * boundary_scale
+        if confidence >= float(min_confidence):
+            return virtual, expected, GridCenteringObservation(
+                valid=True,
+                lateral_error_m=float(wall_offset_error_m(alignment.right, expected_half_width_m)),
+                confidence=float(confidence),
+                source='right',
+                matched_expected_wall_ids=('right',),
+                left_usable=False,
+                right_usable=True,
+                reason=(
+                    f'expected right wall accepted; {left_reason}; '
+                    f'boundary_zone={virtual.boundary_zone}'
+                ),
+            )
 
-    return GridObservation(
-        True,
-        HEADING_COAST,
-        virtual,
-        expected,
-        False,
-        0.0,
-        False,
-        0.0,
-        'none',
-        0.0,
-        (),
-        False,
-        False,
+    return virtual, expected, invalid_centering(
         (
-            f'no usable expected side wall; virtual_cell={virtual.cell_idx}; '
+            f'no usable expected side wall for centering; virtual_cell={virtual.cell_idx}; '
             f'expected_left={expected.left}; expected_right={expected.right}; '
             f'{left_reason}; {right_reason}'
-        ),
+        )
+    )
+
+
+def make_grid_observation(
+    *,
+    context: GridRunContext,
+    yaw: GridYawObservation,
+    centering: GridCenteringObservation,
+    virtual: VirtualCellEstimate,
+    expected: ExpectedWalls,
+) -> GridObservation:
+    context_valid = bool(context.valid and virtual.valid and expected.valid)
+
+    yaw_mode = GRID_YAW_LOCK if yaw.valid else HEADING_COAST
+    lateral_mode = CENTER_LOCK if centering.valid else LATERAL_COAST
+
+    if not context_valid:
+        combined = UNAVAILABLE
+    elif yaw.valid and centering.valid:
+        combined = WALL_LOCK
+    elif yaw.valid and not centering.valid:
+        combined = GRID_YAW_LOCK
+    elif not yaw.valid and centering.valid:
+        combined = CENTER_LOCK
+    else:
+        combined = HEADING_COAST
+
+    return GridObservation(
+        context_valid=context_valid,
+        virtual_cell=virtual,
+        expected=expected,
+        yaw=yaw,
+        centering=centering,
+        yaw_mode=yaw_mode,
+        lateral_mode=lateral_mode,
+        combined_mode=combined,
+        reason=f'yaw={yaw.reason}; centering={centering.reason}',
     )
 
 
 def live_grid_command(
     *,
     observation: GridObservation,
-    previous_mode: str,
+    previous_yaw_mode: str,
     odom_heading_correction_radps: float,
     k_yaw: float,
     max_yaw_correction_radps: float,
     k_lateral: float,
     max_lateral_mps: float,
-    min_confidence: float,
+    yaw_min_confidence: float,
+    lateral_min_confidence: float,
     reacquire_stable_samples: int,
     current_reacquire_samples: int,
     small_reacquire_yaw_rad: float,
     large_reacquire_yaw_rad: float,
     reacquire_speed_scale: float,
 ) -> LiveGridCommand:
-    if (
-        not observation.context_valid
-        or not observation.yaw_valid
-        or observation.confidence < min_confidence
-    ):
-        return LiveGridCommand(
-            HEADING_COAST,
-            False,
-            False,
-            float(odom_heading_correction_radps),
-            0.0,
-            1.0,
-            observation.reason,
-        )
-
-    raw_yaw = clamp(
-        float(k_yaw) * float(observation.yaw_error_rad),
-        -abs(float(max_yaw_correction_radps)),
-        abs(float(max_yaw_correction_radps)),
+    yaw_valid = bool(
+        observation.yaw.valid
+        and observation.yaw.confidence >= float(yaw_min_confidence)
+    )
+    lateral_valid = bool(
+        observation.centering.valid
+        and observation.centering.confidence >= float(lateral_min_confidence)
     )
 
     raw_lateral = 0.0
-    lateral_active = bool(observation.lateral_valid)
-    if lateral_active:
+    if lateral_valid:
         raw_lateral = clamp(
-            float(k_lateral) * float(observation.lateral_error_m),
+            float(k_lateral) * float(observation.centering.lateral_error_m),
             -abs(float(max_lateral_mps)),
             abs(float(max_lateral_mps)),
         )
 
-    abs_yaw_error = abs(float(observation.yaw_error_rad))
-    if previous_mode == HEADING_COAST:
+    if not yaw_valid:
+        return LiveGridCommand(
+            mode=observation.combined_mode,
+            yaw_mode=HEADING_COAST,
+            lateral_mode=CENTER_LOCK if lateral_valid else LATERAL_COAST,
+            yaw_active=False,
+            lateral_active=lateral_valid,
+            angular_z_radps=float(odom_heading_correction_radps),
+            linear_y_mps=raw_lateral,
+            speed_scale=1.0,
+            reason=(
+                f'heading coast: {observation.yaw.reason}; '
+                f'centering={observation.centering.reason}'
+            ),
+        )
+
+    raw_yaw = clamp(
+        float(k_yaw) * float(observation.yaw.yaw_error_rad),
+        -abs(float(max_yaw_correction_radps)),
+        abs(float(max_yaw_correction_radps)),
+    )
+
+    abs_yaw_error = abs(float(observation.yaw.yaw_error_rad))
+    yaw_mode = GRID_YAW_LOCK
+    speed_scale = 1.0
+    angular_z = raw_yaw
+    reason_prefix = 'grid yaw lock'
+
+    if previous_yaw_mode == HEADING_COAST:
         if abs_yaw_error >= float(large_reacquire_yaw_rad):
             return LiveGridCommand(
-                RECOVERY,
-                False,
-                False,
-                0.0,
-                0.0,
-                0.0,
-                (
+                mode=YAW_RECOVERY,
+                yaw_mode=YAW_RECOVERY,
+                lateral_mode=CENTER_LOCK if lateral_valid else LATERAL_COAST,
+                yaw_active=False,
+                lateral_active=False,
+                angular_z_radps=0.0,
+                linear_y_mps=0.0,
+                speed_scale=0.0,
+                reason=(
                     f'reacquire yaw disagreement too large: '
-                    f'{abs_yaw_error:.3f} >= {float(large_reacquire_yaw_rad):.3f}'
+                    f'{abs_yaw_error:.3f} >= {float(large_reacquire_yaw_rad):.3f}; '
+                    f'{observation.yaw.reason}'
                 ),
             )
 
         if abs_yaw_error > float(small_reacquire_yaw_rad):
-            return LiveGridCommand(
-                REACQUIRE,
-                True,
-                lateral_active,
-                raw_yaw,
-                raw_lateral,
-                float(reacquire_speed_scale),
-                (
-                    f'reacquire with reduced speed: yaw={observation.yaw_error_rad:.3f}; '
-                    f'source={observation.source}; {observation.reason}'
-                ),
+            yaw_mode = YAW_REACQUIRE
+            speed_scale = float(reacquire_speed_scale)
+            reason_prefix = 'yaw reacquire reduced speed'
+        else:
+            weight = min(
+                1.0,
+                max(1, int(current_reacquire_samples)) / max(1, int(reacquire_stable_samples)),
             )
+            angular_z = (1.0 - weight) * float(odom_heading_correction_radps) + weight * raw_yaw
+            raw_lateral *= weight
+            yaw_mode = YAW_REACQUIRE if weight < 1.0 else GRID_YAW_LOCK
+            reason_prefix = f'smooth yaw reacquire weight={weight:.2f}'
 
-        weight = min(
-            1.0,
-            max(1, int(current_reacquire_samples)) / max(1, int(reacquire_stable_samples)),
-        )
-        blended_yaw = (1.0 - weight) * float(odom_heading_correction_radps) + weight * raw_yaw
-        return LiveGridCommand(
-            REACQUIRE if weight < 1.0 else WALL_LOCK,
-            True,
-            lateral_active,
-            blended_yaw,
-            weight * raw_lateral,
-            1.0,
-            (
-                f'smooth reacquire weight={weight:.2f}; '
-                f'source={observation.source}; {observation.reason}'
-            ),
-        )
+    lateral_mode = CENTER_LOCK if lateral_valid else LATERAL_COAST
+
+    if yaw_mode == GRID_YAW_LOCK and lateral_mode == CENTER_LOCK:
+        combined_mode = WALL_LOCK
+    elif yaw_mode == GRID_YAW_LOCK:
+        combined_mode = GRID_YAW_LOCK
+    elif yaw_mode == YAW_REACQUIRE:
+        combined_mode = YAW_REACQUIRE
+    else:
+        combined_mode = observation.combined_mode
 
     return LiveGridCommand(
-        WALL_LOCK,
-        True,
-        lateral_active,
-        raw_yaw,
-        raw_lateral,
-        1.0,
-        f'wall lock: source={observation.source}; {observation.reason}',
+        mode=combined_mode,
+        yaw_mode=yaw_mode,
+        lateral_mode=lateral_mode,
+        yaw_active=True,
+        lateral_active=lateral_valid,
+        angular_z_radps=float(angular_z),
+        linear_y_mps=float(raw_lateral),
+        speed_scale=float(speed_scale),
+        reason=(
+            f'{reason_prefix}: yaw_source={observation.yaw.source}; '
+            f'yaw={observation.yaw.yaw_error_rad:.3f}; '
+            f'yaw_conf={observation.yaw.confidence:.2f}; '
+            f'lateral_mode={lateral_mode}; lateral_source={observation.centering.source}; '
+            f'{observation.reason}'
+        ),
     )
