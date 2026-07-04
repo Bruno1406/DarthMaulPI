@@ -1,0 +1,11 @@
+<launch>
+  <include file="$(find-pkg-share peripherals)/launch/image_pipeline.launch.py" />
+
+  <include file="$(find-pkg-share peripherals)/launch/apriltag.launch.py" />
+
+  <node
+    pkg="search_rescue"
+    exec="color_calibrator_node"
+    name="color_calibrator_node"
+    output="screen" />
+</launch>
