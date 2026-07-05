@@ -27,6 +27,8 @@ class SearchRescueNode(Node):
         self.apriltag_subscriber = self.create_subscription(AprilTagDetectionArray, "/apriltag_detections", self.callback_apriltag, 10)
         self.camera_info_subscriber = self.create_subscription(CameraInfo,"/ascamera/camera_publisher/rgb0/camera_info", self.callback_camera_info, 10)
 
+        # ToDo: self.create_client...
+
 # self.image_subscriber
     def callback_image(self, msg):
         cv_image = self.bridge.imgmsg_to_cv2(msg,desired_encoding="bgr8")
@@ -44,34 +46,27 @@ class SearchRescueNode(Node):
         if self.latest_image is None:
             self.get_logger().info("no image yet")
             return
+        
+        detection = max(msg.detections, key=lambda d: d.centre.y)
 
-        for detection in msg.detections:
-            tag_id = detection.id
-            centre_x = detection.centre.x
-            centre_y = detection.centre.y
-
-            self.get_logger().info(f"tag_id:{tag_id}")
-            self.get_logger().info(f"centre_x:{centre_x}")
-            self.get_logger().info(f"centre_y:{centre_y}")
+        tag_id = detection.id
+        centre_x = detection.centre.x
+        centre_y = detection.centre.y
             
-            relative_position = self.estimate_cube_relative_position(detection)
+        relative_position = self.estimate_cube_relative_position(detection)
 
-            if relative_position is None:
-                self.get_logger().info("error: could not estimate cube position")
-                continue
+        if relative_position is None:
+            return
 
-            x_cm, y_cm = relative_position
-            self.get_logger().info(f"estimated position x_cm:{x_cm}, y_cm:{y_cm}")
-            # x_cm = 100
-            # y_cm = 50
+        x_cm, y_cm = relative_position
+        # ToDo：Determine the absolute position of the cube based on the robot’s position and the cube’s position relative to the robot
+        crop = self.crop_cube_from_detection(self.latest_image, detection)
 
-            crop = self.crop_cube_from_detection(self.latest_image, detection)
+        if crop is None:
+            self.get_logger().info("error: crop failed")
+            return
 
-            if crop is None:
-                self.get_logger().info("error: crop failed")
-                continue
-
-            self.process_cube_detection(tag_id, x_cm, y_cm, crop)
+        self.process_cube_detection(tag_id, x_cm, y_cm, crop)
 
     def crop_cube_from_detection(self, image, detection):
         if image is None:
@@ -95,7 +90,7 @@ class SearchRescueNode(Node):
         if tag_size <= 0:
             return None
 
-        scale = 2.8
+        scale = 1.8
         crop_size = int(tag_size * scale)
         half = crop_size // 2
 
@@ -122,14 +117,13 @@ class SearchRescueNode(Node):
             return
         
         is_new_cube = self.tracker.add_cube(tag_id, x_cm, y_cm, color_id)
-        
-        n,xs,ys,colors = self.tracker.export_for_service()
-        self.get_logger().info(f"n:{n}")
-        self.get_logger().info(f"xs:{xs}")
-        self.get_logger().info(f"ys:{ys}")
-        self.get_logger().info(f"colors:{colors}")
+        if is_new_cube:
+            n,xs,ys,colors = self.tracker.export_for_service()
+            self.get_logger().info(
+                f"new cube: n={n}, x={round(x_cm)}, y={round(y_cm)}, color={color_id}"
+            )
 
-        # self.maybe_submit_cubes(is_new_cube)
+        
 
 # self.camera_info_subscriber
     def callback_camera_info(self, msg):

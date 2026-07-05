@@ -54,11 +54,11 @@ class ColorCalibratorNode(Node):
         if crop is None:
             return
 
-        if self.save_crop_count < 20:
-            filename = f"/tmp/crop_{self.save_crop_count}.jpg"
-            cv2.imwrite(filename, crop)
-            self.get_logger().info(f"saved crop: {filename}")
-            self.save_crop_count += 1
+        # if self.save_crop_count < 20:
+        #     filename = f"/tmp/crop_{self.save_crop_count}.jpg"
+        #     cv2.imwrite(filename, crop)
+        #     self.get_logger().info(f"saved crop: {filename}")
+        #     self.save_crop_count += 1
 
         pixels = self.extract_valid_hsv_pixels(crop)
 
