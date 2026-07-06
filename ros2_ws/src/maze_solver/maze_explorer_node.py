@@ -373,6 +373,8 @@ class MazeExplorerNode(Node):
         self.declare_parameter('drive_max_linear_x_mps', 0.18)
         self.declare_parameter('reverse_max_linear_x_mps', 0.075)
         self.declare_parameter('reverse_backtracking_enabled', True)
+        self.declare_parameter('reverse_position_tolerance_m', 0.018)
+        self.declare_parameter('reverse_heading_tolerance_rad', 0.180)
         self.declare_parameter('rotate_max_angular_z_radps', 0.85)
         self.declare_parameter('motion_timeout_s', 0.0)
         self.declare_parameter('direction_priority', 'left_straight_right_back')
@@ -401,6 +403,12 @@ class MazeExplorerNode(Node):
         )
         self.reverse_backtracking_enabled = parse_bool(
             self.get_parameter('reverse_backtracking_enabled').value
+        )
+        self.reverse_position_tolerance_m = float(
+            self.get_parameter('reverse_position_tolerance_m').value
+        )
+        self.reverse_heading_tolerance_rad = float(
+            self.get_parameter('reverse_heading_tolerance_rad').value
         )
         self.rotate_max_angular_z_radps = float(
             self.get_parameter('rotate_max_angular_z_radps').value
@@ -475,6 +483,10 @@ class MazeExplorerNode(Node):
             errors.append('drive_max_linear_x_mps must be > 0')
         if self.reverse_max_linear_x_mps <= 0.0:
             errors.append('reverse_max_linear_x_mps must be > 0')
+        if self.reverse_position_tolerance_m <= 0.0:
+            errors.append('reverse_position_tolerance_m must be > 0')
+        if self.reverse_heading_tolerance_rad <= 0.0:
+            errors.append('reverse_heading_tolerance_rad must be > 0')
         if self.rotate_max_angular_z_radps <= 0.0:
             errors.append('rotate_max_angular_z_radps must be > 0')
         if self.motion_timeout_s < 0.0:
@@ -755,8 +767,12 @@ class MazeExplorerNode(Node):
             self._fatal(f'Unknown motion step: {step}')
             return
 
-        goal.position_tolerance_m = 0.0
-        goal.heading_tolerance_rad = 0.0
+        if step.kind == 'drive_backward':
+            goal.position_tolerance_m = float(self.reverse_position_tolerance_m)
+            goal.heading_tolerance_rad = float(self.reverse_heading_tolerance_rad)
+        else:
+            goal.position_tolerance_m = 0.0
+            goal.heading_tolerance_rad = 0.0
         goal.timeout_s = float(self.motion_timeout_s)
 
         goal.grid_n = 0
