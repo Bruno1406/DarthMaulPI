@@ -13,8 +13,10 @@ darth_maul_control:
     control_rate_hz: 25.0
 
     # Default tolerances
-    default_position_tolerance_m: 0.045
-    default_heading_tolerance_rad: 0.075
+    # Keep distance tight. LiDAR progress can resolve this far better than 45 mm
+    # when front/rear progress is valid.
+    default_position_tolerance_m: 0.015
+    default_heading_tolerance_rad: 0.060
 
     # Fast but still bounded real-robot defaults.
     default_linear_speed_mps: 0.135
@@ -197,11 +199,11 @@ darth_maul_control:
     # This is intentionally short and bounded. It does not split compressed runs;
     # it only prevents starting the next rotate from a badly off-center cell pose.
     grid_cell_settle_enabled: true
-    grid_cell_settle_timeout_sec: 2.0
-    grid_cell_settle_max_linear_x_mps: 0.045
+    grid_cell_settle_timeout_sec: 2.5
+    grid_cell_settle_max_linear_x_mps: 0.035
     grid_cell_settle_max_linear_y_mps: 0.030
     grid_cell_settle_max_yaw_radps: 0.100
-    grid_cell_settle_position_tolerance_m: 0.025
+    grid_cell_settle_position_tolerance_m: 0.010
     grid_cell_settle_lateral_tolerance_m: 0.020
     grid_cell_settle_heading_tolerance_rad: 0.060
     grid_cell_settle_require_longitudinal_reference: false

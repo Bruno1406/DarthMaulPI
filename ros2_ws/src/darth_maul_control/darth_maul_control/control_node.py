@@ -352,11 +352,11 @@ class DarthMaulControlNode(Node):
 
         self.default_position_tolerance_m = self._positive_float_param(
             'default_position_tolerance_m',
-            0.045,
+            0.015,
         )
         self.default_heading_tolerance_rad = self._positive_float_param(
             'default_heading_tolerance_rad',
-            0.075,
+            0.060,
         )
 
         self.default_linear_speed_mps = self._positive_float_param(
@@ -696,11 +696,11 @@ class DarthMaulControlNode(Node):
         )
         self.grid_cell_settle_timeout_sec = self._positive_float_param(
             'grid_cell_settle_timeout_sec',
-            2.0,
+            2.5,
         )
         self.grid_cell_settle_max_linear_x_mps = self._positive_float_param(
             'grid_cell_settle_max_linear_x_mps',
-            0.045,
+            0.035,
         )
         self.grid_cell_settle_max_linear_y_mps = self._nonnegative_float_param(
             'grid_cell_settle_max_linear_y_mps',
@@ -712,7 +712,7 @@ class DarthMaulControlNode(Node):
         )
         self.grid_cell_settle_position_tolerance_m = self._positive_float_param(
             'grid_cell_settle_position_tolerance_m',
-            0.025,
+            0.010,
         )
         self.grid_cell_settle_lateral_tolerance_m = self._positive_float_param(
             'grid_cell_settle_lateral_tolerance_m',
@@ -2572,10 +2572,26 @@ class DarthMaulControlNode(Node):
             last_heading_error = heading_error
             last_heading_source = heading_source
 
+            longitudinal_valid = False
+            longitudinal_error_m = 0.0
+            longitudinal_source = 'none'
+            longitudinal_reason = 'no longitudinal correction reference'
+
             if axial.valid:
-                last_position_error = abs(axial.error_m)
+                longitudinal_valid = True
+                longitudinal_error_m = float(axial.error_m)
+                longitudinal_source = f'axial/{axial.source}'
+                longitudinal_reason = axial.reason
             elif progress_selection.valid:
-                last_position_error = progress_error
+                longitudinal_valid = True
+                longitudinal_error_m = float(commanded_distance) - float(last_progress)
+                longitudinal_source = f'progress/{progress_selection.source}'
+                longitudinal_reason = progress_selection.reason
+            else:
+                longitudinal_reason = progress_selection.reason
+
+            if longitudinal_valid:
+                last_position_error = abs(longitudinal_error_m)
             else:
                 last_position_error = abs(float(commanded_distance) - last_progress)
 
@@ -2662,14 +2678,17 @@ class DarthMaulControlNode(Node):
 
             if (
                 self.grid_cell_settle_require_longitudinal_reference
-                and not axial.valid
+                and not longitudinal_valid
             ):
                 self.publish_zero_twist()
                 return GridCellSettleResult(
                     canceled=False,
                     success=False,
                     result_code=ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE,
-                    message=f'longitudinal reference required but unavailable; {axial.reason}',
+                    message=(
+                        'longitudinal reference required but unavailable; '
+                        f'{longitudinal_reason}'
+                    ),
                     position_error_m=last_position_error,
                     heading_error_rad=heading_error,
                     heading_source=heading_source,
@@ -2680,11 +2699,15 @@ class DarthMaulControlNode(Node):
                     yaw_correction_used=yaw_correction_used,
                 )
 
+            longitudinal_reference_expected = bool(
+                axial_reference_expected or progress_selection.valid
+            )
+
             longitudinal_ok = True
-            if axial_reference_expected:
+            if longitudinal_reference_expected:
                 longitudinal_ok = bool(
-                    axial.valid
-                    and abs(axial.error_m)
+                    longitudinal_valid
+                    and abs(longitudinal_error_m)
                     <= self.grid_cell_settle_position_tolerance_m
                 )
 
@@ -2706,6 +2729,9 @@ class DarthMaulControlNode(Node):
                     result_code=ExecuteMotionPrimitive.Result.SUCCESS,
                     message=(
                         f'cell settled: destination_cell={virtual.cell_idx}; '
+                        f'longitudinal_valid={longitudinal_valid}; '
+                        f'longitudinal_error={longitudinal_error_m:.3f} m; '
+                        f'longitudinal_source={longitudinal_source}; '
                         f'axial_valid={axial.valid}; axial_error={axial.error_m:.3f} m; '
                         f'axial_source={axial.source}; '
                         f'lateral_valid={centering.valid}; '
@@ -2724,9 +2750,9 @@ class DarthMaulControlNode(Node):
                 )
 
             linear_x = 0.0
-            if axial.valid:
+            if longitudinal_valid:
                 linear_x = self._settle_axis_command(
-                    axial.error_m,
+                    longitudinal_error_m,
                     self.grid_cell_settle_position_tolerance_m,
                     self.k_distance,
                     settle_limits.max_linear_x_mps,
@@ -2787,6 +2813,7 @@ class DarthMaulControlNode(Node):
                 angular_z if yaw_valid else 0.0,
                 (
                     f'cell settle: destination_cell={virtual.cell_idx}; '
+                    f'longitudinal={longitudinal_source}: {longitudinal_reason}; '
                     f'axial={axial.reason}; lateral={centering.reason}; '
                     f'yaw={yaw_observation.reason}'
                 ),
@@ -2800,6 +2827,9 @@ class DarthMaulControlNode(Node):
                     f'cell_settle: destination_cell={virtual.cell_idx}, '
                     f'expected_walls=F{int(expected.front)}B{int(expected.rear)}'
                     f'L{int(expected.left)}R{int(expected.right)}, '
+                    f'long_valid={longitudinal_valid}, '
+                    f'long_error={longitudinal_error_m:.3f} m, '
+                    f'long_source={longitudinal_source}, '
                     f'axial_valid={axial.valid}, axial_error={axial.error_m:.3f} m, '
                     f'axial_source={axial.source}, '
                     f'lat_valid={centering.valid}, '
