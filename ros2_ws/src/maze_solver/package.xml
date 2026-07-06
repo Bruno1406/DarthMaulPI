@@ -14,6 +14,7 @@
   <depend>rclpy</depend>
   <depend>maze_interface</depend>
   <depend>darth_maul_control_interfaces</depend>
+  <depend>ros_robot_controller_msgs</depend>
 
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>

@@ -8,7 +8,7 @@ package_name = 'maze_solver'
 setup(
     name=package_name,
     version='0.0.1',
-    py_modules=['maze_solver_node'],
+    py_modules=['camera_tilt_node', 'maze_solver_node'],
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
@@ -23,6 +23,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'camera_tilt_node = camera_tilt_node:main',
             'maze_solver_node = maze_solver_node:main',
         ],
     },
