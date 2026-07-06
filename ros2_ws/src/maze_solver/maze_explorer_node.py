@@ -371,6 +371,8 @@ class MazeExplorerNode(Node):
         self.declare_parameter('output_maze_file', '')
 
         self.declare_parameter('drive_max_linear_x_mps', 0.18)
+        self.declare_parameter('reverse_max_linear_x_mps', 0.075)
+        self.declare_parameter('reverse_backtracking_enabled', True)
         self.declare_parameter('rotate_max_angular_z_radps', 0.85)
         self.declare_parameter('motion_timeout_s', 0.0)
         self.declare_parameter('direction_priority', 'left_straight_right_back')
@@ -394,6 +396,12 @@ class MazeExplorerNode(Node):
         self.output_maze_file = str(self.get_parameter('output_maze_file').value).strip()
 
         self.drive_max_linear_x_mps = float(self.get_parameter('drive_max_linear_x_mps').value)
+        self.reverse_max_linear_x_mps = float(
+            self.get_parameter('reverse_max_linear_x_mps').value
+        )
+        self.reverse_backtracking_enabled = parse_bool(
+            self.get_parameter('reverse_backtracking_enabled').value
+        )
         self.rotate_max_angular_z_radps = float(
             self.get_parameter('rotate_max_angular_z_radps').value
         )
@@ -465,6 +473,8 @@ class MazeExplorerNode(Node):
             errors.append('stale_scan_timeout_s must be > 0')
         if self.drive_max_linear_x_mps <= 0.0:
             errors.append('drive_max_linear_x_mps must be > 0')
+        if self.reverse_max_linear_x_mps <= 0.0:
+            errors.append('reverse_max_linear_x_mps must be > 0')
         if self.rotate_max_angular_z_radps <= 0.0:
             errors.append('rotate_max_angular_z_radps must be > 0')
         if self.motion_timeout_s < 0.0:
@@ -675,6 +685,25 @@ class MazeExplorerNode(Node):
             )
             return from_heading
 
+        should_reverse = bool(
+            self.reverse_backtracking_enabled
+            and direction == OPPOSITE[from_heading]
+        )
+
+        if should_reverse:
+            self.motion_queue.append(
+                MotionStep('drive_backward', direction, float(self.cell_length_m), target_cell)
+            )
+
+            self.get_logger().info(
+                f'Queued reverse segment {from_cell} -> {target_cell} '
+                f'via {DIR_NAME[direction]} '
+                f'(heading stays {DIR_NAME[from_heading]}, '
+                f'drive_backward={self.cell_length_m:.3f})'
+            )
+
+            return from_heading
+
         turn = turn_between(from_heading, direction)
 
         if abs(turn) > 1.0e-6:
@@ -713,6 +742,13 @@ class MazeExplorerNode(Node):
             goal.value = float(step.value)
             goal.collision_check_enabled = True
             goal.max_linear_x_mps = float(self.drive_max_linear_x_mps)
+            goal.max_linear_y_mps = 0.0
+            goal.max_angular_z_radps = 0.0
+        elif step.kind == 'drive_backward':
+            goal.primitive_type = ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD
+            goal.value = float(step.value)
+            goal.collision_check_enabled = False
+            goal.max_linear_x_mps = float(self.reverse_max_linear_x_mps)
             goal.max_linear_y_mps = 0.0
             goal.max_angular_z_radps = 0.0
         else:
@@ -794,7 +830,7 @@ class MazeExplorerNode(Node):
         if step is not None:
             if step.kind == 'rotate':
                 self.heading = int(step.direction)
-            elif step.kind == 'drive_forward':
+            elif step.kind in ('drive_forward', 'drive_backward'):
                 if step.target_cell is None:
                     self._fatal('Drive succeeded but target_cell is missing.')
                     return
