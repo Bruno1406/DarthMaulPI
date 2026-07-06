@@ -8,13 +8,13 @@ LONGITUDINAL_WALL_SNAPSHOT = 'Longitudinal' + 'WallSnapshot'
 LONGITUDINAL_WALL_PREFIX = 'longitudinal' + '_wall'
 
 
-def test_control_params_default_to_lidar_required():
+def test_control_params_default_to_lidar_when_consistent():
     text = (PACKAGE_ROOT / 'config' / 'control_params.yaml').read_text()
 
-    assert 'translation_progress_source: lidar_required' in text
+    assert 'translation_progress_source: lidar_when_consistent' in text
     assert 'front_stop_distance_m: 0.08' in text
-    assert 'translation_lidar_required_invalid_max_consecutive_samples: 2' in text
-    assert 'lidar_progress_temporal_filter_enabled: false' in text
+    assert 'translation_lidar_required_invalid_max_consecutive_samples: 12' in text
+    assert 'lidar_progress_temporal_filter_enabled: true' in text
     assert 'rotate_timeout_accept_heading_error_rad: 0.090' in text
     assert 'translation_lidar_required_invalid_grace_s' not in text
     assert GEOMETRY_VALIDATION_PARAM not in text
@@ -26,15 +26,19 @@ def test_control_launch_defaults_for_exam_mode():
     text = (PACKAGE_ROOT / 'launch' / 'control.launch.py').read_text()
 
     assert "'translation_progress_source'" in text
-    assert "'lidar_required'" in text
+    assert "'lidar_when_consistent'" in text
     assert "'translation_progress_source': ParameterValue(" in text
+    assert "'default_linear_speed_mps': ParameterValue(" in text
+    assert "'max_linear_accel_mps2': ParameterValue(" in text
+    assert "'default_position_tolerance_m': ParameterValue(" in text
+    assert "'timeout_margin_sec': ParameterValue(" in text
     assert "'grid_live_control_enabled'" in text
     assert "'k_grid_lateral'" in text
     assert "'max_grid_live_yaw_correction_radps'" in text
     assert "'translation_lidar_required_invalid_max_consecutive_samples'" in text
     assert "'lidar_progress_temporal_filter_enabled'" in text
     assert "'rotate_timeout_accept_heading_error_rad'" in text
-    assert "'0.025'" in text
+    assert "'0.035'" in text
     assert "'0.090'" in text
     assert 'translation_lidar_required_invalid_grace_s' not in text
 
@@ -63,16 +67,16 @@ def test_legacy_yaw_bloat_removed_from_control_node():
 def test_live_grid_control_defaults_present():
     text = (PACKAGE_ROOT / 'config' / 'control_params.yaml').read_text()
 
-    assert 'translation_progress_source: lidar_required' in text
+    assert 'translation_progress_source: lidar_when_consistent' in text
     assert 'grid_live_control_enabled: true' in text
     assert 'k_grid_lateral: 1.40' in text
-    assert 'max_linear_x_mps: 0.070' in text
-    assert 'max_grid_lateral_mps: 0.025' in text
+    assert 'max_linear_x_mps: 0.120' in text
+    assert 'max_grid_lateral_mps: 0.035' in text
     assert 'grid_manhattan_yaw_enabled: true' in text
     assert 'k_grid_live_yaw: 2.20' in text
-    assert 'max_grid_live_yaw_correction_radps: 0.080' in text
+    assert 'max_grid_live_yaw_correction_radps: 0.120' in text
     assert 'grid_virtual_cell_boundary_margin_m: 0.025' in text
-    assert 'grid_reacquire_large_yaw_rad: 0.100' in text
+    assert 'grid_reacquire_large_yaw_rad: 0.200' in text
     assert 'lidar_parallelity_' not in text
     assert 'pre_translation_grid_yaw_align_' not in text
     assert 'post_rotation_grid_yaw_refine_' not in text

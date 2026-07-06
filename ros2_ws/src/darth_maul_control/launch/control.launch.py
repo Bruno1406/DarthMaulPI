@@ -23,6 +23,22 @@ def generate_launch_description():
     ])
 
     translation_progress_source = LaunchConfiguration('translation_progress_source')
+    default_linear_speed_mps = LaunchConfiguration('default_linear_speed_mps')
+    default_reverse_speed_mps = LaunchConfiguration('default_reverse_speed_mps')
+    default_angular_speed_radps = LaunchConfiguration('default_angular_speed_radps')
+    max_linear_x_mps = LaunchConfiguration('max_linear_x_mps')
+    max_linear_y_mps = LaunchConfiguration('max_linear_y_mps')
+    max_angular_z_radps = LaunchConfiguration('max_angular_z_radps')
+    max_linear_accel_mps2 = LaunchConfiguration('max_linear_accel_mps2')
+    max_lateral_accel_mps2 = LaunchConfiguration('max_lateral_accel_mps2')
+    max_angular_accel_radps2 = LaunchConfiguration('max_angular_accel_radps2')
+    default_position_tolerance_m = LaunchConfiguration(
+        'default_position_tolerance_m'
+    )
+    default_heading_tolerance_rad = LaunchConfiguration(
+        'default_heading_tolerance_rad'
+    )
+    timeout_margin_sec = LaunchConfiguration('timeout_margin_sec')
     translation_lidar_required_invalid_max_consecutive_samples = LaunchConfiguration(
         'translation_lidar_required_invalid_max_consecutive_samples'
     )
@@ -112,24 +128,36 @@ def generate_launch_description():
     return LaunchDescription([
         _declare(
             'translation_progress_source',
-            'lidar_required',
+            'lidar_when_consistent',
             'Translation distance authority: lidar_required, lidar_when_consistent, or odom_only.',
         ),
+        _declare('default_linear_speed_mps', '0.105'),
+        _declare('default_reverse_speed_mps', '0.050'),
+        _declare('default_angular_speed_radps', '0.380'),
+        _declare('max_linear_x_mps', '0.120'),
+        _declare('max_linear_y_mps', '0.040'),
+        _declare('max_angular_z_radps', '0.500'),
+        _declare('max_linear_accel_mps2', '0.260'),
+        _declare('max_lateral_accel_mps2', '0.140'),
+        _declare('max_angular_accel_radps2', '1.100'),
+        _declare('default_position_tolerance_m', '0.045'),
+        _declare('default_heading_tolerance_rad', '0.075'),
+        _declare('timeout_margin_sec', '8.0'),
         _declare(
             'translation_lidar_required_invalid_max_consecutive_samples',
-            '2',
+            '12',
             'Consecutive invalid LiDAR progress samples allowed in lidar_required mode.',
         ),
-        _declare('lidar_progress_temporal_filter_enabled', 'false'),
-        _declare('lidar_progress_temporal_max_backtrack_m', '0.015'),
-        _declare('lidar_progress_temporal_max_jump_m', '0.080'),
-        _declare('lidar_progress_temporal_max_degraded_samples', '2'),
+        _declare('lidar_progress_temporal_filter_enabled', 'true'),
+        _declare('lidar_progress_temporal_max_backtrack_m', '0.020'),
+        _declare('lidar_progress_temporal_max_jump_m', '0.170'),
+        _declare('lidar_progress_temporal_max_degraded_samples', '8'),
         _declare('grid_live_control_enabled', 'true'),
         _declare('k_grid_lateral', '1.40'),
-        _declare('max_grid_lateral_mps', '0.025'),
+        _declare('max_grid_lateral_mps', '0.035'),
         _declare('grid_lateral_min_confidence', '0.55'),
         _declare('k_grid_live_yaw', '2.20'),
-        _declare('max_grid_live_yaw_correction_radps', '0.080'),
+        _declare('max_grid_live_yaw_correction_radps', '0.120'),
         _declare('grid_manhattan_yaw_enabled', 'true'),
         _declare('grid_manhattan_yaw_min_range_m', '0.08'),
         _declare('grid_manhattan_yaw_max_range_m', '2.50'),
@@ -151,8 +179,8 @@ def generate_launch_description():
         _declare('grid_live_max_rms_error_m', '0.025'),
         _declare('grid_virtual_cell_boundary_margin_m', '0.025'),
         _declare('grid_reacquire_stable_samples', '3'),
-        _declare('grid_reacquire_small_yaw_rad', '0.040'),
-        _declare('grid_reacquire_large_yaw_rad', '0.100'),
+        _declare('grid_reacquire_small_yaw_rad', '0.055'),
+        _declare('grid_reacquire_large_yaw_rad', '0.200'),
         _declare('grid_reacquire_speed_scale', '0.65'),
         _declare(
             'rotate_timeout_accept_heading_error_rad',
@@ -169,6 +197,54 @@ def generate_launch_description():
                     'translation_progress_source': ParameterValue(
                         translation_progress_source,
                         value_type=str,
+                    ),
+                    'default_linear_speed_mps': ParameterValue(
+                        default_linear_speed_mps,
+                        value_type=float,
+                    ),
+                    'default_reverse_speed_mps': ParameterValue(
+                        default_reverse_speed_mps,
+                        value_type=float,
+                    ),
+                    'default_angular_speed_radps': ParameterValue(
+                        default_angular_speed_radps,
+                        value_type=float,
+                    ),
+                    'max_linear_x_mps': ParameterValue(
+                        max_linear_x_mps,
+                        value_type=float,
+                    ),
+                    'max_linear_y_mps': ParameterValue(
+                        max_linear_y_mps,
+                        value_type=float,
+                    ),
+                    'max_angular_z_radps': ParameterValue(
+                        max_angular_z_radps,
+                        value_type=float,
+                    ),
+                    'max_linear_accel_mps2': ParameterValue(
+                        max_linear_accel_mps2,
+                        value_type=float,
+                    ),
+                    'max_lateral_accel_mps2': ParameterValue(
+                        max_lateral_accel_mps2,
+                        value_type=float,
+                    ),
+                    'max_angular_accel_radps2': ParameterValue(
+                        max_angular_accel_radps2,
+                        value_type=float,
+                    ),
+                    'default_position_tolerance_m': ParameterValue(
+                        default_position_tolerance_m,
+                        value_type=float,
+                    ),
+                    'default_heading_tolerance_rad': ParameterValue(
+                        default_heading_tolerance_rad,
+                        value_type=float,
+                    ),
+                    'timeout_margin_sec': ParameterValue(
+                        timeout_margin_sec,
+                        value_type=float,
                     ),
                     'translation_lidar_required_invalid_max_consecutive_samples': ParameterValue(
                         translation_lidar_required_invalid_max_consecutive_samples,
