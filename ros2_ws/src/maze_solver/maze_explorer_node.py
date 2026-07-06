@@ -373,6 +373,7 @@ class MazeExplorerNode(Node):
         self.declare_parameter('drive_max_linear_x_mps', 0.18)
         self.declare_parameter('reverse_max_linear_x_mps', 0.075)
         self.declare_parameter('reverse_backtracking_enabled', True)
+        self.declare_parameter('reverse_backtracking_max_consecutive_cells', 1)
         self.declare_parameter('reverse_position_tolerance_m', 0.018)
         self.declare_parameter('reverse_heading_tolerance_rad', 0.180)
         self.declare_parameter('rotate_max_angular_z_radps', 0.85)
@@ -403,6 +404,9 @@ class MazeExplorerNode(Node):
         )
         self.reverse_backtracking_enabled = parse_bool(
             self.get_parameter('reverse_backtracking_enabled').value
+        )
+        self.reverse_backtracking_max_consecutive_cells = int(
+            self.get_parameter('reverse_backtracking_max_consecutive_cells').value
         )
         self.reverse_position_tolerance_m = float(
             self.get_parameter('reverse_position_tolerance_m').value
@@ -483,6 +487,8 @@ class MazeExplorerNode(Node):
             errors.append('drive_max_linear_x_mps must be > 0')
         if self.reverse_max_linear_x_mps <= 0.0:
             errors.append('reverse_max_linear_x_mps must be > 0')
+        if self.reverse_backtracking_max_consecutive_cells < 0:
+            errors.append('reverse_backtracking_max_consecutive_cells must be >= 0')
         if self.reverse_position_tolerance_m <= 0.0:
             errors.append('reverse_position_tolerance_m must be > 0')
         if self.reverse_heading_tolerance_rad <= 0.0:
@@ -661,14 +667,29 @@ class MazeExplorerNode(Node):
             )
             return
 
+        reverse_budget = int(self.reverse_backtracking_max_consecutive_cells)
+
         for target_cell in path[1:]:
             direction = direction_between(simulated_cell, target_cell)
-            simulated_heading = self._enqueue_segment(
+
+            allow_reverse = bool(
+                reverse_budget > 0
+                and direction == OPPOSITE[simulated_heading]
+            )
+
+            simulated_heading, used_reverse = self._enqueue_segment(
                 from_cell=simulated_cell,
                 from_heading=simulated_heading,
                 direction=direction,
                 target_cell=target_cell,
+                allow_reverse=allow_reverse,
             )
+
+            if used_reverse:
+                reverse_budget -= 1
+            else:
+                reverse_budget = int(self.reverse_backtracking_max_consecutive_cells)
+
             simulated_cell = target_cell
 
     def _enqueue_step(self, direction: int) -> None:
@@ -678,6 +699,7 @@ class MazeExplorerNode(Node):
             from_heading=self.heading,
             direction=direction,
             target_cell=target_cell,
+            allow_reverse=False,
         )
 
     def _enqueue_segment(
@@ -687,7 +709,8 @@ class MazeExplorerNode(Node):
         from_heading: int,
         direction: int,
         target_cell: Cell,
-    ) -> int:
+        allow_reverse: bool,
+    ) -> tuple[int, bool]:
         expected_target = neighbor(from_cell, direction)
         if target_cell != expected_target:
             self._fatal(
@@ -695,10 +718,11 @@ class MazeExplorerNode(Node):
                 f'direction={DIR_NAME[direction]}, '
                 f'target={target_cell}, expected={expected_target}'
             )
-            return from_heading
+            return from_heading, False
 
         should_reverse = bool(
-            self.reverse_backtracking_enabled
+            allow_reverse
+            and self.reverse_backtracking_enabled
             and direction == OPPOSITE[from_heading]
         )
 
@@ -714,7 +738,7 @@ class MazeExplorerNode(Node):
                 f'drive_backward={self.cell_length_m:.3f})'
             )
 
-            return from_heading
+            return from_heading, True
 
         turn = turn_between(from_heading, direction)
 
@@ -731,7 +755,7 @@ class MazeExplorerNode(Node):
             f'drive={self.cell_length_m:.3f})'
         )
 
-        return direction
+        return direction, False
 
     def _send_next_motion_step(self) -> None:
         if self.motion_in_flight or not self.motion_queue:

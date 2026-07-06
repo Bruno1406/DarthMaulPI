@@ -14,6 +14,9 @@ def generate_launch_description():
     drive_max_linear_x_mps = LaunchConfiguration('drive_max_linear_x_mps')
     reverse_max_linear_x_mps = LaunchConfiguration('reverse_max_linear_x_mps')
     reverse_backtracking_enabled = LaunchConfiguration('reverse_backtracking_enabled')
+    reverse_backtracking_max_consecutive_cells = LaunchConfiguration(
+        'reverse_backtracking_max_consecutive_cells'
+    )
     reverse_position_tolerance_m = LaunchConfiguration('reverse_position_tolerance_m')
     reverse_heading_tolerance_rad = LaunchConfiguration('reverse_heading_tolerance_rad')
     rotate_max_angular_z_radps = LaunchConfiguration('rotate_max_angular_z_radps')
@@ -35,6 +38,7 @@ def generate_launch_description():
         DeclareLaunchArgument('drive_max_linear_x_mps', default_value='0.18'),
         DeclareLaunchArgument('reverse_max_linear_x_mps', default_value='0.075'),
         DeclareLaunchArgument('reverse_backtracking_enabled', default_value='true'),
+        DeclareLaunchArgument('reverse_backtracking_max_consecutive_cells', default_value='1'),
         DeclareLaunchArgument('reverse_position_tolerance_m', default_value='0.018'),
         DeclareLaunchArgument('reverse_heading_tolerance_rad', default_value='0.180'),
         DeclareLaunchArgument('rotate_max_angular_z_radps', default_value='0.85'),
@@ -78,6 +82,9 @@ def generate_launch_description():
                 'drive_max_linear_x_mps': drive_max_linear_x_mps,
                 'reverse_max_linear_x_mps': reverse_max_linear_x_mps,
                 'reverse_backtracking_enabled': reverse_backtracking_enabled,
+                'reverse_backtracking_max_consecutive_cells': (
+                    reverse_backtracking_max_consecutive_cells
+                ),
                 'reverse_position_tolerance_m': reverse_position_tolerance_m,
                 'reverse_heading_tolerance_rad': reverse_heading_tolerance_rad,
                 'rotate_max_angular_z_radps': rotate_max_angular_z_radps,
