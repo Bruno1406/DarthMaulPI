@@ -210,6 +210,14 @@ darth_maul_control:
     grid_cell_settle_abort_position_error_m: 0.120
     grid_cell_settle_abort_heading_error_rad: 0.220
 
+    # Soft front-wall guard during final cell settle.
+    # If settle wants to creep forward but the front wall is already within this
+    # margin of the expected centered front distance, do not push farther into
+    # the wall. Treat longitudinal settle as good enough and continue yaw/lateral
+    # correction only.
+    grid_cell_settle_front_guard_enabled: true
+    grid_cell_settle_front_guard_margin_m: 0.010
+
     # Calibrated front/rear ranges when the robot is centered in one cell.
     # Do not assume this is exactly cell_length_m / 2. Measure it on the real robot
     # because LiDAR mounting offset and wall/socket geometry change the value.

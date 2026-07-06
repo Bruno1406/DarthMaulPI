@@ -734,6 +734,14 @@ class DarthMaulControlNode(Node):
             'grid_cell_settle_abort_heading_error_rad',
             0.220,
         )
+        self.grid_cell_settle_front_guard_enabled = self._bool_param(
+            'grid_cell_settle_front_guard_enabled',
+            True,
+        )
+        self.grid_cell_settle_front_guard_margin_m = self._nonnegative_float_param(
+            'grid_cell_settle_front_guard_margin_m',
+            0.010,
+        )
         self.grid_center_expected_front_distance_m = self._positive_float_param(
             'grid_center_expected_front_distance_m',
             0.125,
@@ -2590,6 +2598,45 @@ class DarthMaulControlNode(Node):
             else:
                 longitudinal_reason = progress_selection.reason
 
+            front_guard_active = False
+            front_guard_distance_m = float('inf')
+            front_guard_source = 'unavailable'
+            front_guard_reason = 'front guard inactive'
+
+            if (
+                self.grid_cell_settle_front_guard_enabled
+                and longitudinal_valid
+                and longitudinal_error_m > 0.0
+            ):
+                front_guard_distance_m, front_guard_source = (
+                    self._settle_front_distance(current_ranges)
+                )
+                front_guard_threshold_m = (
+                    self.grid_center_expected_front_distance_m
+                    + self.grid_cell_settle_front_guard_margin_m
+                )
+                front_guard_active = bool(
+                    math.isfinite(front_guard_distance_m)
+                    and front_guard_distance_m <= front_guard_threshold_m
+                )
+                if front_guard_active:
+                    front_guard_reason = (
+                        f'front guard active: {front_guard_source}='
+                        f'{front_guard_distance_m:.3f} m <= '
+                        f'{front_guard_threshold_m:.3f} m '
+                        f'(expected={self.grid_center_expected_front_distance_m:.3f} m, '
+                        f'margin={self.grid_cell_settle_front_guard_margin_m:.3f} m); '
+                        'suppressing forward longitudinal settle'
+                    )
+                else:
+                    front_guard_reason = (
+                        f'front guard clear: {front_guard_source}='
+                        f'{front_guard_distance_m:.3f} m > '
+                        f'{front_guard_threshold_m:.3f} m '
+                        f'(expected={self.grid_center_expected_front_distance_m:.3f} m, '
+                        f'margin={self.grid_cell_settle_front_guard_margin_m:.3f} m)'
+                    )
+
             if longitudinal_valid:
                 last_position_error = abs(longitudinal_error_m)
             else:
@@ -2706,9 +2753,12 @@ class DarthMaulControlNode(Node):
             longitudinal_ok = True
             if longitudinal_reference_expected:
                 longitudinal_ok = bool(
-                    longitudinal_valid
-                    and abs(longitudinal_error_m)
-                    <= self.grid_cell_settle_position_tolerance_m
+                    front_guard_active
+                    or (
+                        longitudinal_valid
+                        and abs(longitudinal_error_m)
+                        <= self.grid_cell_settle_position_tolerance_m
+                    )
                 )
 
             lateral_ok = True
@@ -2732,6 +2782,9 @@ class DarthMaulControlNode(Node):
                         f'longitudinal_valid={longitudinal_valid}; '
                         f'longitudinal_error={longitudinal_error_m:.3f} m; '
                         f'longitudinal_source={longitudinal_source}; '
+                        f'front_guard_active={front_guard_active}; '
+                        f'front_distance={front_guard_distance_m:.3f} m; '
+                        f'front_guard_source={front_guard_source}; '
                         f'axial_valid={axial.valid}; axial_error={axial.error_m:.3f} m; '
                         f'axial_source={axial.source}; '
                         f'lateral_valid={centering.valid}; '
@@ -2750,7 +2803,7 @@ class DarthMaulControlNode(Node):
                 )
 
             linear_x = 0.0
-            if longitudinal_valid:
+            if longitudinal_valid and not front_guard_active:
                 linear_x = self._settle_axis_command(
                     longitudinal_error_m,
                     self.grid_cell_settle_position_tolerance_m,
@@ -2762,24 +2815,14 @@ class DarthMaulControlNode(Node):
             if linear_x > 0.0 and collision_check_enabled:
                 clearance = self._front_clearance()
                 if clearance < self.front_stop_distance_m:
-                    self.publish_zero_twist()
-                    return GridCellSettleResult(
-                        canceled=False,
-                        success=False,
-                        result_code=ExecuteMotionPrimitive.Result.OBSTACLE_TOO_CLOSE,
-                        message=(
-                            f'front blocked during cell settle: '
-                            f'front_clearance={clearance:.3f} m '
-                            f'< {self.front_stop_distance_m:.3f} m'
-                        ),
-                        position_error_m=last_position_error,
-                        heading_error_rad=heading_error,
-                        heading_source=heading_source,
-                        progress_m=last_progress,
-                        odom_progress_m=last_odom_progress,
-                        progress_source=last_progress_source,
-                        progress_reason=last_progress_reason,
-                        yaw_correction_used=yaw_correction_used,
+                    linear_x = 0.0
+                    front_guard_active = True
+                    front_guard_distance_m = clearance
+                    front_guard_source = 'front_sector_min'
+                    front_guard_reason = (
+                        f'front settle hold: front_clearance={clearance:.3f} m '
+                        f'< {self.front_stop_distance_m:.3f} m; '
+                        'not aborting during settle'
                     )
 
             linear_y = 0.0
@@ -2814,6 +2857,7 @@ class DarthMaulControlNode(Node):
                 (
                     f'cell settle: destination_cell={virtual.cell_idx}; '
                     f'longitudinal={longitudinal_source}: {longitudinal_reason}; '
+                    f'front_guard={front_guard_reason}; '
                     f'axial={axial.reason}; lateral={centering.reason}; '
                     f'yaw={yaw_observation.reason}'
                 ),
@@ -2830,6 +2874,8 @@ class DarthMaulControlNode(Node):
                     f'long_valid={longitudinal_valid}, '
                     f'long_error={longitudinal_error_m:.3f} m, '
                     f'long_source={longitudinal_source}, '
+                    f'front_guard={front_guard_active}, '
+                    f'front_dist={front_guard_distance_m:.3f} m, '
                     f'axial_valid={axial.valid}, axial_error={axial.error_m:.3f} m, '
                     f'axial_source={axial.source}, '
                     f'lat_valid={centering.valid}, '
@@ -2929,6 +2975,26 @@ class DarthMaulControlNode(Node):
             self._grid_yaw_correction_active = bool(active)
             self._grid_yaw_correction_radps = float(correction_radps)
             self._grid_yaw_control_reason = str(reason)
+
+    def _settle_front_distance(
+        self,
+        ranges: Optional[LidarRangeSnapshot],
+    ) -> tuple[float, str]:
+        candidates: list[tuple[float, str]] = []
+
+        if ranges is not None and ranges.front.valid:
+            distance = self._range_value(ranges.front)
+            if math.isfinite(distance) and distance > 0.0:
+                candidates.append((float(distance), 'front_cardinal_median'))
+
+        clearance = self._front_clearance()
+        if math.isfinite(clearance) and clearance > 0.0:
+            candidates.append((float(clearance), 'front_sector_min'))
+
+        if not candidates:
+            return float('inf'), 'unavailable'
+
+        return min(candidates, key=lambda item: item[0])
 
     @staticmethod
     def _range_value(measurement: SectorRange) -> float:
