@@ -18,14 +18,14 @@ darth_maul_control:
     default_position_tolerance_m: 0.015
     default_heading_tolerance_rad: 0.060
 
-    # Fast but still bounded real-robot defaults.
-    default_linear_speed_mps: 0.135
-    default_reverse_speed_mps: 0.055
-    default_angular_speed_radps: 0.420
+    # Competition speed limits.
+    default_linear_speed_mps: 0.155
+    default_reverse_speed_mps: 0.065
+    default_angular_speed_radps: 0.520
 
-    max_linear_x_mps: 0.150
+    max_linear_x_mps: 0.180
     max_linear_y_mps: 0.050
-    max_angular_z_radps: 0.550
+    max_angular_z_radps: 0.700
 
     # Minimum commands to overcome static friction.
     # These are only used while outside tolerance.
@@ -33,13 +33,13 @@ darth_maul_control:
     min_angular_z_radps: 0.080
 
     # Capped-P gains
-    k_distance: 0.90
-    k_heading: 1.70
+    k_distance: 1.00
+    k_heading: 1.90
 
     # Acceleration limiting
-    max_linear_accel_mps2: 0.360
+    max_linear_accel_mps2: 0.500
     max_lateral_accel_mps2: 0.180
-    max_angular_accel_radps2: 1.300
+    max_angular_accel_radps2: 1.900
 
     # Sensor freshness
     odom_timeout_sec: 0.50
@@ -174,8 +174,8 @@ darth_maul_control:
     # Controller gain for global Manhattan yaw.
     # Reuses the live yaw command cap, but yaw observation is no longer
     # tied to expected adjacent side walls.
-    k_grid_live_yaw: 2.40
-    max_grid_live_yaw_correction_radps: 0.140
+    k_grid_live_yaw: 2.70
+    max_grid_live_yaw_correction_radps: 0.180
 
     # Side-wall yaw quality gate for local centering lines.
     # This is not the global Manhattan yaw max error.
