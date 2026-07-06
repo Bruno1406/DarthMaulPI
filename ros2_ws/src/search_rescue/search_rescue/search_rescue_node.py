@@ -11,7 +11,6 @@ from apriltag_msgs.msg import AprilTagDetectionArray
 
 from maze_interface.srv import GradeCubes
 
-
 class SearchRescueNode(Node):
     def __init__(self):
         super().__init__("search_rescue_node")
@@ -27,7 +26,9 @@ class SearchRescueNode(Node):
         self.apriltag_subscriber = self.create_subscription(AprilTagDetectionArray, "/apriltag_detections", self.callback_apriltag, 10)
         self.camera_info_subscriber = self.create_subscription(CameraInfo,"/ascamera/camera_publisher/rgb0/camera_info", self.callback_camera_info, 10)
 
-        # ToDo: self.create_client...
+        self.client = self.create_client(GradeCubes, "/grade_cubes")
+        while not self.client.wait_for_service(1.0):
+            self.get_logger().info("waiting for grade_cubes service ...")
 
 # self.image_subscriber
     def callback_image(self, msg):
@@ -40,33 +41,54 @@ class SearchRescueNode(Node):
 # self.apriltag_subscriber
     def callback_apriltag(self, msg):
         if not msg.detections:
-            self.get_logger().info("no tag yet")
             return
 
         if self.latest_image is None:
             self.get_logger().info("no image yet")
             return
         
-        detection = max(msg.detections, key=lambda d: d.centre.y)
+        valid_detections = []
+        # There are tags on both the front and top of the cubes; 
+        # as the tags on the top make it difficult to determine colour and estimate distance, 
+        # Filter out top/tilted tags and keep front-facing tags for color and distance estimation.
 
-        tag_id = detection.id
-        centre_x = detection.centre.x
-        centre_y = detection.centre.y
-            
-        relative_position = self.estimate_cube_relative_position(detection)
+        for d in msg.detections:
+            xs = [c.x for c in d.corners]
+            ys = [c.y for c in d.corners]
+            w = max(xs) - min(xs)
+            h = max(ys) - min(ys)
 
-        if relative_position is None:
+            if w < 25 or h < 25:
+                continue
+
+            ratio = h / w
+
+            if ratio < 0.7 or ratio > 1.3:
+                continue
+
+            valid_detections.append(d)
+
+        if not valid_detections:
             return
 
-        x_cm, y_cm = relative_position
-        # ToDo：Determine the absolute position of the cube based on the robot’s position and the cube’s position relative to the robot
+        detection = max(valid_detections, key=lambda d: d.centre.y)
+
+        relative_position = self.estimate_cube_relative_position(detection)
+        if relative_position is None:
+            return
+ 
+        xr_cm, yr_cm = relative_position
+
+        # if xr_cm < 15 or xr_cm > 30:
+        #     TODO: ask exploration/control to approach cube
+        #     TODO: Convert robot-relative cube position to global map coordinates.
         crop = self.crop_cube_from_detection(self.latest_image, detection)
 
         if crop is None:
             self.get_logger().info("error: crop failed")
             return
 
-        self.process_cube_detection(tag_id, x_cm, y_cm, crop)
+        self.process_cube_detection(xr_cm, yr_cm, crop)
 
     def crop_cube_from_detection(self, image, detection):
         if image is None:
@@ -106,7 +128,7 @@ class SearchRescueNode(Node):
 
         return crop
     
-    def process_cube_detection(self,tag_id,x_cm,y_cm,image):
+    def process_cube_detection(self,x_cm,y_cm,image):
         if image is None:
             self.get_logger().info("error: no image")
             return
@@ -116,12 +138,14 @@ class SearchRescueNode(Node):
             self.get_logger().info("error: no color")
             return
         
-        is_new_cube = self.tracker.add_cube(tag_id, x_cm, y_cm, color_id)
+        is_new_cube = self.tracker.add_cube(x_cm, y_cm, color_id)
         if is_new_cube:
             n,xs,ys,colors = self.tracker.export_for_service()
             self.get_logger().info(
                 f"new cube: n={n}, x={round(x_cm)}, y={round(y_cm)}, color={color_id}"
             )
+        
+        self.maybe_submit_cubes(is_new_cube)
 
         
 
@@ -131,7 +155,6 @@ class SearchRescueNode(Node):
             return
 
         self.camera_info = msg
-        self.get_logger().info(f"camera info received: k={msg.k}")
 
     def estimate_cube_relative_position(self, detection):
         if self.camera_info is None:

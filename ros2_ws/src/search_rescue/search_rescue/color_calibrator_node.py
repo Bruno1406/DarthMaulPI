@@ -7,6 +7,8 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 from apriltag_msgs.msg import AprilTagDetectionArray
 
+# This node is used to measure the HSV values of each colour under laboratory lighting conditions.
+
 
 class ColorCalibratorNode(Node):
     def __init__(self):
