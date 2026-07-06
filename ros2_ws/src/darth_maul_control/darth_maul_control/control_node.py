@@ -15,12 +15,14 @@ from darth_maul_control.geometry import (
     yaw_from_quaternion,
 )
 from darth_maul_control.scan_geometry import (
+    AxialCellCenterEstimate,
     GridAlignmentEstimate,
     LidarProgressEstimate,
     SectorRange,
     TemporalLidarProgressEstimate,
     WallLineEstimate,
     cardinal_sector_ranges,
+    choose_axial_cell_centering,
     choose_lidar_progress,
     choose_heading_validation_error,
     choose_temporal_lidar_progress,
@@ -39,6 +41,7 @@ from darth_maul_control.grid_context import (
     GridObservation,
     GridRunContext,
     LiveGridCommand,
+    advance_cells,
     grid_context_from_goal,
     invalid_centering,
     live_grid_command,
@@ -167,6 +170,22 @@ class LiveGridDiagnostics:
     yaw_cmd_radps: float = 0.0
     lateral_cmd_mps: float = 0.0
     reason: str = ''
+
+
+@dataclass(frozen=True)
+class GridCellSettleResult:
+    canceled: bool
+    success: bool
+    result_code: int
+    message: str
+    position_error_m: float
+    heading_error_rad: float
+    heading_source: str
+    progress_m: float
+    odom_progress_m: float
+    progress_source: str
+    progress_reason: str
+    yaw_correction_used: bool
 
 
 SUPPORTED_PRIMITIVES = {
@@ -330,34 +349,34 @@ class DarthMaulControlNode(Node):
 
         self.default_position_tolerance_m = self._positive_float_param(
             'default_position_tolerance_m',
-            0.025,
+            0.045,
         )
         self.default_heading_tolerance_rad = self._positive_float_param(
             'default_heading_tolerance_rad',
-            0.06,
+            0.075,
         )
 
         self.default_linear_speed_mps = self._positive_float_param(
             'default_linear_speed_mps',
-            0.070,
+            0.135,
         )
         self.default_reverse_speed_mps = self._positive_float_param(
             'default_reverse_speed_mps',
-            0.050,
+            0.055,
         )
         self.default_angular_speed_radps = self._positive_float_param(
             'default_angular_speed_radps',
-            0.280,
+            0.420,
         )
 
-        self.max_linear_x_mps = self._positive_float_param('max_linear_x_mps', 0.090)
+        self.max_linear_x_mps = self._positive_float_param('max_linear_x_mps', 0.150)
         self.max_linear_y_mps = self._nonnegative_float_param(
             'max_linear_y_mps',
-            0.035,
+            0.050,
         )
         self.max_angular_z_radps = self._positive_float_param(
             'max_angular_z_radps',
-            0.350,
+            0.550,
         )
 
         self.min_linear_x_mps = self._nonnegative_float_param(
@@ -369,20 +388,20 @@ class DarthMaulControlNode(Node):
             0.080,
         )
 
-        self.k_distance = self._nonnegative_float_param('k_distance', 0.80)
-        self.k_heading = self._nonnegative_float_param('k_heading', 1.60)
+        self.k_distance = self._nonnegative_float_param('k_distance', 0.90)
+        self.k_heading = self._nonnegative_float_param('k_heading', 1.70)
 
         self.max_linear_accel_mps2 = self._positive_float_param(
             'max_linear_accel_mps2',
-            0.18,
+            0.360,
         )
         self.max_lateral_accel_mps2 = self._positive_float_param(
             'max_lateral_accel_mps2',
-            0.12,
+            0.180,
         )
         self.max_angular_accel_radps2 = self._positive_float_param(
             'max_angular_accel_radps2',
-            0.75,
+            1.300,
         )
 
         self.odom_timeout_sec = self._positive_float_param('odom_timeout_sec', 0.50)
@@ -395,7 +414,7 @@ class DarthMaulControlNode(Node):
         self.front_sector_deg = self._positive_float_param('front_sector_deg', 35.0)
         self.front_stop_distance_m = self._positive_float_param(
             'front_stop_distance_m',
-            0.13,
+            0.09,
         )
         self.lidar_diagnostics_enabled = self._bool_param(
             'lidar_diagnostics_enabled',
@@ -426,13 +445,13 @@ class DarthMaulControlNode(Node):
         self.translation_lidar_required_invalid_max_consecutive_samples = (
             self._nonnegative_int_param(
                 'translation_lidar_required_invalid_max_consecutive_samples',
-                2,
+                4,
             )
         )
 
         self.lidar_progress_max_disagreement_m = self._positive_float_param(
             'lidar_progress_max_disagreement_m',
-            0.025,
+            0.035,
         )
         self.lidar_progress_min_m = self._float_param(
             'lidar_progress_min_m',
@@ -444,11 +463,11 @@ class DarthMaulControlNode(Node):
         )
         self.lidar_progress_max_ahead_of_odom_m = self._positive_float_param(
             'lidar_progress_max_ahead_of_odom_m',
-            0.060,
+            0.075,
         )
         self.lidar_odom_warning_threshold_m = self._positive_float_param(
             'lidar_odom_warning_threshold_m',
-            0.020,
+            0.030,
         )
 
         self.grid_alignment_diagnostics_enabled = self._bool_param(
@@ -529,19 +548,19 @@ class DarthMaulControlNode(Node):
             'grid_live_control_enabled',
             True,
         )
-        self.k_grid_lateral = self._nonnegative_float_param('k_grid_lateral', 1.40)
+        self.k_grid_lateral = self._nonnegative_float_param('k_grid_lateral', 1.60)
         self.max_grid_lateral_mps = self._nonnegative_float_param(
             'max_grid_lateral_mps',
-            0.035,
+            0.045,
         )
         self.grid_lateral_min_confidence = self._nonnegative_float_param(
             'grid_lateral_min_confidence',
             0.55,
         )
-        self.k_grid_live_yaw = self._nonnegative_float_param('k_grid_live_yaw', 2.20)
+        self.k_grid_live_yaw = self._nonnegative_float_param('k_grid_live_yaw', 2.40)
         self.max_grid_live_yaw_correction_radps = self._nonnegative_float_param(
             'max_grid_live_yaw_correction_radps',
-            0.110,
+            0.140,
         )
         self.grid_manhattan_yaw_enabled = self._bool_param(
             'grid_manhattan_yaw_enabled',
@@ -615,10 +634,6 @@ class DarthMaulControlNode(Node):
             0.0,
             min(1.0, self.grid_manhattan_yaw_min_confidence),
         )
-        self.grid_live_yaw_min_confidence = self._nonnegative_float_param(
-            'grid_live_yaw_min_confidence',
-            0.55,
-        )
         self.grid_live_max_abs_yaw_error_rad = self._positive_float_param(
             'grid_live_max_abs_yaw_error_rad',
             0.120,
@@ -645,11 +660,11 @@ class DarthMaulControlNode(Node):
         )
         self.grid_reacquire_small_yaw_rad = self._positive_float_param(
             'grid_reacquire_small_yaw_rad',
-            0.040,
+            0.055,
         )
         self.grid_reacquire_large_yaw_rad = self._positive_float_param(
             'grid_reacquire_large_yaw_rad',
-            0.100,
+            0.200,
         )
         self.grid_reacquire_speed_scale = self._float_param(
             'grid_reacquire_speed_scale',
@@ -659,13 +674,70 @@ class DarthMaulControlNode(Node):
             0.0,
             min(1.0, self.grid_reacquire_speed_scale),
         )
+
+        self.grid_cell_settle_enabled = self._bool_param(
+            'grid_cell_settle_enabled',
+            True,
+        )
+        self.grid_cell_settle_timeout_sec = self._positive_float_param(
+            'grid_cell_settle_timeout_sec',
+            2.0,
+        )
+        self.grid_cell_settle_max_linear_x_mps = self._positive_float_param(
+            'grid_cell_settle_max_linear_x_mps',
+            0.045,
+        )
+        self.grid_cell_settle_max_linear_y_mps = self._nonnegative_float_param(
+            'grid_cell_settle_max_linear_y_mps',
+            0.030,
+        )
+        self.grid_cell_settle_max_yaw_radps = self._nonnegative_float_param(
+            'grid_cell_settle_max_yaw_radps',
+            0.100,
+        )
+        self.grid_cell_settle_position_tolerance_m = self._positive_float_param(
+            'grid_cell_settle_position_tolerance_m',
+            0.025,
+        )
+        self.grid_cell_settle_lateral_tolerance_m = self._positive_float_param(
+            'grid_cell_settle_lateral_tolerance_m',
+            0.020,
+        )
+        self.grid_cell_settle_heading_tolerance_rad = self._positive_float_param(
+            'grid_cell_settle_heading_tolerance_rad',
+            0.060,
+        )
+        self.grid_cell_settle_require_longitudinal_reference = self._bool_param(
+            'grid_cell_settle_require_longitudinal_reference',
+            False,
+        )
+        self.grid_cell_settle_abort_position_error_m = self._positive_float_param(
+            'grid_cell_settle_abort_position_error_m',
+            0.120,
+        )
+        self.grid_cell_settle_abort_heading_error_rad = self._positive_float_param(
+            'grid_cell_settle_abort_heading_error_rad',
+            0.220,
+        )
+        self.grid_center_expected_front_distance_m = self._positive_float_param(
+            'grid_center_expected_front_distance_m',
+            0.125,
+        )
+        self.grid_center_expected_rear_distance_m = self._positive_float_param(
+            'grid_center_expected_rear_distance_m',
+            0.125,
+        )
+        self.grid_center_front_rear_agreement_tolerance_m = self._positive_float_param(
+            'grid_center_front_rear_agreement_tolerance_m',
+            0.035,
+        )
         self.lidar_progress_temporal_filter_enabled = self._bool_param(
             'lidar_progress_temporal_filter_enabled',
-            False,
+            True,
         )
         self.lidar_progress_temporal_max_backtrack_m = self._positive_float_param(
             'lidar_progress_temporal_max_backtrack_m',
-            0.015,
+            0.020,
         )
         self.lidar_progress_temporal_max_jump_m = self._positive_float_param(
             'lidar_progress_temporal_max_jump_m',
@@ -673,7 +745,7 @@ class DarthMaulControlNode(Node):
         )
         self.lidar_progress_temporal_max_degraded_samples = self._positive_int_param(
             'lidar_progress_temporal_max_degraded_samples',
-            2,
+            6,
         )
         self.rotate_timeout_accept_heading_error_rad = self._nonnegative_float_param(
             'rotate_timeout_accept_heading_error_rad',
@@ -686,16 +758,16 @@ class DarthMaulControlNode(Node):
         )
         self.grid_lateral_drift_require_left_right = self._bool_param(
             'grid_lateral_drift_require_left_right',
-            True,
+            False,
         )
         self.grid_lateral_drift_min_confidence = self._nonnegative_float_param(
             'grid_lateral_drift_min_confidence',
-            0.90,
+            0.55,
         )
 
         self.timeout_margin_sec = self._nonnegative_float_param(
             'timeout_margin_sec',
-            3.0,
+            5.0,
         )
         self.wait_timeout_margin_sec = self._nonnegative_float_param(
             'wait_timeout_margin_sec',
@@ -704,13 +776,13 @@ class DarthMaulControlNode(Node):
 
         self.stop_publish_duration_sec = self._positive_float_param(
             'stop_publish_duration_sec',
-            0.40,
+            0.30,
         )
         self.stop_publish_rate_hz = self._positive_float_param(
             'stop_publish_rate_hz',
             25.0,
         )
-        self.settle_time_sec = self._nonnegative_float_param('settle_time_sec', 0.15)
+        self.settle_time_sec = self._nonnegative_float_param('settle_time_sec', 0.10)
         self.enforce_final_error = self._bool_param('enforce_final_error', True)
 
     def _string_param(self, name: str, default: str) -> str:
@@ -1323,13 +1395,75 @@ class DarthMaulControlNode(Node):
                 if (
                     self.enforce_final_error
                     and (
+                        final_position_error > self.grid_cell_settle_abort_position_error_m
+                        or final_heading_validation_error
+                        > self.grid_cell_settle_abort_heading_error_rad
+                    )
+                ):
+                    result_code = ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
+                    result_message = (
+                        f'{name} final error beyond settle abort threshold: '
+                        f'pos={final_position_error:.3f} m '
+                        f'> {self.grid_cell_settle_abort_position_error_m:.3f} m or '
+                        f'heading={final_heading_validation_error:.3f} rad '
+                        f'> {self.grid_cell_settle_abort_heading_error_rad:.3f} rad '
+                        f'({final_heading_validation_source}; '
+                        f'odom_heading={final_heading_error:.3f} rad)'
+                    )
+                    break
+
+                if (
+                    self.grid_cell_settle_enabled
+                    and direction > 0.0
+                    and grid_context.valid
+                ):
+                    settle_result = self._settle_grid_cell_after_translation(
+                        goal_handle=goal_handle,
+                        context=grid_context,
+                        start=start,
+                        direction=direction,
+                        commanded_distance=target_distance,
+                        start_ranges=start_ranges,
+                        initial_progress_m=final_control_progress,
+                        initial_progress_source=final_progress_source_used,
+                        initial_progress_reason=final_control_progress_reason,
+                        collision_check_enabled=bool(request.collision_check_enabled),
+                        limits=limits,
+                    )
+
+                    if settle_result.canceled:
+                        self._reset_live_grid_controller('translation canceled during cell settle')
+                        self._reset_temporal_lidar_progress_tracker()
+                        return self._cancel_result(goal_handle)
+
+                    final_position_error = settle_result.position_error_m
+                    final_heading_error = settle_result.heading_error_rad
+                    final_heading_validation_error = settle_result.heading_error_rad
+                    final_heading_validation_source = settle_result.heading_source
+                    final_control_progress = settle_result.progress_m
+                    final_odom_progress = settle_result.odom_progress_m
+                    final_progress_source_used = settle_result.progress_source
+                    final_control_progress_reason = settle_result.progress_reason
+                    grid_yaw_correction_ever_used = (
+                        grid_yaw_correction_ever_used
+                        or settle_result.yaw_correction_used
+                    )
+
+                    if not settle_result.success:
+                        result_code = settle_result.result_code
+                        result_message = f'{name} cell settle failed: {settle_result.message}'
+                        break
+
+                if (
+                    self.enforce_final_error
+                    and (
                         final_position_error > position_tol * 1.5
                         or final_heading_validation_error > heading_tol * 1.5
                     )
                 ):
                     result_code = ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
                     result_message = (
-                        f'{name} final error too large: '
+                        f'{name} final error too large after settle: '
                         f'pos={final_position_error:.3f} m, '
                         f'heading={final_heading_validation_error:.3f} rad '
                         f'({final_heading_validation_source}; '
@@ -1965,6 +2099,543 @@ class DarthMaulControlNode(Node):
         self._grid_live_last_reason = command.reason
 
         return command
+
+    def _axial_cell_centering_estimate(
+        self,
+        expected,
+        ranges: Optional[LidarRangeSnapshot],
+    ) -> AxialCellCenterEstimate:
+        if ranges is None:
+            return AxialCellCenterEstimate(
+                valid=False,
+                error_m=0.0,
+                source='none',
+                front_usable=False,
+                rear_usable=False,
+                disagreement_m=0.0,
+                reason='no fresh cardinal LiDAR snapshot',
+            )
+
+        front_distance = self._range_value(ranges.front)
+        rear_distance = self._range_value(ranges.rear)
+
+        return choose_axial_cell_centering(
+            expected_front=bool(expected.front),
+            front_valid=bool(ranges.front.valid),
+            front_distance_m=front_distance,
+            expected_front_distance_m=self.grid_center_expected_front_distance_m,
+            expected_rear=bool(expected.rear),
+            rear_valid=bool(ranges.rear.valid),
+            rear_distance_m=rear_distance,
+            expected_rear_distance_m=self.grid_center_expected_rear_distance_m,
+            max_disagreement_m=self.grid_center_front_rear_agreement_tolerance_m,
+        )
+
+    @staticmethod
+    def _settle_axis_command(
+        error_m: float,
+        tolerance_m: float,
+        gain: float,
+        max_speed: float,
+        min_speed: float = 0.0,
+    ) -> float:
+        if not math.isfinite(error_m) or abs(error_m) <= float(tolerance_m):
+            return 0.0
+
+        cap = abs(float(max_speed))
+        if cap <= 0.0:
+            return 0.0
+
+        floor = min(abs(float(min_speed)), cap)
+        magnitude = clamp(abs(float(gain) * float(error_m)), floor, cap)
+        return sign(float(error_m)) * magnitude
+
+    def _settle_grid_cell_after_translation(
+        self,
+        *,
+        goal_handle,
+        context: GridRunContext,
+        start: Pose2D,
+        direction: float,
+        commanded_distance: float,
+        start_ranges: Optional[LidarRangeSnapshot],
+        initial_progress_m: float,
+        initial_progress_source: str,
+        initial_progress_reason: str,
+        collision_check_enabled: bool,
+        limits: VelocityLimits,
+    ) -> GridCellSettleResult:
+        settle_limits = VelocityLimits(
+            max_linear_x_mps=min(
+                limits.max_linear_x_mps,
+                self.grid_cell_settle_max_linear_x_mps,
+            ),
+            max_linear_y_mps=min(
+                limits.max_linear_y_mps,
+                self.max_linear_y_mps,
+                self.grid_cell_settle_max_linear_y_mps,
+            ),
+            max_angular_z_radps=min(
+                limits.max_angular_z_radps,
+                self.grid_cell_settle_max_yaw_radps,
+            ),
+        )
+
+        start_time = time.monotonic()
+        last_position_error = abs(float(commanded_distance) - float(initial_progress_m))
+        last_heading_error = 0.0
+        last_heading_source = 'odom'
+        last_progress = float(initial_progress_m)
+        last_odom_progress = 0.0
+        last_progress_source = str(initial_progress_source)
+        last_progress_reason = str(initial_progress_reason)
+        yaw_correction_used = False
+
+        destination_cell = advance_cells(
+            context.start_idx,
+            context.heading,
+            context.run_cells,
+            context.n,
+            context.m,
+        )
+        if destination_cell == 0:
+            self.publish_zero_twist()
+            return GridCellSettleResult(
+                canceled=False,
+                success=False,
+                result_code=ExecuteMotionPrimitive.Result.INTERNAL_ERROR,
+                message=(
+                    'destination cell outside maze during settle: '
+                    f'start_idx={context.start_idx}; '
+                    f'heading={context.heading}; '
+                    f'run_cells={context.run_cells}'
+                ),
+                position_error_m=last_position_error,
+                heading_error_rad=last_heading_error,
+                heading_source=last_heading_source,
+                progress_m=last_progress,
+                odom_progress_m=last_odom_progress,
+                progress_source=last_progress_source,
+                progress_reason=last_progress_reason,
+                yaw_correction_used=yaw_correction_used,
+            )
+
+        settle_context = GridRunContext(
+            True,
+            context.n,
+            context.m,
+            destination_cell,
+            context.heading,
+            1,
+            context.l,
+            'destination cell settle context',
+        )
+
+        # Use the middle of a one-cell settle context so side-wall centering is
+        # not weakened by the live-run boundary-zone penalty.
+        settle_virtual_progress_m = 0.5 * self.cell_length_m
+
+        while True:
+            if self._cancel_or_stop_requested(goal_handle):
+                return GridCellSettleResult(
+                    canceled=True,
+                    success=False,
+                    result_code=ExecuteMotionPrimitive.Result.CANCELED,
+                    message='cell settle canceled',
+                    position_error_m=last_position_error,
+                    heading_error_rad=last_heading_error,
+                    heading_source=last_heading_source,
+                    progress_m=last_progress,
+                    odom_progress_m=last_odom_progress,
+                    progress_source=last_progress_source,
+                    progress_reason=last_progress_reason,
+                    yaw_correction_used=yaw_correction_used,
+                )
+
+            elapsed = time.monotonic() - start_time
+            if elapsed > self.grid_cell_settle_timeout_sec:
+                self.publish_zero_twist()
+                return GridCellSettleResult(
+                    canceled=False,
+                    success=False,
+                    result_code=ExecuteMotionPrimitive.Result.TIMEOUT,
+                    message=(
+                        f'timed out after {elapsed:.2f}s; '
+                        f'pos_error={last_position_error:.3f} m; '
+                        f'heading_error={last_heading_error:.3f} rad; '
+                        f'progress_source={last_progress_source}; '
+                        f'{last_progress_reason}'
+                    ),
+                    position_error_m=last_position_error,
+                    heading_error_rad=last_heading_error,
+                    heading_source=last_heading_source,
+                    progress_m=last_progress,
+                    odom_progress_m=last_odom_progress,
+                    progress_source=last_progress_source,
+                    progress_reason=last_progress_reason,
+                    yaw_correction_used=yaw_correction_used,
+                )
+
+            snapshot = self._get_motion_snapshot()
+            if snapshot is None:
+                self.publish_zero_twist()
+                return GridCellSettleResult(
+                    canceled=False,
+                    success=False,
+                    result_code=ExecuteMotionPrimitive.Result.ODOM_UNAVAILABLE,
+                    message='fresh odom unavailable during cell settle',
+                    position_error_m=last_position_error,
+                    heading_error_rad=last_heading_error,
+                    heading_source=last_heading_source,
+                    progress_m=last_progress,
+                    odom_progress_m=last_odom_progress,
+                    progress_source=last_progress_source,
+                    progress_reason=last_progress_reason,
+                    yaw_correction_used=yaw_correction_used,
+                )
+
+            progress_signed, _cross_track = self._translation_errors(
+                start,
+                snapshot.pose,
+                direction,
+            )
+            odom_progress = max(0.0, progress_signed)
+            last_odom_progress = odom_progress
+
+            current_ranges = self._cardinal_range_snapshot()
+            diagnostics = self._translation_diagnostics(
+                direction=direction,
+                odom_progress_m=odom_progress,
+                start_ranges=start_ranges,
+                end_ranges=current_ranges,
+                track_lidar_progress=False,
+            )
+            progress_selection = self._select_translation_progress(
+                odom_progress_m=odom_progress,
+                diagnostics=diagnostics,
+            )
+            if progress_selection.valid:
+                last_progress = max(0.0, progress_selection.progress_m)
+                last_progress_source = progress_selection.source
+                last_progress_reason = progress_selection.reason
+                progress_error = abs(float(commanded_distance) - last_progress)
+            else:
+                progress_error = abs(float(commanded_distance) - last_progress)
+                last_progress_source = progress_selection.source
+                last_progress_reason = progress_selection.reason
+
+            alignment = self._grid_alignment_snapshot()
+            virtual, expected, centering = observe_centering_from_expected_side_walls(
+                context=settle_context,
+                alignment=alignment,
+                progress_m=settle_virtual_progress_m,
+                cell_length_m=self.cell_length_m,
+                boundary_margin_m=self.grid_virtual_cell_boundary_margin_m,
+                expected_half_width_m=self.grid_alignment_expected_half_width_m,
+                adjacent_wall_tolerance_m=self.grid_alignment_adjacent_wall_tolerance_m,
+                pair_width_tolerance_m=self.grid_alignment_pair_width_tolerance_m,
+                max_abs_yaw_error_rad=self.grid_live_max_abs_yaw_error_rad,
+                max_rms_error_m=self.grid_live_max_rms_error_m,
+                min_span_x_m=self.grid_live_min_span_x_m,
+                min_support_count=self.grid_live_min_support_count,
+                min_confidence=self.grid_lateral_min_confidence,
+            )
+
+            if not virtual.valid or not expected.valid:
+                self.publish_zero_twist()
+                return GridCellSettleResult(
+                    canceled=False,
+                    success=False,
+                    result_code=ExecuteMotionPrimitive.Result.INTERNAL_ERROR,
+                    message=(
+                        'invalid destination cell geometry during settle: '
+                        f'destination_cell={destination_cell}; '
+                        f'{virtual.reason}; {expected.reason}'
+                    ),
+                    position_error_m=progress_error,
+                    heading_error_rad=last_heading_error,
+                    heading_source=last_heading_source,
+                    progress_m=last_progress,
+                    odom_progress_m=last_odom_progress,
+                    progress_source=last_progress_source,
+                    progress_reason=last_progress_reason,
+                    yaw_correction_used=yaw_correction_used,
+                )
+
+            axial = self._axial_cell_centering_estimate(expected, current_ranges)
+            yaw_observation = self._manhattan_yaw_observation()
+            odom_heading_error = normalize_angle(start.yaw - snapshot.pose.yaw)
+            yaw_valid = bool(
+                yaw_observation.valid
+                and yaw_observation.confidence >= self.grid_manhattan_yaw_min_confidence
+                and abs(yaw_observation.yaw_error_rad)
+                <= self.grid_manhattan_yaw_max_abs_error_rad
+            )
+
+            if yaw_valid:
+                heading_error_signed = float(yaw_observation.yaw_error_rad)
+                heading_error = abs(heading_error_signed)
+                heading_source = f'grid_yaw/{yaw_observation.source}'
+            else:
+                heading_error_signed = odom_heading_error
+                heading_error = abs(odom_heading_error)
+                heading_source = 'odom'
+
+            last_heading_error = heading_error
+            last_heading_source = heading_source
+
+            axial_reference_expected = bool(expected.front or expected.rear)
+            lateral_reference_expected = bool(expected.left or expected.right)
+
+            if axial.valid:
+                last_position_error = abs(axial.error_m)
+            elif progress_selection.valid:
+                last_position_error = progress_error
+            else:
+                last_position_error = abs(float(commanded_distance) - last_progress)
+
+            if heading_error > self.grid_cell_settle_abort_heading_error_rad:
+                self.publish_zero_twist()
+                return GridCellSettleResult(
+                    canceled=False,
+                    success=False,
+                    result_code=ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE,
+                    message=(
+                        f'heading abort: {heading_error:.3f} rad '
+                        f'> {self.grid_cell_settle_abort_heading_error_rad:.3f} rad; '
+                        f'source={heading_source}; yaw_reason={yaw_observation.reason}'
+                    ),
+                    position_error_m=last_position_error,
+                    heading_error_rad=heading_error,
+                    heading_source=heading_source,
+                    progress_m=last_progress,
+                    odom_progress_m=last_odom_progress,
+                    progress_source=last_progress_source,
+                    progress_reason=last_progress_reason,
+                    yaw_correction_used=yaw_correction_used,
+                )
+
+            if progress_selection.valid and progress_error > self.grid_cell_settle_abort_position_error_m:
+                self.publish_zero_twist()
+                return GridCellSettleResult(
+                    canceled=False,
+                    success=False,
+                    result_code=ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE,
+                    message=(
+                        f'progress abort: {progress_error:.3f} m '
+                        f'> {self.grid_cell_settle_abort_position_error_m:.3f} m; '
+                        f'progress_source={progress_selection.source}; '
+                        f'{progress_selection.reason}'
+                    ),
+                    position_error_m=progress_error,
+                    heading_error_rad=heading_error,
+                    heading_source=heading_source,
+                    progress_m=last_progress,
+                    odom_progress_m=last_odom_progress,
+                    progress_source=last_progress_source,
+                    progress_reason=last_progress_reason,
+                    yaw_correction_used=yaw_correction_used,
+                )
+
+            if axial.valid and abs(axial.error_m) > self.grid_cell_settle_abort_position_error_m:
+                self.publish_zero_twist()
+                return GridCellSettleResult(
+                    canceled=False,
+                    success=False,
+                    result_code=ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE,
+                    message=(
+                        f'cell-center abort: axial_error={axial.error_m:.3f} m '
+                        f'> {self.grid_cell_settle_abort_position_error_m:.3f} m; '
+                        f'{axial.reason}'
+                    ),
+                    position_error_m=abs(axial.error_m),
+                    heading_error_rad=heading_error,
+                    heading_source=heading_source,
+                    progress_m=last_progress,
+                    odom_progress_m=last_odom_progress,
+                    progress_source=last_progress_source,
+                    progress_reason=last_progress_reason,
+                    yaw_correction_used=yaw_correction_used,
+                )
+
+            if axial.source == 'front_rear_rejected':
+                self.publish_zero_twist()
+                return GridCellSettleResult(
+                    canceled=False,
+                    success=False,
+                    result_code=ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE,
+                    message=f'front/rear cell-center references disagree; {axial.reason}',
+                    position_error_m=last_position_error,
+                    heading_error_rad=heading_error,
+                    heading_source=heading_source,
+                    progress_m=last_progress,
+                    odom_progress_m=last_odom_progress,
+                    progress_source=last_progress_source,
+                    progress_reason=last_progress_reason,
+                    yaw_correction_used=yaw_correction_used,
+                )
+
+            if (
+                self.grid_cell_settle_require_longitudinal_reference
+                and not axial.valid
+            ):
+                self.publish_zero_twist()
+                return GridCellSettleResult(
+                    canceled=False,
+                    success=False,
+                    result_code=ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE,
+                    message=f'longitudinal reference required but unavailable; {axial.reason}',
+                    position_error_m=last_position_error,
+                    heading_error_rad=heading_error,
+                    heading_source=heading_source,
+                    progress_m=last_progress,
+                    odom_progress_m=last_odom_progress,
+                    progress_source=last_progress_source,
+                    progress_reason=last_progress_reason,
+                    yaw_correction_used=yaw_correction_used,
+                )
+
+            longitudinal_ok = True
+            if axial_reference_expected:
+                longitudinal_ok = bool(
+                    axial.valid
+                    and abs(axial.error_m)
+                    <= self.grid_cell_settle_position_tolerance_m
+                )
+
+            lateral_ok = True
+            if lateral_reference_expected:
+                lateral_ok = bool(
+                    centering.valid
+                    and abs(centering.lateral_error_m)
+                    <= self.grid_cell_settle_lateral_tolerance_m
+                )
+
+            heading_ok = heading_error <= self.grid_cell_settle_heading_tolerance_rad
+
+            if longitudinal_ok and lateral_ok and heading_ok:
+                self.publish_zero_twist()
+                return GridCellSettleResult(
+                    canceled=False,
+                    success=True,
+                    result_code=ExecuteMotionPrimitive.Result.SUCCESS,
+                    message=(
+                        f'cell settled: destination_cell={virtual.cell_idx}; '
+                        f'axial_valid={axial.valid}; axial_error={axial.error_m:.3f} m; '
+                        f'axial_source={axial.source}; '
+                        f'lateral_valid={centering.valid}; '
+                        f'lateral_error={centering.lateral_error_m:.3f} m; '
+                        f'heading_error={heading_error:.3f} rad; '
+                        f'heading_source={heading_source}'
+                    ),
+                    position_error_m=last_position_error,
+                    heading_error_rad=heading_error,
+                    heading_source=heading_source,
+                    progress_m=last_progress,
+                    odom_progress_m=last_odom_progress,
+                    progress_source=last_progress_source,
+                    progress_reason=last_progress_reason,
+                    yaw_correction_used=yaw_correction_used,
+                )
+
+            linear_x = 0.0
+            if axial.valid:
+                linear_x = self._settle_axis_command(
+                    axial.error_m,
+                    self.grid_cell_settle_position_tolerance_m,
+                    self.k_distance,
+                    settle_limits.max_linear_x_mps,
+                    self.min_linear_x_mps,
+                )
+
+            if linear_x > 0.0 and collision_check_enabled:
+                clearance = self._front_clearance()
+                if clearance < self.front_stop_distance_m:
+                    self.publish_zero_twist()
+                    return GridCellSettleResult(
+                        canceled=False,
+                        success=False,
+                        result_code=ExecuteMotionPrimitive.Result.OBSTACLE_TOO_CLOSE,
+                        message=(
+                            f'front blocked during cell settle: '
+                            f'front_clearance={clearance:.3f} m '
+                            f'< {self.front_stop_distance_m:.3f} m'
+                        ),
+                        position_error_m=last_position_error,
+                        heading_error_rad=heading_error,
+                        heading_source=heading_source,
+                        progress_m=last_progress,
+                        odom_progress_m=last_odom_progress,
+                        progress_source=last_progress_source,
+                        progress_reason=last_progress_reason,
+                        yaw_correction_used=yaw_correction_used,
+                    )
+
+            linear_y = 0.0
+            if centering.valid:
+                linear_y = self._settle_axis_command(
+                    centering.lateral_error_m,
+                    self.grid_cell_settle_lateral_tolerance_m,
+                    self.k_grid_lateral,
+                    settle_limits.max_linear_y_mps,
+                    0.0,
+                )
+
+            angular_z = self._settle_axis_command(
+                heading_error_signed,
+                self.grid_cell_settle_heading_tolerance_rad,
+                self.k_grid_live_yaw if yaw_valid else self.k_heading,
+                settle_limits.max_angular_z_radps,
+                0.0,
+            )
+            yaw_correction_used = yaw_correction_used or bool(yaw_valid and angular_z != 0.0)
+
+            cmd = Twist()
+            cmd.linear.x = linear_x
+            cmd.linear.y = linear_y
+            cmd.angular.z = angular_z
+            cmd = self._limiter.clamp(cmd, settle_limits)
+            cmd = self._apply_acceleration_limits(cmd)
+            self._cmd_vel_pub.publish(cmd)
+            self._set_grid_yaw_control_status(
+                bool(yaw_valid and angular_z != 0.0),
+                angular_z if yaw_valid else 0.0,
+                (
+                    f'cell settle: destination_cell={virtual.cell_idx}; '
+                    f'axial={axial.reason}; lateral={centering.reason}; '
+                    f'yaw={yaw_observation.reason}'
+                ),
+            )
+
+            self._update_motion_state(
+                distance_remaining=max(0.0, float(commanded_distance) - last_progress),
+                distance_traveled=max(0.0, last_progress),
+                heading_error=heading_error_signed,
+                status=(
+                    f'cell_settle: destination_cell={virtual.cell_idx}, '
+                    f'expected_walls=F{int(expected.front)}B{int(expected.rear)}'
+                    f'L{int(expected.left)}R{int(expected.right)}, '
+                    f'axial_valid={axial.valid}, axial_error={axial.error_m:.3f} m, '
+                    f'axial_source={axial.source}, '
+                    f'lat_valid={centering.valid}, '
+                    f'lat_error={centering.lateral_error_m:.3f} m, '
+                    f'heading_error={heading_error:.3f} rad, '
+                    f'heading_source={heading_source}, '
+                    f'cmd_x={cmd.linear.x:.3f}, '
+                    f'cmd_y={cmd.linear.y:.3f}, '
+                    f'cmd_yaw={cmd.angular.z:.3f}'
+                ),
+            )
+
+            self._publish_feedback(
+                goal_handle,
+                progress=1.0,
+                distance_remaining=max(0.0, float(commanded_distance) - last_progress),
+                heading_remaining=heading_error_signed,
+                state='cell_settle',
+            )
+
+            time.sleep(1.0 / self.control_rate_hz)
 
     def _lateral_drift_diagnostics(
         self,

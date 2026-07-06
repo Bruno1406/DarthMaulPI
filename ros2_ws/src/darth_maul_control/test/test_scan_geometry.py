@@ -4,10 +4,12 @@ import math
 import pytest
 
 from darth_maul_control.scan_geometry import (
+    AxialCellCenterEstimate,
     GridAlignmentEstimate,
     LidarProgressEstimate,
     WallLineEstimate,
     cardinal_sector_ranges,
+    choose_axial_cell_centering,
     choose_lidar_progress,
     choose_temporal_lidar_progress,
     choose_translation_progress,
@@ -854,3 +856,76 @@ def test_temporal_lidar_progress_never_references_odom():
 
     assert 'odom' not in estimate.reason.lower()
     assert 'odom' not in estimate.source.lower()
+
+
+def test_axial_cell_centering_rear_wall_too_far_forward_commands_reverse_error():
+    estimate = choose_axial_cell_centering(
+        expected_front=False,
+        front_valid=False,
+        front_distance_m=0.0,
+        expected_front_distance_m=0.125,
+        expected_rear=True,
+        rear_valid=True,
+        rear_distance_m=0.165,
+        expected_rear_distance_m=0.125,
+        max_disagreement_m=0.035,
+    )
+
+    assert isinstance(estimate, AxialCellCenterEstimate)
+    assert estimate.valid
+    assert estimate.source == 'rear'
+    assert estimate.error_m == pytest.approx(-0.040)
+
+
+def test_axial_cell_centering_front_wall_too_far_back_commands_forward_error():
+    estimate = choose_axial_cell_centering(
+        expected_front=True,
+        front_valid=True,
+        front_distance_m=0.160,
+        expected_front_distance_m=0.125,
+        expected_rear=False,
+        rear_valid=False,
+        rear_distance_m=0.0,
+        expected_rear_distance_m=0.125,
+        max_disagreement_m=0.035,
+    )
+
+    assert estimate.valid
+    assert estimate.source == 'front'
+    assert estimate.error_m == pytest.approx(0.035)
+
+
+def test_axial_cell_centering_rejects_front_rear_disagreement():
+    estimate = choose_axial_cell_centering(
+        expected_front=True,
+        front_valid=True,
+        front_distance_m=0.170,
+        expected_front_distance_m=0.125,
+        expected_rear=True,
+        rear_valid=True,
+        rear_distance_m=0.170,
+        expected_rear_distance_m=0.125,
+        max_disagreement_m=0.035,
+    )
+
+    assert not estimate.valid
+    assert estimate.source == 'front_rear_rejected'
+    assert estimate.disagreement_m == pytest.approx(0.090)
+
+
+def test_axial_cell_centering_does_not_invent_reference_without_front_or_rear_wall():
+    estimate = choose_axial_cell_centering(
+        expected_front=False,
+        front_valid=True,
+        front_distance_m=0.160,
+        expected_front_distance_m=0.125,
+        expected_rear=False,
+        rear_valid=True,
+        rear_distance_m=0.100,
+        expected_rear_distance_m=0.125,
+        max_disagreement_m=0.035,
+    )
+
+    assert not estimate.valid
+    assert estimate.source == 'none'
+    assert 'no expected front/rear wall' in estimate.reason

@@ -89,6 +89,128 @@ class TemporalLidarProgressEstimate:
     reason: str
 
 
+@dataclass(frozen=True)
+class AxialCellCenterEstimate:
+    valid: bool
+    error_m: float
+    source: str
+    front_usable: bool
+    rear_usable: bool
+    disagreement_m: float
+    reason: str
+
+
+def choose_axial_cell_centering(
+    *,
+    expected_front: bool,
+    front_valid: bool,
+    front_distance_m: float,
+    expected_front_distance_m: float,
+    expected_rear: bool,
+    rear_valid: bool,
+    rear_distance_m: float,
+    expected_rear_distance_m: float,
+    max_disagreement_m: float,
+) -> AxialCellCenterEstimate:
+    """Return signed cell-center error along robot x.
+
+    Positive error means the robot is too far back in the cell and should drive
+    forward. Negative error means the robot is too far forward and should drive
+    backward. This helper only uses front/rear ranges when the maze map says the
+    corresponding wall should exist.
+    """
+    front_usable = bool(
+        expected_front
+        and front_valid
+        and math.isfinite(front_distance_m)
+        and math.isfinite(expected_front_distance_m)
+        and expected_front_distance_m > 0.0
+    )
+    rear_usable = bool(
+        expected_rear
+        and rear_valid
+        and math.isfinite(rear_distance_m)
+        and math.isfinite(expected_rear_distance_m)
+        and expected_rear_distance_m > 0.0
+    )
+
+    front_error = float(front_distance_m) - float(expected_front_distance_m)
+    rear_error = float(expected_rear_distance_m) - float(rear_distance_m)
+
+    if front_usable and rear_usable:
+        disagreement = abs(front_error - rear_error)
+        if disagreement > float(max_disagreement_m):
+            return AxialCellCenterEstimate(
+                valid=False,
+                error_m=0.0,
+                source='front_rear_rejected',
+                front_usable=True,
+                rear_usable=True,
+                disagreement_m=float(disagreement),
+                reason=(
+                    f'front/rear cell-center disagreement {disagreement:.3f} m '
+                    f'> {float(max_disagreement_m):.3f} m; '
+                    f'front_error={front_error:.3f} m; '
+                    f'rear_error={rear_error:.3f} m'
+                ),
+            )
+
+        return AxialCellCenterEstimate(
+            valid=True,
+            error_m=float((front_error + rear_error) / 2.0),
+            source='front_rear',
+            front_usable=True,
+            rear_usable=True,
+            disagreement_m=float(disagreement),
+            reason=(
+                'front and rear expected walls accepted; '
+                f'front_error={front_error:.3f} m; '
+                f'rear_error={rear_error:.3f} m'
+            ),
+        )
+
+    if front_usable:
+        return AxialCellCenterEstimate(
+            valid=True,
+            error_m=float(front_error),
+            source='front',
+            front_usable=True,
+            rear_usable=False,
+            disagreement_m=0.0,
+            reason=f'expected front wall accepted; front_error={front_error:.3f} m',
+        )
+
+    if rear_usable:
+        return AxialCellCenterEstimate(
+            valid=True,
+            error_m=float(rear_error),
+            source='rear',
+            front_usable=False,
+            rear_usable=True,
+            disagreement_m=0.0,
+            reason=f'expected rear wall accepted; rear_error={rear_error:.3f} m',
+        )
+
+    if not expected_front and not expected_rear:
+        reason = 'no expected front/rear wall in this cell'
+    else:
+        reason = (
+            'expected front/rear reference unavailable: '
+            f'expected_front={expected_front}; front_valid={front_valid}; '
+            f'expected_rear={expected_rear}; rear_valid={rear_valid}'
+        )
+
+    return AxialCellCenterEstimate(
+        valid=False,
+        error_m=0.0,
+        source='none',
+        front_usable=False,
+        rear_usable=False,
+        disagreement_m=0.0,
+        reason=reason,
+    )
+
+
 def invalid_wall_line(side: str, reason: str) -> WallLineEstimate:
     return WallLineEstimate(
         valid=False,
