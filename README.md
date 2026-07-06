@@ -897,5 +897,3 @@ you create a new **python** package. **Make sure** you are inside your build fol
 
 # Contributions
 We thank M. Schmiegel, J. Baur and P. Bodynek for helping with this repository.
-
-# This is a mock change
