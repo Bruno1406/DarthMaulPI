@@ -18,14 +18,14 @@ darth_maul_control:
     default_position_tolerance_m: 0.015
     default_heading_tolerance_rad: 0.060
 
-    # Competition speed limits.
-    default_linear_speed_mps: 0.155
-    default_reverse_speed_mps: 0.065
-    default_angular_speed_radps: 0.520
+    # Competition aggressive speed limits.
+    default_linear_speed_mps: 0.220
+    default_reverse_speed_mps: 0.080
+    default_angular_speed_radps: 0.820
 
-    max_linear_x_mps: 0.180
-    max_linear_y_mps: 0.050
-    max_angular_z_radps: 0.700
+    max_linear_x_mps: 0.260
+    max_linear_y_mps: 0.060
+    max_angular_z_radps: 1.100
 
     # Minimum commands to overcome static friction.
     # These are only used while outside tolerance.
@@ -33,13 +33,13 @@ darth_maul_control:
     min_angular_z_radps: 0.080
 
     # Capped-P gains
-    k_distance: 1.00
-    k_heading: 1.90
+    k_distance: 1.25
+    k_heading: 2.60
 
     # Acceleration limiting
-    max_linear_accel_mps2: 0.500
-    max_lateral_accel_mps2: 0.180
-    max_angular_accel_radps2: 1.900
+    max_linear_accel_mps2: 0.950
+    max_lateral_accel_mps2: 0.220
+    max_angular_accel_radps2: 3.400
 
     # Sensor freshness
     odom_timeout_sec: 0.50
@@ -174,8 +174,8 @@ darth_maul_control:
     # Controller gain for global Manhattan yaw.
     # Reuses the live yaw command cap, but yaw observation is no longer
     # tied to expected adjacent side walls.
-    k_grid_live_yaw: 2.70
-    max_grid_live_yaw_correction_radps: 0.180
+    k_grid_live_yaw: 3.20
+    max_grid_live_yaw_correction_radps: 0.260
 
     # Side-wall yaw quality gate for local centering lines.
     # This is not the global Manhattan yaw max error.
@@ -200,9 +200,9 @@ darth_maul_control:
     # it only prevents starting the next rotate from a badly off-center cell pose.
     grid_cell_settle_enabled: true
     grid_cell_settle_timeout_sec: 2.5
-    grid_cell_settle_max_linear_x_mps: 0.035
-    grid_cell_settle_max_linear_y_mps: 0.030
-    grid_cell_settle_max_yaw_radps: 0.100
+    grid_cell_settle_max_linear_x_mps: 0.050
+    grid_cell_settle_max_linear_y_mps: 0.040
+    grid_cell_settle_max_yaw_radps: 0.160
     grid_cell_settle_position_tolerance_m: 0.010
     grid_cell_settle_lateral_tolerance_m: 0.020
     grid_cell_settle_heading_tolerance_rad: 0.060
