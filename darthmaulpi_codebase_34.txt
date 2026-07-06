@@ -1,8 +1,8 @@
 # DarthMaulPI Codebase Text Snapshot
 
 Project root: /home/dtdav/Development/DarthMaulPI
-Included files: 265
-Skipped files: 13238
+Included files: 259
+Skipped files: 13289
 
 # Included File Index
 
@@ -58,226 +58,220 @@ Skipped files: 13238
 50. ros2_ws/src/darth_maul_control/darth_maul_control/velocity_limiter.py
 51. ros2_ws/src/darth_maul_control/launch/control.launch.py
 52. ros2_ws/src/darth_maul_control/resource/darth_maul_control
-53. ros2_ws/src/darth_maul_control/test/test_control_defaults.py
-54. ros2_ws/src/darth_maul_control/test/test_grid_context.py
-55. ros2_ws/src/darth_maul_control/test/test_grid_control_logic.py
-56. ros2_ws/src/darth_maul_control/test/test_grid_yaw.py
-57. ros2_ws/src/darth_maul_control/test/test_scan_geometry.py
-58. ros2_ws/src/darth_maul_control_interfaces/CMakeLists.txt
-59. ros2_ws/src/darth_maul_control_interfaces/package.xml
-60. ros2_ws/src/darth_maul_control_interfaces/action/ExecuteMotionPrimitive.action
-61. ros2_ws/src/darth_maul_control_interfaces/msg/ControlStatus.msg
-62. ros2_ws/src/driver/controller/package.xml
-63. ros2_ws/src/driver/controller/setup.cfg
-64. ros2_ws/src/driver/controller/setup.py
-65. ros2_ws/src/driver/controller/config/calibrate_params.yaml
-66. ros2_ws/src/driver/controller/config/ekf.yaml
-67. ros2_ws/src/driver/controller/config/init_pose.yaml
-68. ros2_ws/src/driver/controller/config/servo_config.yaml
-69. ros2_ws/src/driver/controller/controller/__init__.py
-70. ros2_ws/src/driver/controller/controller/ackermann.py
-71. ros2_ws/src/driver/controller/controller/init_pose.py
-72. ros2_ws/src/driver/controller/controller/mecanum.py
-73. ros2_ws/src/driver/controller/controller/odom_publisher_node.py
-74. ros2_ws/src/driver/controller/launch/controller.launch.py
-75. ros2_ws/src/driver/controller/launch/init_pose.launch.py
-76. ros2_ws/src/driver/controller/launch/odom_publisher.launch.py
-77. ros2_ws/src/driver/controller/launch/rf2o_laser_odometry.launch.py
-78. ros2_ws/src/driver/controller/resource/controller
-79. ros2_ws/src/driver/controller/test/test_copyright.py
-80. ros2_ws/src/driver/controller/test/test_flake8.py
-81. ros2_ws/src/driver/controller/test/test_pep257.py
-82. ros2_ws/src/driver/ros_robot_controller/package.xml
-83. ros2_ws/src/driver/ros_robot_controller/setup.cfg
-84. ros2_ws/src/driver/ros_robot_controller/setup.py
-85. ros2_ws/src/driver/ros_robot_controller/launch/ros_robot_controller.launch.py
-86. ros2_ws/src/driver/ros_robot_controller/resource/ros_robot_controller
-87. ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/__init__.py
-88. ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/ros_robot_controller_node.py
-89. ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/ros_robot_controller_sdk.py
-90. ros2_ws/src/driver/ros_robot_controller/scripts/99-ttyACM0.rules
-91. ros2_ws/src/driver/ros_robot_controller/scripts/create_udev_rules.sh
-92. ros2_ws/src/driver/ros_robot_controller/test/test_copyright.py
-93. ros2_ws/src/driver/ros_robot_controller/test/test_flake8.py
-94. ros2_ws/src/driver/ros_robot_controller/test/test_pep257.py
-95. ros2_ws/src/driver/ros_robot_controller_msgs/CMakeLists.txt
-96. ros2_ws/src/driver/ros_robot_controller_msgs/package.xml
-97. ros2_ws/src/driver/ros_robot_controller_msgs/msg/BusServoState.msg
-98. ros2_ws/src/driver/ros_robot_controller_msgs/msg/ButtonState.msg
-99. ros2_ws/src/driver/ros_robot_controller_msgs/msg/BuzzerState.msg
-100. ros2_ws/src/driver/ros_robot_controller_msgs/msg/GetBusServoCmd.msg
-101. ros2_ws/src/driver/ros_robot_controller_msgs/msg/GetPWMServoCmd.msg
-102. ros2_ws/src/driver/ros_robot_controller_msgs/msg/LedState.msg
-103. ros2_ws/src/driver/ros_robot_controller_msgs/msg/MotorsState.msg
-104. ros2_ws/src/driver/ros_robot_controller_msgs/msg/MotorState.msg
-105. ros2_ws/src/driver/ros_robot_controller_msgs/msg/OLEDState.msg
-106. ros2_ws/src/driver/ros_robot_controller_msgs/msg/PWMServoState.msg
-107. ros2_ws/src/driver/ros_robot_controller_msgs/msg/RGBState.msg
-108. ros2_ws/src/driver/ros_robot_controller_msgs/msg/RGBStates.msg
-109. ros2_ws/src/driver/ros_robot_controller_msgs/msg/Sbus.msg
-110. ros2_ws/src/driver/ros_robot_controller_msgs/msg/ServoPosition.msg
-111. ros2_ws/src/driver/ros_robot_controller_msgs/msg/ServosPosition.msg
-112. ros2_ws/src/driver/ros_robot_controller_msgs/msg/SetBusServoState.msg
-113. ros2_ws/src/driver/ros_robot_controller_msgs/msg/SetPWMServoState.msg
-114. ros2_ws/src/driver/ros_robot_controller_msgs/srv/GetBusServoState.srv
-115. ros2_ws/src/driver/ros_robot_controller_msgs/srv/GetPWMServoState.srv
-116. ros2_ws/src/driver/sdk/package.xml
-117. ros2_ws/src/driver/sdk/setup.cfg
-118. ros2_ws/src/driver/sdk/setup.py
-119. ros2_ws/src/driver/sdk/resource/sdk
-120. ros2_ws/src/driver/sdk/sdk/__init__.py
-121. ros2_ws/src/driver/sdk/sdk/common.py
-122. ros2_ws/src/driver/sdk/sdk/fps.py
-123. ros2_ws/src/driver/sdk/sdk/led.py
-124. ros2_ws/src/driver/sdk/sdk/pid.py
-125. ros2_ws/src/driver/sdk/test/test_copyright.py
-126. ros2_ws/src/driver/sdk/test/test_flake8.py
-127. ros2_ws/src/driver/sdk/test/test_pep257.py
-128. ros2_ws/src/imu_calib/CMakeLists.txt
-129. ros2_ws/src/imu_calib/package.xml
-130. ros2_ws/src/imu_calib/include/imu_calib/accel_calib.h
-131. ros2_ws/src/imu_calib/include/imu_calib/apply_calib.h
-132. ros2_ws/src/imu_calib/include/imu_calib/do_calib.h
-133. ros2_ws/src/imu_calib/src/accel_calib.cpp
-134. ros2_ws/src/imu_calib/src/apply_calib.cpp
-135. ros2_ws/src/imu_calib/src/apply_calib_node.cpp
-136. ros2_ws/src/imu_calib/src/do_calib.cpp
-137. ros2_ws/src/imu_calib/src/do_calib_node.cpp
-138. ros2_ws/src/ldrobot-lidar-ros2/CHANGELOG.md
-139. ros2_ws/src/ldrobot-lidar-ros2/CODE_OF_CONDUCT.md
-140. ros2_ws/src/ldrobot-lidar-ros2/CONTRIBUTING.md
-141. ros2_ws/src/ldrobot-lidar-ros2/LICENSE
-142. ros2_ws/src/ldrobot-lidar-ros2/README.md
-143. ros2_ws/src/ldrobot-lidar-ros2/ldlidar/CMakeLists.txt
-144. ros2_ws/src/ldrobot-lidar-ros2/ldlidar/package.xml
-145. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/CMakeLists.txt
-146. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/package.xml
-147. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/cmake-modules/FindUDEV.cmake
-148. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/include/defines.hpp
-149. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/include/ldlidar_component.hpp
-150. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/src/ldlidar_component.cpp
-151. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/include/visibility_control.hpp
-152. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/CMakeLists.txt
-153. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/core/ldlidar_datatype.h
-154. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/core/ldlidar_driver.h
-155. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/dataprocess/lipkg.h
-156. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/filter/tofbf.h
-157. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/logger/log_module.h
-158. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/networkcom/network_socket_interface_linux.h
-159. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/serialcom/serial_interface_linux.h
-160. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/core/ldlidar_driver.cpp
-161. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/dataprocess/lipkg.cpp
-162. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/filter/tofbf.cpp
-163. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/logger/log_module.cpp
-164. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/networkcom/network_socket_interface_linux.cpp
-165. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/serialcom/serial_interface_linux.cpp
-166. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/tools/include/ldlidar_tools.hpp
-167. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/tools/src/ldlidar_tools.cpp
-168. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/CMakeLists.txt
-169. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/package.xml
-170. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/config/ldlidar.rviz
-171. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/config/ldlidar_slam.rviz
-172. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar.launch.py
-173. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_rviz2.launch.py
-174. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_slam.launch.py
-175. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_slam_only.launch.py
-176. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_with_mgr.launch.py
-177. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/ldlidar.yaml
-178. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/lifecycle_mgr.yaml
-179. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/lifecycle_mgr_slam.yaml
-180. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/slam_toolbox.yaml
-181. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/src/ldlidar_container_node.cpp
-182. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/test/ldlidar_benchmark.py
-183. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/urdf/ldlidar_descr.urdf.xml
-184. ros2_ws/src/ldrobot-lidar-ros2/rules/ldlidar.rules
-185. ros2_ws/src/ldrobot-lidar-ros2/scripts/create_udev_rules.sh
-186. ros2_ws/src/ldrobot-lidar-ros2/scripts/delete_udev_rules.sh
-187. ros2_ws/src/maze_grading_node/CMakeLists.txt
-188. ros2_ws/src/maze_grading_node/package.xml
-189. ros2_ws/src/maze_grading_node/mazes/1.maze
-190. ros2_ws/src/maze_grading_node/src/grade_maze_server.cpp
-191. ros2_ws/src/maze_interface/CMakeLists.txt
-192. ros2_ws/src/maze_interface/package.xml
-193. ros2_ws/src/maze_interface/msg/RosMaze.msg
-194. ros2_ws/src/maze_interface/srv/GetRosMaze.srv
-195. ros2_ws/src/maze_interface/srv/GradeCubes.srv
-196. ros2_ws/src/maze_interface/srv/GradeMaze.srv
-197. ros2_ws/src/maze_publisher_node/CMakeLists.txt
-198. ros2_ws/src/maze_publisher_node/LICENSE
-199. ros2_ws/src/maze_publisher_node/package.xml
-200. ros2_ws/src/maze_publisher_node/mazes/1.maze
-201. ros2_ws/src/maze_publisher_node/mazes/2.maze
-202. ros2_ws/src/maze_publisher_node/src/maze_publisher_node.cpp
-203. ros2_ws/src/maze_solver/camera_tilt_node.py
-204. ros2_ws/src/maze_solver/maze_solver_node.py
-205. ros2_ws/src/maze_solver/package.xml
-206. ros2_ws/src/maze_solver/setup.cfg
-207. ros2_ws/src/maze_solver/setup.py
-208. ros2_ws/src/maze_solver/launch/exam_task1.launch.py
-209. ros2_ws/src/maze_solver/resource/maze_solver
-210. ros2_ws/src/maze_solver/test/test_motion_command_compression.py
-211. ros2_ws/src/orchestrator_launch/CMakeLists.txt
-212. ros2_ws/src/orchestrator_launch/package.xml
-213. ros2_ws/src/orchestrator_launch/config/mapper_params_online_async.yaml
-214. ros2_ws/src/orchestrator_launch/launch/launch_full_slam_stack.launch.py
-215. ros2_ws/src/orchestrator_launch/launch/slam_toolbox.launch.py
-216. ros2_ws/src/peripherals/package.xml
-217. ros2_ws/src/peripherals/setup.cfg
-218. ros2_ws/src/peripherals/setup.py
-219. ros2_ws/src/peripherals/config/apriltag_config.yaml
-220. ros2_ws/src/peripherals/config/camera_info.yaml
-221. ros2_ws/src/peripherals/config/usb_cam_param.yaml
-222. ros2_ws/src/peripherals/launch/apriltag.launch.py
-223. ros2_ws/src/peripherals/launch/image_pipeline.launch.py
-224. ros2_ws/src/peripherals/launch/imu_filter.launch.py
-225. ros2_ws/src/peripherals/launch/imu_view.launch.py
-226. ros2_ws/src/peripherals/launch/joystick_control.launch.py
-227. ros2_ws/src/peripherals/launch/teleop_key_control.launch.py
-228. ros2_ws/src/peripherals/launch/usb_cam.launch.py
-229. ros2_ws/src/peripherals/launch/include/ascamera.launch.py
-230. ros2_ws/src/peripherals/peripherals/__init__.py
-231. ros2_ws/src/peripherals/peripherals/demo.py
-232. ros2_ws/src/peripherals/peripherals/joystick_control.py
-233. ros2_ws/src/peripherals/peripherals/teleop_key_control.py
-234. ros2_ws/src/peripherals/peripherals/tf_broadcaster_imu.py
-235. ros2_ws/src/peripherals/resource/peripherals
-236. ros2_ws/src/peripherals/rviz/imu_view.rviz
-237. ros2_ws/src/peripherals/rviz/lidar_view.rviz
-238. ros2_ws/src/peripherals/scripts/99-obsensor-libusb.rules
-239. ros2_ws/src/peripherals/scripts/99-ttyACM0.rules
-240. ros2_ws/src/peripherals/scripts/99-usb-cam.rules
-241. ros2_ws/src/peripherals/scripts/create_udev_rules.sh
-242. ros2_ws/src/peripherals/scripts/lidar.rules
-243. ros2_ws/src/peripherals/scripts/xf_mic.rules
-244. ros2_ws/src/peripherals/test/test_copyright.py
-245. ros2_ws/src/peripherals/test/test_flake8.py
-246. ros2_ws/src/peripherals/test/test_pep257.py
-247. ros2_ws/src/simulations/mentorpi_description/package.xml
-248. ros2_ws/src/simulations/mentorpi_description/setup.cfg
-249. ros2_ws/src/simulations/mentorpi_description/setup.py
-250. ros2_ws/src/simulations/mentorpi_description/launch/display.launch.py
-251. ros2_ws/src/simulations/mentorpi_description/launch/robot_description.launch.py
-252. ros2_ws/src/simulations/mentorpi_description/launch/rviz.launch.py
-253. ros2_ws/src/simulations/mentorpi_description/mentorpi_description/__init__.py
-254. ros2_ws/src/simulations/mentorpi_description/resource/mentorpi_description
-255. ros2_ws/src/simulations/mentorpi_description/rviz/view.rviz
-256. ros2_ws/src/simulations/mentorpi_description/test/test_copyright.py
-257. ros2_ws/src/simulations/mentorpi_description/test/test_flake8.py
-258. ros2_ws/src/simulations/mentorpi_description/test/test_pep257.py
-259. ros2_ws/src/simulations/mentorpi_description/urdf/ack.xacro
-260. ros2_ws/src/simulations/mentorpi_description/urdf/imu.urdf.xacro
-261. ros2_ws/src/simulations/mentorpi_description/urdf/inertial_matrix.xacro
-262. ros2_ws/src/simulations/mentorpi_description/urdf/lidar.urdf.xacro
-263. ros2_ws/src/simulations/mentorpi_description/urdf/materials.xacro
-264. ros2_ws/src/simulations/mentorpi_description/urdf/mecanum.xacro
-265. ros2_ws/src/simulations/mentorpi_description/urdf/mentorpi.xacro
+53. ros2_ws/src/darth_maul_control_interfaces/CMakeLists.txt
+54. ros2_ws/src/darth_maul_control_interfaces/package.xml
+55. ros2_ws/src/darth_maul_control_interfaces/action/ExecuteMotionPrimitive.action
+56. ros2_ws/src/darth_maul_control_interfaces/msg/ControlStatus.msg
+57. ros2_ws/src/driver/controller/package.xml
+58. ros2_ws/src/driver/controller/setup.cfg
+59. ros2_ws/src/driver/controller/setup.py
+60. ros2_ws/src/driver/controller/config/calibrate_params.yaml
+61. ros2_ws/src/driver/controller/config/ekf.yaml
+62. ros2_ws/src/driver/controller/config/init_pose.yaml
+63. ros2_ws/src/driver/controller/config/servo_config.yaml
+64. ros2_ws/src/driver/controller/controller/__init__.py
+65. ros2_ws/src/driver/controller/controller/ackermann.py
+66. ros2_ws/src/driver/controller/controller/init_pose.py
+67. ros2_ws/src/driver/controller/controller/mecanum.py
+68. ros2_ws/src/driver/controller/controller/odom_publisher_node.py
+69. ros2_ws/src/driver/controller/launch/controller.launch.py
+70. ros2_ws/src/driver/controller/launch/init_pose.launch.py
+71. ros2_ws/src/driver/controller/launch/odom_publisher.launch.py
+72. ros2_ws/src/driver/controller/launch/rf2o_laser_odometry.launch.py
+73. ros2_ws/src/driver/controller/resource/controller
+74. ros2_ws/src/driver/controller/test/test_copyright.py
+75. ros2_ws/src/driver/controller/test/test_flake8.py
+76. ros2_ws/src/driver/controller/test/test_pep257.py
+77. ros2_ws/src/driver/ros_robot_controller/package.xml
+78. ros2_ws/src/driver/ros_robot_controller/setup.cfg
+79. ros2_ws/src/driver/ros_robot_controller/setup.py
+80. ros2_ws/src/driver/ros_robot_controller/launch/ros_robot_controller.launch.py
+81. ros2_ws/src/driver/ros_robot_controller/resource/ros_robot_controller
+82. ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/__init__.py
+83. ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/ros_robot_controller_node.py
+84. ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/ros_robot_controller_sdk.py
+85. ros2_ws/src/driver/ros_robot_controller/scripts/99-ttyACM0.rules
+86. ros2_ws/src/driver/ros_robot_controller/scripts/create_udev_rules.sh
+87. ros2_ws/src/driver/ros_robot_controller/test/test_copyright.py
+88. ros2_ws/src/driver/ros_robot_controller/test/test_flake8.py
+89. ros2_ws/src/driver/ros_robot_controller/test/test_pep257.py
+90. ros2_ws/src/driver/ros_robot_controller_msgs/CMakeLists.txt
+91. ros2_ws/src/driver/ros_robot_controller_msgs/package.xml
+92. ros2_ws/src/driver/ros_robot_controller_msgs/msg/BusServoState.msg
+93. ros2_ws/src/driver/ros_robot_controller_msgs/msg/ButtonState.msg
+94. ros2_ws/src/driver/ros_robot_controller_msgs/msg/BuzzerState.msg
+95. ros2_ws/src/driver/ros_robot_controller_msgs/msg/GetBusServoCmd.msg
+96. ros2_ws/src/driver/ros_robot_controller_msgs/msg/GetPWMServoCmd.msg
+97. ros2_ws/src/driver/ros_robot_controller_msgs/msg/LedState.msg
+98. ros2_ws/src/driver/ros_robot_controller_msgs/msg/MotorsState.msg
+99. ros2_ws/src/driver/ros_robot_controller_msgs/msg/MotorState.msg
+100. ros2_ws/src/driver/ros_robot_controller_msgs/msg/OLEDState.msg
+101. ros2_ws/src/driver/ros_robot_controller_msgs/msg/PWMServoState.msg
+102. ros2_ws/src/driver/ros_robot_controller_msgs/msg/RGBState.msg
+103. ros2_ws/src/driver/ros_robot_controller_msgs/msg/RGBStates.msg
+104. ros2_ws/src/driver/ros_robot_controller_msgs/msg/Sbus.msg
+105. ros2_ws/src/driver/ros_robot_controller_msgs/msg/ServoPosition.msg
+106. ros2_ws/src/driver/ros_robot_controller_msgs/msg/ServosPosition.msg
+107. ros2_ws/src/driver/ros_robot_controller_msgs/msg/SetBusServoState.msg
+108. ros2_ws/src/driver/ros_robot_controller_msgs/msg/SetPWMServoState.msg
+109. ros2_ws/src/driver/ros_robot_controller_msgs/srv/GetBusServoState.srv
+110. ros2_ws/src/driver/ros_robot_controller_msgs/srv/GetPWMServoState.srv
+111. ros2_ws/src/driver/sdk/package.xml
+112. ros2_ws/src/driver/sdk/setup.cfg
+113. ros2_ws/src/driver/sdk/setup.py
+114. ros2_ws/src/driver/sdk/resource/sdk
+115. ros2_ws/src/driver/sdk/sdk/__init__.py
+116. ros2_ws/src/driver/sdk/sdk/common.py
+117. ros2_ws/src/driver/sdk/sdk/fps.py
+118. ros2_ws/src/driver/sdk/sdk/led.py
+119. ros2_ws/src/driver/sdk/sdk/pid.py
+120. ros2_ws/src/driver/sdk/test/test_copyright.py
+121. ros2_ws/src/driver/sdk/test/test_flake8.py
+122. ros2_ws/src/driver/sdk/test/test_pep257.py
+123. ros2_ws/src/imu_calib/CMakeLists.txt
+124. ros2_ws/src/imu_calib/package.xml
+125. ros2_ws/src/imu_calib/include/imu_calib/accel_calib.h
+126. ros2_ws/src/imu_calib/include/imu_calib/apply_calib.h
+127. ros2_ws/src/imu_calib/include/imu_calib/do_calib.h
+128. ros2_ws/src/imu_calib/src/accel_calib.cpp
+129. ros2_ws/src/imu_calib/src/apply_calib.cpp
+130. ros2_ws/src/imu_calib/src/apply_calib_node.cpp
+131. ros2_ws/src/imu_calib/src/do_calib.cpp
+132. ros2_ws/src/imu_calib/src/do_calib_node.cpp
+133. ros2_ws/src/ldrobot-lidar-ros2/CHANGELOG.md
+134. ros2_ws/src/ldrobot-lidar-ros2/CODE_OF_CONDUCT.md
+135. ros2_ws/src/ldrobot-lidar-ros2/CONTRIBUTING.md
+136. ros2_ws/src/ldrobot-lidar-ros2/LICENSE
+137. ros2_ws/src/ldrobot-lidar-ros2/README.md
+138. ros2_ws/src/ldrobot-lidar-ros2/ldlidar/CMakeLists.txt
+139. ros2_ws/src/ldrobot-lidar-ros2/ldlidar/package.xml
+140. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/CMakeLists.txt
+141. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/package.xml
+142. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/cmake-modules/FindUDEV.cmake
+143. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/include/defines.hpp
+144. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/include/ldlidar_component.hpp
+145. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/src/ldlidar_component.cpp
+146. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/include/visibility_control.hpp
+147. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/CMakeLists.txt
+148. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/core/ldlidar_datatype.h
+149. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/core/ldlidar_driver.h
+150. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/dataprocess/lipkg.h
+151. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/filter/tofbf.h
+152. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/logger/log_module.h
+153. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/networkcom/network_socket_interface_linux.h
+154. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/serialcom/serial_interface_linux.h
+155. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/core/ldlidar_driver.cpp
+156. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/dataprocess/lipkg.cpp
+157. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/filter/tofbf.cpp
+158. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/logger/log_module.cpp
+159. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/networkcom/network_socket_interface_linux.cpp
+160. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/serialcom/serial_interface_linux.cpp
+161. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/tools/include/ldlidar_tools.hpp
+162. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/tools/src/ldlidar_tools.cpp
+163. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/CMakeLists.txt
+164. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/package.xml
+165. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/config/ldlidar.rviz
+166. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/config/ldlidar_slam.rviz
+167. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar.launch.py
+168. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_rviz2.launch.py
+169. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_slam.launch.py
+170. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_slam_only.launch.py
+171. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_with_mgr.launch.py
+172. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/ldlidar.yaml
+173. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/lifecycle_mgr.yaml
+174. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/lifecycle_mgr_slam.yaml
+175. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/slam_toolbox.yaml
+176. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/src/ldlidar_container_node.cpp
+177. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/test/ldlidar_benchmark.py
+178. ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/urdf/ldlidar_descr.urdf.xml
+179. ros2_ws/src/ldrobot-lidar-ros2/rules/ldlidar.rules
+180. ros2_ws/src/ldrobot-lidar-ros2/scripts/create_udev_rules.sh
+181. ros2_ws/src/ldrobot-lidar-ros2/scripts/delete_udev_rules.sh
+182. ros2_ws/src/maze_grading_node/CMakeLists.txt
+183. ros2_ws/src/maze_grading_node/package.xml
+184. ros2_ws/src/maze_grading_node/mazes/1.maze
+185. ros2_ws/src/maze_grading_node/src/grade_maze_server.cpp
+186. ros2_ws/src/maze_interface/CMakeLists.txt
+187. ros2_ws/src/maze_interface/package.xml
+188. ros2_ws/src/maze_interface/msg/RosMaze.msg
+189. ros2_ws/src/maze_interface/srv/GetRosMaze.srv
+190. ros2_ws/src/maze_interface/srv/GradeCubes.srv
+191. ros2_ws/src/maze_interface/srv/GradeMaze.srv
+192. ros2_ws/src/maze_publisher_node/CMakeLists.txt
+193. ros2_ws/src/maze_publisher_node/LICENSE
+194. ros2_ws/src/maze_publisher_node/package.xml
+195. ros2_ws/src/maze_publisher_node/mazes/1.maze
+196. ros2_ws/src/maze_publisher_node/mazes/2.maze
+197. ros2_ws/src/maze_publisher_node/src/maze_publisher_node.cpp
+198. ros2_ws/src/maze_solver/camera_tilt_node.py
+199. ros2_ws/src/maze_solver/maze_solver_node.py
+200. ros2_ws/src/maze_solver/package.xml
+201. ros2_ws/src/maze_solver/setup.cfg
+202. ros2_ws/src/maze_solver/setup.py
+203. ros2_ws/src/maze_solver/launch/exam_task1.launch.py
+204. ros2_ws/src/maze_solver/resource/maze_solver
+205. ros2_ws/src/orchestrator_launch/CMakeLists.txt
+206. ros2_ws/src/orchestrator_launch/package.xml
+207. ros2_ws/src/orchestrator_launch/config/mapper_params_online_async.yaml
+208. ros2_ws/src/orchestrator_launch/launch/launch_full_slam_stack.launch.py
+209. ros2_ws/src/orchestrator_launch/launch/slam_toolbox.launch.py
+210. ros2_ws/src/peripherals/package.xml
+211. ros2_ws/src/peripherals/setup.cfg
+212. ros2_ws/src/peripherals/setup.py
+213. ros2_ws/src/peripherals/config/apriltag_config.yaml
+214. ros2_ws/src/peripherals/config/camera_info.yaml
+215. ros2_ws/src/peripherals/config/usb_cam_param.yaml
+216. ros2_ws/src/peripherals/launch/apriltag.launch.py
+217. ros2_ws/src/peripherals/launch/image_pipeline.launch.py
+218. ros2_ws/src/peripherals/launch/imu_filter.launch.py
+219. ros2_ws/src/peripherals/launch/imu_view.launch.py
+220. ros2_ws/src/peripherals/launch/joystick_control.launch.py
+221. ros2_ws/src/peripherals/launch/teleop_key_control.launch.py
+222. ros2_ws/src/peripherals/launch/usb_cam.launch.py
+223. ros2_ws/src/peripherals/launch/include/ascamera.launch.py
+224. ros2_ws/src/peripherals/peripherals/__init__.py
+225. ros2_ws/src/peripherals/peripherals/demo.py
+226. ros2_ws/src/peripherals/peripherals/joystick_control.py
+227. ros2_ws/src/peripherals/peripherals/teleop_key_control.py
+228. ros2_ws/src/peripherals/peripherals/tf_broadcaster_imu.py
+229. ros2_ws/src/peripherals/resource/peripherals
+230. ros2_ws/src/peripherals/rviz/imu_view.rviz
+231. ros2_ws/src/peripherals/rviz/lidar_view.rviz
+232. ros2_ws/src/peripherals/scripts/99-obsensor-libusb.rules
+233. ros2_ws/src/peripherals/scripts/99-ttyACM0.rules
+234. ros2_ws/src/peripherals/scripts/99-usb-cam.rules
+235. ros2_ws/src/peripherals/scripts/create_udev_rules.sh
+236. ros2_ws/src/peripherals/scripts/lidar.rules
+237. ros2_ws/src/peripherals/scripts/xf_mic.rules
+238. ros2_ws/src/peripherals/test/test_copyright.py
+239. ros2_ws/src/peripherals/test/test_flake8.py
+240. ros2_ws/src/peripherals/test/test_pep257.py
+241. ros2_ws/src/simulations/mentorpi_description/package.xml
+242. ros2_ws/src/simulations/mentorpi_description/setup.cfg
+243. ros2_ws/src/simulations/mentorpi_description/setup.py
+244. ros2_ws/src/simulations/mentorpi_description/launch/display.launch.py
+245. ros2_ws/src/simulations/mentorpi_description/launch/robot_description.launch.py
+246. ros2_ws/src/simulations/mentorpi_description/launch/rviz.launch.py
+247. ros2_ws/src/simulations/mentorpi_description/mentorpi_description/__init__.py
+248. ros2_ws/src/simulations/mentorpi_description/resource/mentorpi_description
+249. ros2_ws/src/simulations/mentorpi_description/rviz/view.rviz
+250. ros2_ws/src/simulations/mentorpi_description/test/test_copyright.py
+251. ros2_ws/src/simulations/mentorpi_description/test/test_flake8.py
+252. ros2_ws/src/simulations/mentorpi_description/test/test_pep257.py
+253. ros2_ws/src/simulations/mentorpi_description/urdf/ack.xacro
+254. ros2_ws/src/simulations/mentorpi_description/urdf/imu.urdf.xacro
+255. ros2_ws/src/simulations/mentorpi_description/urdf/inertial_matrix.xacro
+256. ros2_ws/src/simulations/mentorpi_description/urdf/lidar.urdf.xacro
+257. ros2_ws/src/simulations/mentorpi_description/urdf/materials.xacro
+258. ros2_ws/src/simulations/mentorpi_description/urdf/mecanum.xacro
+259. ros2_ws/src/simulations/mentorpi_description/urdf/mentorpi.xacro
 
 # Skipped File Summary
 
 - binary, media, generated, or not useful as text: 57
 - not UTF-8 text: 1
 - previous merged output: 1
-- skipped directory: 13179
+- skipped directory: 13230
 
 # File Contents
 
@@ -3160,10 +3154,14 @@ darth_maul_control:
     lidar_diagnostic_min_samples: 3
 
     # Straight translation distance authority.
-    # In final maze mode, straight completion must come from front/rear LiDAR
-    # range progress. Odom is allowed only as a sanity bound and diagnostic.
-    # It must not complete a drive when LiDAR progress is missing or inconsistent.
+    # LiDAR remains the preferred progress source whenever front/rear range
+    # progress is physically meaningful and internally consistent. If LiDAR
+    # becomes unavailable or contradictory, use odom only as a bounded fallback
+    # while yaw remains sane, then keep correcting from LiDAR geometry whenever
+    # side, front, rear, or Manhattan wall references reappear.
     translation_progress_source: lidar_required
+    translation_odom_fallback_enabled: true
+    translation_odom_fallback_max_heading_error_rad: 0.090
 
     # If required LiDAR progress becomes invalid after temporal recovery is exhausted,
     # hold zero velocity briefly, then fail instead of completing from odom.
@@ -3395,9 +3393,12 @@ from darth_maul_control.grid_context import (
     LATERAL_COAST,
     UNAVAILABLE,
     YAW_RECOVERY,
+    ExpectedWalls,
+    GridCenteringObservation,
     GridObservation,
     GridRunContext,
     LiveGridCommand,
+    VirtualCellEstimate,
     advance_cells,
     grid_context_from_goal,
     invalid_centering,
@@ -3799,6 +3800,18 @@ class DarthMaulControlNode(Node):
                 'falling back to odom_only'
             )
             self.translation_progress_source = 'odom_only'
+
+        self.translation_odom_fallback_enabled = self._bool_param(
+            'translation_odom_fallback_enabled',
+            True,
+        )
+        self.translation_odom_fallback_max_heading_error_rad = (
+            self._positive_float_param(
+                'translation_odom_fallback_max_heading_error_rad',
+                0.090,
+            )
+        )
+
         self.translation_lidar_required_invalid_max_consecutive_samples = (
             self._nonnegative_int_param(
                 'translation_lidar_required_invalid_max_consecutive_samples',
@@ -4518,7 +4531,13 @@ class DarthMaulControlNode(Node):
                 odom_progress_m=0.0,
                 diagnostics=start_diagnostics,
             )
-            lidar_required_start_acquired = start_selection.valid
+            lidar_required_start_acquired = bool(
+                start_selection.valid
+                or (
+                    self.translation_odom_fallback_enabled
+                    and direction > 0.0
+                )
+            )
 
         while True:
             if self._cancel_or_stop_requested(goal_handle):
@@ -4582,6 +4601,16 @@ class DarthMaulControlNode(Node):
                     odom_progress_m=odom_progress,
                     diagnostics=current_diagnostics,
                 )
+
+            heading_error = normalize_angle(start.yaw - current.yaw)
+            progress_selection = self._maybe_use_geometry_aware_odom_progress(
+                progress_selection=progress_selection,
+                grid_context=grid_context,
+                alignment=current_alignment,
+                odom_progress_m=odom_progress,
+                heading_error_rad=heading_error,
+                direction=direction,
+            )
 
             if not progress_selection.valid:
                 if lidar_required_mode:
@@ -4655,7 +4684,6 @@ class DarthMaulControlNode(Node):
             final_control_progress_reason = progress_selection.reason
 
             remaining = target_distance - control_progress
-            heading_error = normalize_angle(start.yaw - current.yaw)
 
             final_position_error = abs(remaining)
             final_heading_error = abs(heading_error)
@@ -4703,6 +4731,18 @@ class DarthMaulControlNode(Node):
                         odom_progress_m=odom_progress,
                         diagnostics=final_diagnostics,
                     )
+                    final_heading_error_signed = normalize_angle(
+                        start.yaw - final_snapshot.pose.yaw
+                    )
+                    final_alignment = self._grid_alignment_snapshot()
+                    final_selection = self._maybe_use_geometry_aware_odom_progress(
+                        progress_selection=final_selection,
+                        grid_context=grid_context,
+                        alignment=final_alignment,
+                        odom_progress_m=odom_progress,
+                        heading_error_rad=final_heading_error_signed,
+                        direction=direction,
+                    )
 
                     if not final_selection.valid:
                         result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
@@ -4728,7 +4768,7 @@ class DarthMaulControlNode(Node):
                     final_control_progress_reason = final_selection.reason
 
                     remaining = target_distance - final_control_progress
-                    heading_error = normalize_angle(start.yaw - final_snapshot.pose.yaw)
+                    heading_error = final_heading_error_signed
                     final_position_error = abs(remaining)
                     final_heading_error = abs(heading_error)
 
@@ -4772,7 +4812,6 @@ class DarthMaulControlNode(Node):
                 if (
                     self.grid_cell_settle_enabled
                     and direction > 0.0
-                    and grid_context.valid
                 ):
                     settle_result = self._settle_grid_cell_after_translation(
                         goal_handle=goal_handle,
@@ -5386,6 +5425,9 @@ class DarthMaulControlNode(Node):
             min_confidence=self.grid_lateral_min_confidence,
         )
 
+        if not context.valid:
+            centering = self._mapless_centering_from_alignment(alignment)
+
         return make_grid_observation(
             context=context,
             yaw=yaw,
@@ -5456,6 +5498,119 @@ class DarthMaulControlNode(Node):
         self._grid_live_last_reason = command.reason
 
         return command
+
+    def _mapless_centering_from_alignment(
+        self,
+        alignment: GridAlignmentEstimate,
+    ) -> GridCenteringObservation:
+        if not alignment.valid or not alignment.lateral_valid:
+            return invalid_centering(
+                f'no observed adjacent side-wall centering: {alignment.reason}'
+            )
+
+        if alignment.confidence < self.grid_lateral_min_confidence:
+            return invalid_centering(
+                f'observed side-wall confidence {alignment.confidence:.2f} '
+                f'< {self.grid_lateral_min_confidence:.2f}: {alignment.reason}'
+            )
+
+        if abs(alignment.yaw_error_rad) > self.grid_live_max_abs_yaw_error_rad:
+            return invalid_centering(
+                f'observed side-wall yaw {alignment.yaw_error_rad:.3f} rad '
+                f'> {self.grid_live_max_abs_yaw_error_rad:.3f} rad: '
+                f'{alignment.reason}'
+            )
+
+        return GridCenteringObservation(
+            valid=True,
+            lateral_error_m=float(alignment.lateral_error_m),
+            confidence=float(alignment.confidence),
+            source=f'observed_{alignment.source}',
+            matched_expected_wall_ids=(),
+            left_usable=bool(alignment.left.valid),
+            right_usable=bool(alignment.right.valid),
+            reason=(
+                'mapless observed side-wall centering; '
+                f'source={alignment.source}; {alignment.reason}'
+            ),
+        )
+
+    def _mapless_axial_cell_centering_estimate(
+        self,
+        ranges: Optional[LidarRangeSnapshot],
+    ) -> AxialCellCenterEstimate:
+        if ranges is None:
+            return AxialCellCenterEstimate(
+                valid=False,
+                error_m=0.0,
+                source='none',
+                front_usable=False,
+                rear_usable=False,
+                disagreement_m=0.0,
+                reason='no fresh cardinal LiDAR snapshot',
+            )
+
+        front_distance = self._range_value(ranges.front)
+        rear_distance = self._range_value(ranges.rear)
+        front_error = abs(front_distance - self.grid_center_expected_front_distance_m)
+        rear_error = abs(rear_distance - self.grid_center_expected_rear_distance_m)
+
+        front_local = bool(
+            ranges.front.valid
+            and math.isfinite(front_distance)
+            and front_error <= self.grid_cell_settle_abort_position_error_m
+        )
+        rear_local = bool(
+            ranges.rear.valid
+            and math.isfinite(rear_distance)
+            and rear_error <= self.grid_cell_settle_abort_position_error_m
+        )
+
+        estimate = choose_axial_cell_centering(
+            expected_front=front_local,
+            front_valid=bool(ranges.front.valid),
+            front_distance_m=front_distance,
+            expected_front_distance_m=self.grid_center_expected_front_distance_m,
+            expected_rear=rear_local,
+            rear_valid=bool(ranges.rear.valid),
+            rear_distance_m=rear_distance,
+            expected_rear_distance_m=self.grid_center_expected_rear_distance_m,
+            max_disagreement_m=self.grid_center_front_rear_agreement_tolerance_m,
+        )
+
+        if estimate.valid:
+            return replace(
+                estimate,
+                reason=(
+                    'mapless local front/rear cell-center reference; '
+                    f'{estimate.reason}'
+                ),
+            )
+
+        if estimate.source == 'front_rear_rejected':
+            return AxialCellCenterEstimate(
+                valid=False,
+                error_m=0.0,
+                source='none',
+                front_usable=False,
+                rear_usable=False,
+                disagreement_m=estimate.disagreement_m,
+                reason=(
+                    'ignoring mapless front/rear local references because they disagree; '
+                    f'{estimate.reason}'
+                ),
+            )
+
+        return replace(
+            estimate,
+            reason=(
+                'no mapless local front/rear cell-center reference: '
+                f'front_valid={ranges.front.valid}; front_distance={front_distance:.3f} m; '
+                f'front_error={front_error:.3f} m; '
+                f'rear_valid={ranges.rear.valid}; rear_distance={rear_distance:.3f} m; '
+                f'rear_error={rear_error:.3f} m'
+            ),
+        )
 
     def _axial_cell_centering_estimate(
         self,
@@ -5548,45 +5703,49 @@ class DarthMaulControlNode(Node):
         last_progress_reason = str(initial_progress_reason)
         yaw_correction_used = False
 
-        destination_cell = advance_cells(
-            context.start_idx,
-            context.heading,
-            context.run_cells,
-            context.n,
-            context.m,
-        )
-        if destination_cell == 0:
-            self.publish_zero_twist()
-            return GridCellSettleResult(
-                canceled=False,
-                success=False,
-                result_code=ExecuteMotionPrimitive.Result.INTERNAL_ERROR,
-                message=(
-                    'destination cell outside maze during settle: '
-                    f'start_idx={context.start_idx}; '
-                    f'heading={context.heading}; '
-                    f'run_cells={context.run_cells}'
-                ),
-                position_error_m=last_position_error,
-                heading_error_rad=last_heading_error,
-                heading_source=last_heading_source,
-                progress_m=last_progress,
-                odom_progress_m=last_odom_progress,
-                progress_source=last_progress_source,
-                progress_reason=last_progress_reason,
-                yaw_correction_used=yaw_correction_used,
-            )
+        destination_cell = 0
+        settle_context: Optional[GridRunContext] = None
 
-        settle_context = GridRunContext(
-            True,
-            context.n,
-            context.m,
-            destination_cell,
-            context.heading,
-            1,
-            context.l,
-            'destination cell settle context',
-        )
+        if context.valid:
+            destination_cell = advance_cells(
+                context.start_idx,
+                context.heading,
+                context.run_cells,
+                context.n,
+                context.m,
+            )
+            if destination_cell == 0:
+                self.publish_zero_twist()
+                return GridCellSettleResult(
+                    canceled=False,
+                    success=False,
+                    result_code=ExecuteMotionPrimitive.Result.INTERNAL_ERROR,
+                    message=(
+                        'destination cell outside maze during settle: '
+                        f'start_idx={context.start_idx}; '
+                        f'heading={context.heading}; '
+                        f'run_cells={context.run_cells}'
+                    ),
+                    position_error_m=last_position_error,
+                    heading_error_rad=last_heading_error,
+                    heading_source=last_heading_source,
+                    progress_m=last_progress,
+                    odom_progress_m=last_odom_progress,
+                    progress_source=last_progress_source,
+                    progress_reason=last_progress_reason,
+                    yaw_correction_used=yaw_correction_used,
+                )
+
+            settle_context = GridRunContext(
+                True,
+                context.n,
+                context.m,
+                destination_cell,
+                context.heading,
+                1,
+                context.l,
+                'destination cell settle context',
+            )
 
         # Use the middle of a one-cell settle context so side-wall centering is
         # not weakened by the live-run boundary-zone penalty.
@@ -5682,44 +5841,71 @@ class DarthMaulControlNode(Node):
                 last_progress_reason = progress_selection.reason
 
             alignment = self._grid_alignment_snapshot()
-            virtual, expected, centering = observe_centering_from_expected_side_walls(
-                context=settle_context,
-                alignment=alignment,
-                progress_m=settle_virtual_progress_m,
-                cell_length_m=self.cell_length_m,
-                boundary_margin_m=self.grid_virtual_cell_boundary_margin_m,
-                expected_half_width_m=self.grid_alignment_expected_half_width_m,
-                adjacent_wall_tolerance_m=self.grid_alignment_adjacent_wall_tolerance_m,
-                pair_width_tolerance_m=self.grid_alignment_pair_width_tolerance_m,
-                max_abs_yaw_error_rad=self.grid_live_max_abs_yaw_error_rad,
-                max_rms_error_m=self.grid_live_max_rms_error_m,
-                min_span_x_m=self.grid_live_min_span_x_m,
-                min_support_count=self.grid_live_min_support_count,
-                min_confidence=self.grid_lateral_min_confidence,
-            )
-
-            if not virtual.valid or not expected.valid:
-                self.publish_zero_twist()
-                return GridCellSettleResult(
-                    canceled=False,
-                    success=False,
-                    result_code=ExecuteMotionPrimitive.Result.INTERNAL_ERROR,
-                    message=(
-                        'invalid destination cell geometry during settle: '
-                        f'destination_cell={destination_cell}; '
-                        f'{virtual.reason}; {expected.reason}'
-                    ),
-                    position_error_m=progress_error,
-                    heading_error_rad=last_heading_error,
-                    heading_source=last_heading_source,
-                    progress_m=last_progress,
-                    odom_progress_m=last_odom_progress,
-                    progress_source=last_progress_source,
-                    progress_reason=last_progress_reason,
-                    yaw_correction_used=yaw_correction_used,
+            if settle_context is not None:
+                virtual, expected, centering = observe_centering_from_expected_side_walls(
+                    context=settle_context,
+                    alignment=alignment,
+                    progress_m=settle_virtual_progress_m,
+                    cell_length_m=self.cell_length_m,
+                    boundary_margin_m=self.grid_virtual_cell_boundary_margin_m,
+                    expected_half_width_m=self.grid_alignment_expected_half_width_m,
+                    adjacent_wall_tolerance_m=self.grid_alignment_adjacent_wall_tolerance_m,
+                    pair_width_tolerance_m=self.grid_alignment_pair_width_tolerance_m,
+                    max_abs_yaw_error_rad=self.grid_live_max_abs_yaw_error_rad,
+                    max_rms_error_m=self.grid_live_max_rms_error_m,
+                    min_span_x_m=self.grid_live_min_span_x_m,
+                    min_support_count=self.grid_live_min_support_count,
+                    min_confidence=self.grid_lateral_min_confidence,
                 )
 
-            axial = self._axial_cell_centering_estimate(expected, current_ranges)
+                if not virtual.valid or not expected.valid:
+                    self.publish_zero_twist()
+                    return GridCellSettleResult(
+                        canceled=False,
+                        success=False,
+                        result_code=ExecuteMotionPrimitive.Result.INTERNAL_ERROR,
+                        message=(
+                            'invalid destination cell geometry during settle: '
+                            f'destination_cell={destination_cell}; '
+                            f'{virtual.reason}; {expected.reason}'
+                        ),
+                        position_error_m=progress_error,
+                        heading_error_rad=last_heading_error,
+                        heading_source=last_heading_source,
+                        progress_m=last_progress,
+                        odom_progress_m=last_odom_progress,
+                        progress_source=last_progress_source,
+                        progress_reason=last_progress_reason,
+                        yaw_correction_used=yaw_correction_used,
+                    )
+
+                axial = self._axial_cell_centering_estimate(expected, current_ranges)
+                axial_reference_expected = bool(expected.front or expected.rear)
+                lateral_reference_expected = bool(expected.left or expected.right)
+            else:
+                virtual = VirtualCellEstimate(
+                    valid=False,
+                    cell_idx=0,
+                    completed_cells=0,
+                    progress_m=last_progress,
+                    distance_into_cell_m=0.0,
+                    boundary_zone=False,
+                    reason='no known grid context for settle',
+                )
+                expected = ExpectedWalls(
+                    valid=False,
+                    cell_idx=0,
+                    cell_value=0,
+                    front=False,
+                    rear=False,
+                    left=False,
+                    right=False,
+                    reason='no known grid context for settle',
+                )
+                centering = self._mapless_centering_from_alignment(alignment)
+                axial = self._mapless_axial_cell_centering_estimate(current_ranges)
+                axial_reference_expected = axial.valid
+                lateral_reference_expected = centering.valid
             yaw_observation = self._manhattan_yaw_observation()
             odom_heading_error = normalize_angle(start.yaw - snapshot.pose.yaw)
             yaw_valid = bool(
@@ -5740,9 +5926,6 @@ class DarthMaulControlNode(Node):
 
             last_heading_error = heading_error
             last_heading_source = heading_source
-
-            axial_reference_expected = bool(expected.front or expected.rear)
-            lateral_reference_expected = bool(expected.left or expected.right)
 
             if axial.valid:
                 last_position_error = abs(axial.error_m)
@@ -6234,6 +6417,85 @@ class DarthMaulControlNode(Node):
             lidar_progress_reason=lidar_estimate.reason,
             lidar_progress_temporal_degraded=temporal_degraded,
             lidar_progress_temporal_reason=temporal_reason,
+        )
+
+    def _maybe_use_geometry_aware_odom_progress(
+        self,
+        *,
+        progress_selection,
+        grid_context: GridRunContext,
+        alignment: GridAlignmentEstimate,
+        odom_progress_m: float,
+        heading_error_rad: float,
+        direction: float,
+    ):
+        if progress_selection.valid:
+            return progress_selection
+
+        if not self.translation_odom_fallback_enabled:
+            return progress_selection
+
+        if self.translation_progress_source != 'lidar_required':
+            return progress_selection
+
+        if direction <= 0.0:
+            return progress_selection
+
+        yaw_observation = self._manhattan_yaw_observation()
+        yaw_ok = bool(
+            yaw_observation.valid
+            and yaw_observation.confidence >= self.grid_manhattan_yaw_min_confidence
+            and abs(yaw_observation.yaw_error_rad)
+            <= self.grid_manhattan_yaw_max_abs_error_rad
+        )
+        odom_heading_ok = (
+            abs(float(heading_error_rad))
+            <= self.translation_odom_fallback_max_heading_error_rad
+        )
+
+        if not yaw_ok and not odom_heading_ok:
+            return progress_selection
+
+        map_reason = 'no known grid context'
+        if grid_context.valid:
+            observation = self._live_grid_observation(
+                grid_context,
+                alignment,
+                max(0.0, float(odom_progress_m)),
+            )
+            if observation.context_valid and observation.expected.valid:
+                map_reason = (
+                    f'known virtual_cell={observation.virtual_cell.cell_idx}; '
+                    f'expected_walls=F{int(observation.expected.front)}'
+                    f'B{int(observation.expected.rear)}'
+                    f'L{int(observation.expected.left)}'
+                    f'R{int(observation.expected.right)}'
+                )
+            else:
+                map_reason = f'known grid context unavailable at progress: {observation.reason}'
+
+        side_reference = 'none'
+        if alignment.valid and alignment.lateral_valid:
+            side_reference = (
+                f'{alignment.source}; lateral_error={alignment.lateral_error_m:.3f} m; '
+                f'confidence={alignment.confidence:.2f}'
+            )
+
+        return replace(
+            progress_selection,
+            valid=True,
+            progress_m=max(0.0, float(odom_progress_m)),
+            source='odom_fallback',
+            reason=(
+                'geometry-aware odom fallback: LiDAR progress unavailable or inconsistent; '
+                f'{map_reason}; '
+                f'side_reference={side_reference}; '
+                f'odom_heading_error={abs(float(heading_error_rad)):.3f} rad; '
+                f'manhattan_yaw_valid={yaw_observation.valid}; '
+                f'manhattan_yaw_error={yaw_observation.yaw_error_rad:.3f} rad; '
+                f'manhattan_yaw_confidence={yaw_observation.confidence:.2f}; '
+                f'LiDAR rejected: {progress_selection.reason}'
+            ),
         )
 
     def _select_translation_progress(
@@ -9086,1911 +9348,7 @@ def generate_launch_description():
 
 
 
-# ================== FILE 53: ros2_ws/src/darth_maul_control/test/test_control_defaults.py ==================
-
-from pathlib import Path
-
-
-PACKAGE_ROOT = Path(__file__).resolve().parents[1]
-GEOMETRY_VALIDATION_PARAM = 'lidar_progress_geometry_validation' + '_enabled'
-AXIAL_WALL_PARAM_PREFIX = 'lidar_progress_' + 'axial_wall'
-LONGITUDINAL_WALL_SNAPSHOT = 'Longitudinal' + 'WallSnapshot'
-LONGITUDINAL_WALL_PREFIX = 'longitudinal' + '_wall'
-
-
-def test_control_params_default_to_lidar_required():
-    text = (PACKAGE_ROOT / 'config' / 'control_params.yaml').read_text()
-
-    assert 'translation_progress_source: lidar_required' in text
-    assert 'front_stop_distance_m: 0.09' in text
-    assert 'translation_lidar_required_invalid_max_consecutive_samples: 4' in text
-    assert 'lidar_progress_max_disagreement_m: 0.035' in text
-    assert 'lidar_progress_max_ahead_of_odom_m: 0.075' in text
-    assert 'lidar_odom_warning_threshold_m: 0.030' in text
-    assert 'lidar_progress_temporal_filter_enabled: true' in text
-    assert 'lidar_progress_temporal_max_jump_m: 0.080' in text
-    assert 'lidar_progress_temporal_max_degraded_samples: 6' in text
-    assert 'rotate_timeout_accept_heading_error_rad: 0.090' in text
-    assert 'grid_cell_settle_enabled: true' in text
-    assert 'grid_cell_settle_abort_position_error_m: 0.120' in text
-    assert 'grid_center_expected_front_distance_m: 0.125' in text
-    assert 'grid_center_expected_rear_distance_m: 0.125' in text
-    assert 'translation_lidar_required_invalid_grace_s' not in text
-    assert GEOMETRY_VALIDATION_PARAM not in text
-    assert AXIAL_WALL_PARAM_PREFIX not in text
-    assert 'It must not complete a drive when LiDAR progress is missing' in text
-    assert 'grid_live_yaw_min_confidence' not in text
-
-
-def test_control_launch_uses_yaml_as_single_default_source():
-    text = (PACKAGE_ROOT / 'launch' / 'control.launch.py').read_text()
-
-    assert "'params_file'" in text
-    assert "'control_params.yaml'" in text
-    assert 'parameters=[params_file]' in text
-    assert 'ParameterValue' not in text
-    assert 'translation_progress_source' not in text
-    assert 'default_linear_speed_mps' not in text
-    assert 'timeout_margin_sec' not in text
-    assert 'translation_lidar_required_invalid_grace_s' not in text
-
-
-def test_legacy_yaw_bloat_removed_from_control_node():
-    text = (PACKAGE_ROOT / 'darth_maul_control' / 'control_node.py').read_text()
-
-    forbidden = [
-        '_update_lidar_parallelity_tracker',
-        '_reset_lidar_parallelity_tracker',
-        '_begin_grid_yaw_control_memory',
-        '_end_grid_yaw_control_memory',
-        '_grid_yaw_control_memory_accepting',
-        '_post_rotation_refine_correction',
-        '_refine_post_rotation_grid_yaw',
-        'pre_translation_grid_yaw_align_enabled',
-        'lidar_parallelity_control_enabled',
-        'post_rotation_grid_yaw_refine_enabled',
-        'DRIVE_FORWARD does not use one-frame grid yaw',
-    ]
-
-    for token in forbidden:
-        assert token not in text
-
-
-def test_live_grid_control_defaults_present():
-    text = (PACKAGE_ROOT / 'config' / 'control_params.yaml').read_text()
-
-    assert 'translation_progress_source: lidar_required' in text
-    assert 'grid_live_control_enabled: true' in text
-    assert 'k_grid_lateral: 1.60' in text
-    assert 'max_linear_x_mps: 0.150' in text
-    assert 'max_grid_lateral_mps: 0.045' in text
-    assert 'grid_manhattan_yaw_enabled: true' in text
-    assert 'k_grid_live_yaw: 2.40' in text
-    assert 'max_grid_live_yaw_correction_radps: 0.140' in text
-    assert 'grid_virtual_cell_boundary_margin_m: 0.025' in text
-    assert 'grid_reacquire_large_yaw_rad: 0.200' in text
-    assert 'grid_cell_settle_enabled: true' in text
-    assert 'grid_cell_settle_timeout_sec: 2.0' in text
-    assert 'grid_cell_settle_position_tolerance_m: 0.025' in text
-    assert 'grid_center_front_rear_agreement_tolerance_m: 0.035' in text
-    assert 'lidar_parallelity_' not in text
-    assert 'pre_translation_grid_yaw_align_' not in text
-    assert 'post_rotation_grid_yaw_refine_' not in text
-
-
-def test_manhattan_yaw_defaults_present():
-    text = (PACKAGE_ROOT / 'config' / 'control_params.yaml').read_text()
-
-    assert 'grid_manhattan_yaw_enabled: true' in text
-    assert 'grid_manhattan_yaw_min_segment_length_m: 0.120' in text
-    assert 'grid_manhattan_yaw_max_line_rms_m: 0.020' in text
-    assert 'grid_manhattan_yaw_min_concentration: 0.70' in text
-    assert 'grid_manhattan_yaw_max_abs_error_rad: 0.140' in text
-
-
-def test_control_node_splits_yaw_and_lateral_observations():
-    text = (PACKAGE_ROOT / 'darth_maul_control' / 'control_node.py').read_text()
-
-    assert 'estimate_manhattan_grid_yaw(' in text
-    assert 'observe_centering_from_expected_side_walls(' in text
-    assert 'observation.yaw.valid' in text
-    assert 'observation.centering.valid' in text
-    assert 'cmd.linear.y = live_command.linear_y_mps' in text
-
-
-def test_control_node_has_cell_settle_phase():
-    text = (PACKAGE_ROOT / 'darth_maul_control' / 'control_node.py').read_text()
-
-    assert '_settle_grid_cell_after_translation(' in text
-    assert 'choose_axial_cell_centering(' in text
-    assert 'grid_cell_settle_abort_position_error_m' in text
-    assert 'front_rear_rejected' in text
-
-
-def test_control_node_uses_live_lateral_command_not_hardcoded_zero():
-    text = (PACKAGE_ROOT / 'darth_maul_control' / 'control_node.py').read_text()
-
-    assert 'cmd.linear.y = live_command.linear_y_mps' in text
-    assert 'cmd.linear.y = 0.0' in text
-    assert 'live_command.lateral_active' in text
-
-
-def test_control_node_has_no_4g_geometry_validation_runtime_path():
-    text = (PACKAGE_ROOT / 'darth_maul_control' / 'control_node.py').read_text()
-
-    assert GEOMETRY_VALIDATION_PARAM not in text
-    assert LONGITUDINAL_WALL_SNAPSHOT not in text
-    assert LONGITUDINAL_WALL_PREFIX not in text
-
-
-# ================== FILE 54: ros2_ws/src/darth_maul_control/test/test_grid_context.py ==================
-
-import math
-from types import SimpleNamespace
-
-import pytest
-
-from darth_maul_control.grid_context import (
-    GRID_YAW_LOCK,
-    HEADING_COAST,
-    LATERAL_COAST,
-    WALL_LOCK,
-    GridRunContext,
-    advance_cell,
-    expected_walls_for_cell,
-    invalid_centering,
-    live_grid_command,
-    make_grid_observation,
-    observe_centering_from_expected_side_walls,
-    virtual_cell_for_progress,
-)
-from darth_maul_control.grid_yaw import GridYawObservation, invalid_grid_yaw
-from darth_maul_control.scan_geometry import estimate_grid_alignment
-
-
-def make_scan(ranges, angle_min=-math.pi, angle_increment=None):
-    if angle_increment is None:
-        angle_increment = (2.0 * math.pi) / len(ranges)
-    return SimpleNamespace(
-        angle_min=angle_min,
-        angle_increment=angle_increment,
-        range_min=0.05,
-        range_max=12.0,
-        ranges=ranges,
-    )
-
-
-def make_line_scan(lines, num_samples=720, angle_min=-math.pi, angle_max=math.pi):
-    angle_increment = (angle_max - angle_min) / num_samples
-    ranges = [float('inf')] * num_samples
-
-    for i in range(num_samples):
-        theta = angle_min + i * angle_increment
-        c = math.cos(theta)
-        s = math.sin(theta)
-        best = float('inf')
-
-        for slope, intercept, x_min, x_max in lines:
-            denom = s - slope * c
-            if abs(denom) < 1e-9:
-                continue
-            r = intercept / denom
-            if not math.isfinite(r) or r < 0.05 or r > 12.0:
-                continue
-            x = r * c
-            if x_min <= x <= x_max:
-                best = min(best, r)
-
-        ranges[i] = best
-
-    return make_scan(ranges, angle_min=angle_min, angle_increment=angle_increment)
-
-
-def alignment_from_lines(lines, half_width=0.20):
-    scan = make_line_scan(lines)
-    return estimate_grid_alignment(
-        scan,
-        expected_half_width_m=half_width,
-        min_x_m=-0.18,
-        max_x_m=0.45,
-        min_side_distance_m=0.06,
-        max_side_distance_m=0.45,
-        min_points=8,
-        min_span_x_m=0.12,
-        max_rms_error_m=0.025,
-        max_abs_yaw_error_rad=0.35,
-        max_reported_error_m=0.30,
-        max_reported_yaw_rad=0.50,
-    )
-
-
-def valid_yaw(error=0.0, confidence=0.8, source='manhattan_lines'):
-    return GridYawObservation(
-        valid=True,
-        yaw_error_rad=error,
-        confidence=confidence,
-        source=source,
-        line_count=1,
-        dominant_axis_rad=error,
-        total_weight=1.0,
-        concentration=1.0,
-        reason='test yaw',
-    )
-
-
-def observe_centering(context, alignment):
-    return observe_centering_from_expected_side_walls(
-        context=context,
-        alignment=alignment,
-        progress_m=0.10,
-        cell_length_m=0.254,
-        boundary_margin_m=0.025,
-        expected_half_width_m=0.20,
-        adjacent_wall_tolerance_m=0.08,
-        pair_width_tolerance_m=0.08,
-        max_abs_yaw_error_rad=0.12,
-        max_rms_error_m=0.025,
-        min_span_x_m=0.12,
-        min_support_count=8,
-        min_confidence=0.55,
-    )
-
-
-def test_advance_cell_uses_readme_indexing():
-    assert advance_cell(1, 1, 7, 11) == 2
-    assert advance_cell(1, 4, 7, 11) == 8
-    assert advance_cell(8, 8, 7, 11) == 1
-    assert advance_cell(1, 2, 7, 11) == 0
-
-
-def test_virtual_cell_tracks_long_run_by_lidar_progress():
-    context = GridRunContext(
-        True,
-        n=7,
-        m=11,
-        start_idx=1,
-        heading=1,
-        run_cells=4,
-        l=tuple([0] * 77),
-        reason='test',
-    )
-
-    first = virtual_cell_for_progress(context, 0.10, 0.254, 0.025)
-    second = virtual_cell_for_progress(context, 0.260, 0.254, 0.025)
-    fourth = virtual_cell_for_progress(context, 0.900, 0.254, 0.025)
-
-    assert first.cell_idx == 1
-    assert second.cell_idx == 2
-    assert fourth.cell_idx == 4
-    assert fourth.completed_cells == 3
-
-
-def test_expected_walls_maps_global_to_robot_frame_heading_pos_x():
-    context = GridRunContext(True, 2, 2, 1, 1, 1, tuple([12, 0, 0, 0]), 'test')
-    expected = expected_walls_for_cell(context, 1)
-
-    assert expected.left
-    assert expected.right
-    assert not expected.front
-    assert not expected.rear
-
-
-def test_observation_accepts_expected_both_side_walls():
-    context = GridRunContext(True, 2, 2, 1, 1, 1, tuple([12, 0, 0, 0]), 'test')
-    alignment = alignment_from_lines([
-        (0.0, 0.20, -0.20, 0.45),
-        (0.0, -0.20, -0.20, 0.45),
-    ])
-
-    virtual, expected, centering = observe_centering(context, alignment)
-    obs = make_grid_observation(
-        context=context,
-        yaw=valid_yaw(),
-        centering=centering,
-        virtual=virtual,
-        expected=expected,
-    )
-
-    assert obs.combined_mode == WALL_LOCK
-    assert obs.yaw.valid
-    assert obs.centering.valid
-    assert obs.centering.source == 'left_right'
-    assert obs.centering.lateral_error_m == pytest.approx(0.0, abs=0.02)
-
-
-def test_observation_rejects_wall_when_map_says_open_side():
-    context = GridRunContext(True, 2, 2, 1, 1, 1, tuple([0, 0, 0, 0]), 'test')
-    alignment = alignment_from_lines([
-        (0.0, 0.20, -0.20, 0.45),
-        (0.0, -0.20, -0.20, 0.45),
-    ])
-
-    virtual, expected, centering = observe_centering(context, alignment)
-    obs = make_grid_observation(
-        context=context,
-        yaw=invalid_grid_yaw('no lines'),
-        centering=centering,
-        virtual=virtual,
-        expected=expected,
-    )
-
-    assert obs.combined_mode == HEADING_COAST
-    assert not obs.yaw.valid
-    assert not obs.centering.valid
-
-
-def test_lateral_error_sign_left_wall_robot_right_of_center():
-    context = GridRunContext(True, 2, 2, 1, 1, 1, tuple([4, 0, 0, 0]), 'test')
-    alignment = alignment_from_lines([(0.0, 0.25, -0.20, 0.45)])
-
-    _virtual, _expected, centering = observe_centering(context, alignment)
-
-    assert centering.valid
-    assert centering.source == 'left'
-    assert centering.lateral_error_m > 0.0
-
-
-def test_live_grid_command_uses_wall_yaw_and_lateral_when_locked():
-    context = GridRunContext(True, 2, 2, 1, 1, 1, tuple([4, 0, 0, 0]), 'test')
-    alignment = alignment_from_lines([(0.05, 0.25, -0.20, 0.45)])
-    virtual, expected, centering = observe_centering(context, alignment)
-    obs = make_grid_observation(
-        context=context,
-        yaw=valid_yaw(0.05),
-        centering=centering,
-        virtual=virtual,
-        expected=expected,
-    )
-
-    cmd = live_grid_command(
-        observation=obs,
-        previous_yaw_mode=GRID_YAW_LOCK,
-        odom_heading_correction_radps=0.0,
-        k_yaw=2.0,
-        max_yaw_correction_radps=0.12,
-        k_lateral=1.4,
-        max_lateral_mps=0.035,
-        yaw_min_confidence=0.55,
-        lateral_min_confidence=0.55,
-        reacquire_stable_samples=3,
-        current_reacquire_samples=3,
-        small_reacquire_yaw_rad=0.04,
-        large_reacquire_yaw_rad=0.10,
-        reacquire_speed_scale=0.65,
-    )
-
-    assert cmd.mode == WALL_LOCK
-    assert cmd.yaw_active
-    assert cmd.lateral_active
-    assert cmd.linear_y_mps > 0.0
-
-
-def test_live_grid_command_falls_back_to_odom_heading_when_blind():
-    context = GridRunContext(True, 2, 2, 1, 1, 1, tuple([0, 0, 0, 0]), 'test')
-    alignment = alignment_from_lines([(0.0, 0.20, -0.20, 0.45)])
-    virtual, expected, centering = observe_centering(context, alignment)
-    obs = make_grid_observation(
-        context=context,
-        yaw=invalid_grid_yaw('no lines'),
-        centering=centering,
-        virtual=virtual,
-        expected=expected,
-    )
-
-    cmd = live_grid_command(
-        observation=obs,
-        previous_yaw_mode=GRID_YAW_LOCK,
-        odom_heading_correction_radps=0.07,
-        k_yaw=2.0,
-        max_yaw_correction_radps=0.12,
-        k_lateral=1.4,
-        max_lateral_mps=0.035,
-        yaw_min_confidence=0.55,
-        lateral_min_confidence=0.55,
-        reacquire_stable_samples=3,
-        current_reacquire_samples=0,
-        small_reacquire_yaw_rad=0.04,
-        large_reacquire_yaw_rad=0.10,
-        reacquire_speed_scale=0.65,
-    )
-
-    assert cmd.mode == HEADING_COAST
-    assert not cmd.yaw_active
-    assert not cmd.lateral_active
-    assert cmd.angular_z_radps == pytest.approx(0.07)
-    assert cmd.linear_y_mps == pytest.approx(0.0)
-
-
-def test_front_wall_yaw_can_be_valid_while_lateral_is_invalid():
-    context = GridRunContext(True, 2, 2, 1, 1, 1, tuple([0, 0, 0, 0]), 'test')
-    alignment = alignment_from_lines([])
-
-    virtual, expected, centering = observe_centering(context, alignment)
-    obs = make_grid_observation(
-        context=context,
-        yaw=valid_yaw(0.03),
-        centering=centering,
-        virtual=virtual,
-        expected=expected,
-    )
-
-    assert obs.yaw.valid
-    assert not obs.centering.valid
-    assert obs.yaw_mode == GRID_YAW_LOCK
-    assert obs.lateral_mode == LATERAL_COAST
-
-
-def test_live_grid_command_uses_yaw_without_lateral():
-    context = GridRunContext(True, 2, 2, 1, 1, 1, tuple([0, 0, 0, 0]), 'test')
-    virtual = virtual_cell_for_progress(context, 0.10, 0.254, 0.025)
-    expected = expected_walls_for_cell(context, virtual.cell_idx)
-    obs = make_grid_observation(
-        context=context,
-        yaw=valid_yaw(0.04),
-        centering=invalid_centering('no side wall'),
-        virtual=virtual,
-        expected=expected,
-    )
-
-    cmd = live_grid_command(
-        observation=obs,
-        previous_yaw_mode=GRID_YAW_LOCK,
-        odom_heading_correction_radps=0.0,
-        k_yaw=2.0,
-        max_yaw_correction_radps=0.12,
-        k_lateral=1.4,
-        max_lateral_mps=0.035,
-        yaw_min_confidence=0.55,
-        lateral_min_confidence=0.55,
-        reacquire_stable_samples=3,
-        current_reacquire_samples=3,
-        small_reacquire_yaw_rad=0.04,
-        large_reacquire_yaw_rad=0.10,
-        reacquire_speed_scale=0.65,
-    )
-
-    assert cmd.yaw_active
-    assert not cmd.lateral_active
-    assert cmd.angular_z_radps == pytest.approx(0.08)
-    assert cmd.linear_y_mps == pytest.approx(0.0)
-
-
-# ================== FILE 55: ros2_ws/src/darth_maul_control/test/test_grid_control_logic.py ==================
-
-import pytest
-
-from darth_maul_control.scan_geometry import (
-    LidarProgressEstimate,
-    choose_heading_validation_error,
-    choose_lidar_progress,
-    choose_translation_progress,
-    grid_lateral_drift,
-    grid_yaw_correction_radps,
-    rotation_timeout_accepts_heading_error,
-)
-
-
-def test_raw_lidar_progress_accepts_consistent_three_cell_measurement():
-    lidar = choose_lidar_progress(
-        front_valid=True,
-        front_progress_m=0.7610,
-        rear_valid=True,
-        rear_progress_m=0.7630,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=True,
-    )
-
-    assert lidar.valid
-    assert lidar.source == 'front_rear'
-    assert lidar.progress_m == pytest.approx(0.7620)
-    assert lidar.disagreement_m == pytest.approx(0.0020)
-
-
-def test_raw_lidar_progress_rejects_side_wall_alias_by_front_rear_disagreement():
-    estimate = choose_lidar_progress(
-        front_valid=True,
-        front_progress_m=0.5065,
-        rear_valid=True,
-        rear_progress_m=0.0140,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=True,
-    )
-
-    assert not estimate.valid
-    assert estimate.source == 'front_rear_rejected'
-    assert estimate.disagreement_m == pytest.approx(0.4925)
-    assert 'disagreement' in estimate.reason
-
-
-def test_raw_lidar_progress_allows_single_source_when_configured():
-    lidar = choose_lidar_progress(
-        front_valid=False,
-        front_progress_m=0.0,
-        rear_valid=True,
-        rear_progress_m=0.757,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=True,
-    )
-
-    assert lidar.valid
-    assert lidar.source == 'rear'
-    assert lidar.progress_m == pytest.approx(0.757)
-
-
-def test_raw_lidar_progress_rejects_single_source_if_disabled():
-    lidar = choose_lidar_progress(
-        front_valid=False,
-        front_progress_m=0.0,
-        rear_valid=True,
-        rear_progress_m=0.757,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=False,
-    )
-
-    assert not lidar.valid
-    assert lidar.source == 'none'
-    assert 'single-source LiDAR progress disabled' in lidar.reason
-
-
-def test_lidar_required_rejects_invalid_lidar_even_when_odom_progress_exists():
-    lidar = LidarProgressEstimate(
-        valid=False,
-        progress_m=0.0,
-        source='front_rear_rejected',
-        disagreement_m=0.49,
-        reason='front/rear progress disagreement',
-    )
-
-    selection = choose_translation_progress(
-        odom_progress_m=0.25,
-        lidar_estimate=lidar,
-        mode='lidar_required',
-        max_lidar_ahead_of_odom_m=0.060,
-    )
-
-    assert not selection.valid
-    assert selection.source == 'lidar_required_unavailable'
-    assert 'odom progress 0.250 m ignored' in selection.reason
-
-
-def test_lateral_drift_computes_signed_drift_per_meter():
-    estimate = grid_lateral_drift(
-        start_valid=True,
-        start_error_m=0.000,
-        end_valid=True,
-        end_error_m=-0.020,
-        progress_m=0.762,
-    )
-
-    assert estimate.drift_valid
-    assert estimate.drift_m == pytest.approx(-0.020)
-    assert estimate.drift_per_m == pytest.approx(-0.0262, abs=0.0001)
-
-
-def test_lateral_drift_rejects_invalid_start():
-    estimate = grid_lateral_drift(
-        start_valid=False,
-        start_error_m=0.000,
-        end_valid=True,
-        end_error_m=-0.020,
-        progress_m=0.762,
-    )
-
-    assert not estimate.start_valid
-    assert estimate.end_valid
-    assert not estimate.drift_valid
-    assert estimate.drift_m == pytest.approx(0.0)
-
-
-def test_lateral_drift_rejects_invalid_end():
-    estimate = grid_lateral_drift(
-        start_valid=True,
-        start_error_m=0.000,
-        end_valid=False,
-        end_error_m=-0.020,
-        progress_m=0.762,
-    )
-
-    assert estimate.start_valid
-    assert not estimate.end_valid
-    assert not estimate.drift_valid
-    assert estimate.drift_m == pytest.approx(0.0)
-
-
-def test_grid_yaw_correction_uses_positive_gain_sign():
-    correction = grid_yaw_correction_radps(
-        yaw_error_rad=-0.05,
-        k_yaw=0.70,
-        max_correction_radps=0.045,
-    )
-
-    assert correction == pytest.approx(-0.035)
-
-
-def test_grid_yaw_correction_is_capped():
-    correction = grid_yaw_correction_radps(
-        yaw_error_rad=0.20,
-        k_yaw=0.70,
-        max_correction_radps=0.045,
-    )
-
-    assert correction == pytest.approx(0.045)
-
-
-def test_rotation_timeout_accepts_near_target_error():
-    assert rotation_timeout_accepts_heading_error(
-        final_heading_error_rad=0.084,
-        accept_threshold_rad=0.090,
-    )
-
-
-def test_rotation_timeout_rejects_large_residual_error():
-    assert not rotation_timeout_accepts_heading_error(
-        final_heading_error_rad=0.120,
-        accept_threshold_rad=0.090,
-    )
-
-
-def test_heading_validation_uses_odom_when_grid_correction_unused():
-    error, source = choose_heading_validation_error(
-        odom_heading_error_rad=0.073,
-        grid_yaw_error_rad=0.001,
-        grid_yaw_valid=True,
-        grid_yaw_correction_used=False,
-        grid_alignment_confidence=0.6,
-        min_grid_confidence=0.5,
-        max_grid_yaw_abs_error_rad=0.10,
-        grid_alignment_source='right',
-    )
-
-    assert error == pytest.approx(0.073)
-    assert source == 'odom'
-
-
-def test_heading_validation_uses_valid_confident_grid_yaw():
-    error, source = choose_heading_validation_error(
-        odom_heading_error_rad=0.073,
-        grid_yaw_error_rad=-0.001,
-        grid_yaw_valid=True,
-        grid_yaw_correction_used=True,
-        grid_alignment_confidence=0.6,
-        min_grid_confidence=0.5,
-        max_grid_yaw_abs_error_rad=0.10,
-        grid_alignment_source='right',
-    )
-
-    assert error == pytest.approx(0.001)
-    assert source == 'grid_yaw/right'
-
-
-def test_heading_validation_uses_odom_when_grid_confidence_low():
-    error, source = choose_heading_validation_error(
-        odom_heading_error_rad=0.073,
-        grid_yaw_error_rad=0.001,
-        grid_yaw_valid=True,
-        grid_yaw_correction_used=True,
-        grid_alignment_confidence=0.4,
-        min_grid_confidence=0.5,
-        max_grid_yaw_abs_error_rad=0.10,
-        grid_alignment_source='right',
-    )
-
-    assert error == pytest.approx(0.073)
-    assert source == 'odom'
-
-
-def test_heading_validation_uses_odom_when_grid_invalid():
-    error, source = choose_heading_validation_error(
-        odom_heading_error_rad=0.073,
-        grid_yaw_error_rad=0.001,
-        grid_yaw_valid=False,
-        grid_yaw_correction_used=True,
-        grid_alignment_confidence=0.6,
-        min_grid_confidence=0.5,
-        max_grid_yaw_abs_error_rad=0.10,
-        grid_alignment_source='right',
-    )
-
-    assert error == pytest.approx(0.073)
-    assert source == 'odom'
-
-
-def test_heading_validation_uses_odom_when_grid_yaw_too_large():
-    error, source = choose_heading_validation_error(
-        odom_heading_error_rad=0.073,
-        grid_yaw_error_rad=0.12,
-        grid_yaw_valid=True,
-        grid_yaw_correction_used=True,
-        grid_alignment_confidence=0.6,
-        min_grid_confidence=0.5,
-        max_grid_yaw_abs_error_rad=0.10,
-        grid_alignment_source='right',
-    )
-
-    assert error == pytest.approx(0.073)
-    assert source == 'odom'
-
-
-# ================== FILE 56: ros2_ws/src/darth_maul_control/test/test_grid_yaw.py ==================
-
-import math
-from types import SimpleNamespace
-
-import pytest
-
-from darth_maul_control.grid_yaw import (
-    estimate_manhattan_grid_yaw,
-    estimate_manhattan_grid_yaw_from_segments,
-    fit_line_segment_from_xy,
-    normalize_manhattan_axis_error,
-)
-
-
-def make_points_on_line(angle_rad, offset_normal_m=0.0, start=-0.30, stop=0.30, n=40):
-    ux = math.cos(angle_rad)
-    uy = math.sin(angle_rad)
-    nx = -uy
-    ny = ux
-    points = []
-    for i in range(n):
-        t = start + (stop - start) * i / max(1, n - 1)
-        x = t * ux + offset_normal_m * nx
-        y = t * uy + offset_normal_m * ny
-        points.append((x, y))
-    return points
-
-
-def segment_from_line(angle_rad, offset=0.0, length=0.60, n=40):
-    return fit_line_segment_from_xy(
-        make_points_on_line(angle_rad, offset, -length / 2.0, length / 2.0, n),
-        min_segment_points=8,
-        min_segment_length_m=0.12,
-        max_line_rms_m=0.020,
-    )
-
-
-def estimate_from_angles(angles):
-    segments = [segment_from_line(angle) for angle in angles]
-    return estimate_manhattan_grid_yaw_from_segments(
-        segments,
-        min_line_count=1,
-        min_total_weight=0.20,
-        min_concentration=0.70,
-        max_abs_yaw_error_rad=0.140,
-    )
-
-
-def make_laserscan_from_wall_segments(
-    wall_segments,
-    *,
-    num_samples=720,
-    angle_min=-math.pi,
-    angle_max=math.pi,
-    range_min=0.05,
-    range_max=12.0,
-):
-    """Create a synthetic LaserScan from finite wall segments.
-
-    wall_segments entries:
-      ('x', x_value, y_min, y_max) for vertical wall x = constant
-      ('y', y_value, x_min, x_max) for horizontal wall y = constant
-    """
-    angle_increment = (angle_max - angle_min) / num_samples
-    ranges = [float('inf')] * num_samples
-
-    for i in range(num_samples):
-        theta = angle_min + i * angle_increment
-        c = math.cos(theta)
-        s = math.sin(theta)
-        best = float('inf')
-
-        for kind, value, a_min, a_max in wall_segments:
-            if kind == 'x':
-                if abs(c) < 1.0e-9:
-                    continue
-                r = value / c
-                other = r * s
-            elif kind == 'y':
-                if abs(s) < 1.0e-9:
-                    continue
-                r = value / s
-                other = r * c
-            else:
-                raise ValueError(kind)
-
-            if not math.isfinite(r) or r < range_min or r > range_max:
-                continue
-            if a_min <= other <= a_max:
-                best = min(best, r)
-
-        ranges[i] = best
-
-    return SimpleNamespace(
-        angle_min=angle_min,
-        angle_increment=angle_increment,
-        range_min=range_min,
-        range_max=range_max,
-        ranges=ranges,
-    )
-
-
-def estimate_yaw_from_scan(scan):
-    return estimate_manhattan_grid_yaw(
-        scan,
-        min_range_m=0.08,
-        max_range_m=2.50,
-        max_point_gap_m=0.055,
-        max_range_jump_m=0.080,
-        min_cluster_points=8,
-        min_segment_points=8,
-        min_segment_length_m=0.120,
-        max_line_rms_m=0.020,
-        min_line_count=1,
-        min_total_weight=0.20,
-        min_concentration=0.70,
-        max_abs_yaw_error_rad=0.140,
-    )
-
-
-def test_normalize_manhattan_axis_error():
-    assert normalize_manhattan_axis_error(0.0) == pytest.approx(0.0)
-    assert normalize_manhattan_axis_error(math.pi / 2.0) == pytest.approx(0.0)
-    assert normalize_manhattan_axis_error(0.10) == pytest.approx(0.10)
-    assert normalize_manhattan_axis_error(math.pi / 2.0 + 0.10) == pytest.approx(0.10)
-    assert normalize_manhattan_axis_error(math.pi / 2.0 - 0.10) == pytest.approx(-0.10)
-
-
-def test_horizontal_wall_line_gives_zero_yaw():
-    obs = estimate_from_angles([0.0])
-    assert obs.valid
-    assert obs.yaw_error_rad == pytest.approx(0.0, abs=0.01)
-
-
-def test_front_wall_vertical_line_gives_zero_yaw():
-    obs = estimate_from_angles([math.pi / 2.0])
-    assert obs.valid
-    assert obs.yaw_error_rad == pytest.approx(0.0, abs=0.01)
-
-
-def test_rotated_front_wall_gives_yaw_error():
-    obs = estimate_from_angles([math.pi / 2.0 + 0.08])
-    assert obs.valid
-    assert obs.yaw_error_rad == pytest.approx(0.08, abs=0.015)
-
-
-def test_rotated_side_wall_gives_yaw_error():
-    obs = estimate_from_angles([0.08])
-    assert obs.valid
-    assert obs.yaw_error_rad == pytest.approx(0.08, abs=0.015)
-
-
-def test_orthogonal_lines_average_to_same_yaw():
-    obs = estimate_from_angles([0.06, math.pi / 2.0 + 0.06])
-    assert obs.valid
-    assert obs.yaw_error_rad == pytest.approx(0.06, abs=0.015)
-    assert obs.line_count == 2
-
-
-def test_conflicting_lines_rejected_by_concentration():
-    segments = [
-        segment_from_line(0.00),
-        segment_from_line(0.30),
-    ]
-    obs = estimate_manhattan_grid_yaw_from_segments(
-        segments,
-        min_line_count=2,
-        min_total_weight=0.20,
-        min_concentration=0.95,
-        max_abs_yaw_error_rad=0.140,
-    )
-    assert not obs.valid
-    assert 'concentration' in obs.reason
-
-
-def test_short_segment_rejected_before_yaw_estimation():
-    segment = fit_line_segment_from_xy(
-        make_points_on_line(0.0, 0.0, -0.03, 0.03, 10),
-        min_segment_points=8,
-        min_segment_length_m=0.12,
-        max_line_rms_m=0.020,
-    )
-    obs = estimate_manhattan_grid_yaw_from_segments(
-        [segment],
-        min_line_count=1,
-        min_total_weight=0.20,
-        min_concentration=0.70,
-        max_abs_yaw_error_rad=0.140,
-    )
-    assert not obs.valid
-
-
-def test_manhattan_yaw_from_front_wall_laserscan():
-    scan = make_laserscan_from_wall_segments([
-        ('x', 0.35, -0.30, 0.30),
-    ])
-
-    obs = estimate_yaw_from_scan(scan)
-
-    assert obs.valid
-    assert obs.yaw_error_rad == pytest.approx(0.0, abs=0.01)
-    assert obs.line_count >= 1
-
-
-def test_manhattan_yaw_from_side_wall_laserscan():
-    scan = make_laserscan_from_wall_segments([
-        ('y', 0.20, -0.30, 0.45),
-    ])
-
-    obs = estimate_yaw_from_scan(scan)
-
-    assert obs.valid
-    assert obs.yaw_error_rad == pytest.approx(0.0, abs=0.01)
-    assert obs.line_count >= 1
-
-
-def test_manhattan_yaw_rejects_too_short_laserscan_segment():
-    scan = make_laserscan_from_wall_segments([
-        ('x', 0.35, -0.03, 0.03),
-    ])
-
-    obs = estimate_yaw_from_scan(scan)
-
-    assert not obs.valid
-
-
-def test_manhattan_yaw_from_front_and_side_laserscan():
-    scan = make_laserscan_from_wall_segments([
-        ('x', 0.35, -0.30, 0.30),
-        ('y', 0.20, -0.30, 0.20),
-    ])
-
-    obs = estimate_yaw_from_scan(scan)
-
-    assert obs.valid
-    assert obs.yaw_error_rad == pytest.approx(0.0, abs=0.01)
-    assert obs.line_count >= 2
-
-
-# ================== FILE 57: ros2_ws/src/darth_maul_control/test/test_scan_geometry.py ==================
-
-from types import SimpleNamespace
-import math
-
-import pytest
-
-from darth_maul_control.scan_geometry import (
-    AxialCellCenterEstimate,
-    GridAlignmentEstimate,
-    LidarProgressEstimate,
-    WallLineEstimate,
-    cardinal_sector_ranges,
-    choose_axial_cell_centering,
-    choose_lidar_progress,
-    choose_temporal_lidar_progress,
-    choose_translation_progress,
-    estimate_grid_alignment,
-    fit_side_wall_line,
-    invalid_grid_alignment,
-    invalid_wall_line,
-    sector_range,
-    side_wall_candidate_points,
-    valid_scan_points_xy,
-    valid_ranges_in_sector,
-)
-
-
-def make_scan(ranges, angle_min=-math.pi, angle_increment=None):
-    if angle_increment is None:
-        angle_increment = (2.0 * math.pi) / len(ranges)
-    return SimpleNamespace(
-        angle_min=angle_min,
-        angle_increment=angle_increment,
-        range_min=0.05,
-        range_max=12.0,
-        ranges=ranges,
-    )
-
-
-def make_line_scan(
-    lines,
-    num_samples=720,
-    angle_min=-math.pi,
-    angle_max=math.pi,
-    range_min=0.05,
-    range_max=12.0,
-):
-    """Create a synthetic 2D scan from lines y = slope*x + intercept.
-
-    lines: sequence of (slope, intercept, x_min, x_max)
-    """
-    angle_increment = (angle_max - angle_min) / num_samples
-    ranges = [float('inf')] * num_samples
-
-    for i in range(num_samples):
-        theta = angle_min + i * angle_increment
-        c = math.cos(theta)
-        s = math.sin(theta)
-
-        best = float('inf')
-        for slope, intercept, x_min, x_max in lines:
-            denom = s - slope * c
-            if abs(denom) < 1e-9:
-                continue
-
-            r = intercept / denom
-            if not math.isfinite(r) or r < range_min or r > range_max:
-                continue
-
-            x = r * c
-            if x_min <= x <= x_max:
-                best = min(best, r)
-
-        ranges[i] = best
-
-    return make_scan(
-        ranges,
-        angle_min=angle_min,
-        angle_increment=angle_increment,
-    )
-
-
-def make_points_scan(
-    points,
-    num_samples=3600,
-    angle_min=-math.pi,
-    angle_max=math.pi,
-    range_min=0.05,
-    range_max=12.0,
-):
-    angle_increment = (angle_max - angle_min) / num_samples
-    ranges = [float('inf')] * num_samples
-
-    for x, y in points:
-        r = math.hypot(x, y)
-        if not math.isfinite(r) or r < range_min or r > range_max:
-            continue
-
-        theta = math.atan2(y, x)
-        index = int(round((theta - angle_min) / angle_increment))
-        if 0 <= index < num_samples:
-            ranges[index] = min(ranges[index], r)
-
-    return make_scan(
-        ranges,
-        angle_min=angle_min,
-        angle_increment=angle_increment,
-    )
-
-
-def make_wall(side, offset, yaw=0.02, rms=0.012, span=0.30, count=120):
-    return WallLineEstimate(
-        valid=True,
-        side=side,
-        offset_m=offset,
-        yaw_error_rad=yaw,
-        slope=math.tan(yaw),
-        intercept_m=offset,
-        support_count=count,
-        span_x_m=span,
-        rms_error_m=rms,
-        reason='test wall',
-    )
-
-
-def make_alignment(
-    source='right',
-    confidence=0.60,
-    left=None,
-    right=None,
-    yaw=0.02,
-):
-    left = left if left is not None else invalid_wall_line('left', 'not used')
-    right = right if right is not None else invalid_wall_line('right', 'not used')
-    return GridAlignmentEstimate(
-        valid=True,
-        yaw_valid=True,
-        yaw_error_rad=yaw,
-        lateral_valid=True,
-        lateral_error_m=0.0,
-        source=source,
-        confidence=confidence,
-        left=left,
-        right=right,
-        reason='test alignment',
-    )
-
-
-def test_sector_range_uses_median_not_min():
-    scan = make_scan([5.0, 4.0, 1.0, 3.0], angle_increment=math.pi / 2.0)
-    measurement = sector_range(scan, 'front', 0.0, width_deg=181.0, min_samples=2)
-
-    assert measurement.valid
-    assert valid_ranges_in_sector(scan, 0.0, 181.0) == pytest.approx([4.0, 1.0, 3.0])
-    assert measurement.min_m == pytest.approx(1.0)
-    assert measurement.median_m == pytest.approx(3.0)
-
-
-def test_sector_range_rejects_invalid_values():
-    scan = make_scan([float('inf'), float('nan'), 0.01, 99.0])
-    measurement = sector_range(scan, 'front', 0.0, width_deg=360.0, min_samples=3)
-
-    assert not measurement.valid
-    assert measurement.count == 0
-
-
-def test_cardinal_sector_ranges_return_expected_keys():
-    scan = make_scan([1.0] * 360, angle_min=-math.pi, angle_increment=math.radians(1.0))
-    measurements = cardinal_sector_ranges(scan, width_deg=10.0, min_samples=3)
-
-    assert set(measurements.keys()) == {'front', 'rear', 'left', 'right'}
-    assert all(value.valid for value in measurements.values())
-
-
-def test_rear_sector_wraparound_is_valid():
-    scan = make_scan([2.0] * 360, angle_min=-math.pi, angle_increment=math.radians(1.0))
-    measurement = sector_range(scan, 'rear', math.pi, width_deg=10.0, min_samples=3)
-
-    assert measurement.valid
-    assert measurement.median_m == pytest.approx(2.0)
-
-
-def test_choose_lidar_progress_averages_consistent_front_and_rear():
-    estimate = choose_lidar_progress(
-        True,
-        0.213,
-        True,
-        0.216,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=True,
-    )
-
-    assert estimate.valid
-    assert estimate.progress_m == pytest.approx(0.2145)
-    assert estimate.source == 'front_rear'
-    assert estimate.disagreement_m == pytest.approx(0.003)
-
-
-def test_choose_lidar_progress_rejects_front_rear_disagreement():
-    estimate = choose_lidar_progress(
-        True,
-        0.213,
-        True,
-        0.270,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=True,
-    )
-
-    assert not estimate.valid
-    assert estimate.source == 'front_rear_rejected'
-    assert estimate.disagreement_m == pytest.approx(0.057)
-
-
-def test_choose_lidar_progress_uses_front_only_when_allowed():
-    estimate = choose_lidar_progress(
-        True,
-        0.213,
-        False,
-        0.0,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=True,
-    )
-
-    assert estimate.valid
-    assert estimate.progress_m == pytest.approx(0.213)
-    assert estimate.source == 'front'
-
-
-def test_choose_lidar_progress_uses_rear_only_when_allowed():
-    estimate = choose_lidar_progress(
-        False,
-        0.0,
-        True,
-        0.216,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=True,
-    )
-
-    assert estimate.valid
-    assert estimate.progress_m == pytest.approx(0.216)
-    assert estimate.source == 'rear'
-
-
-def test_choose_lidar_progress_rejects_single_source_when_disabled():
-    estimate = choose_lidar_progress(
-        True,
-        0.213,
-        False,
-        0.0,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=False,
-    )
-
-    assert not estimate.valid
-    assert estimate.source == 'none'
-
-
-def test_choose_lidar_progress_rejects_negative_progress_below_threshold():
-    estimate = choose_lidar_progress(
-        True,
-        -0.030,
-        False,
-        0.0,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=True,
-    )
-
-    assert not estimate.valid
-    assert estimate.source == 'none'
-
-
-def test_choose_translation_progress_uses_lidar_when_consistent():
-    lidar = choose_lidar_progress(
-        True,
-        0.213,
-        True,
-        0.216,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=True,
-    )
-
-    selection = choose_translation_progress(
-        odom_progress_m=0.249,
-        lidar_estimate=lidar,
-        mode='lidar_when_consistent',
-        max_lidar_ahead_of_odom_m=0.060,
-    )
-
-    assert selection.valid
-    assert selection.source == 'lidar'
-    assert selection.progress_m == pytest.approx(0.2145)
-
-
-def test_choose_translation_progress_lidar_required_uses_valid_lidar():
-    lidar = choose_lidar_progress(
-        True,
-        0.770,
-        True,
-        0.754,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=True,
-    )
-
-    selection = choose_translation_progress(
-        odom_progress_m=0.822,
-        lidar_estimate=lidar,
-        mode='lidar_required',
-        max_lidar_ahead_of_odom_m=0.060,
-    )
-
-    assert selection.valid
-    assert selection.source == 'lidar'
-    assert selection.progress_m == pytest.approx(0.762)
-
-
-def test_choose_translation_progress_falls_back_to_odom_when_lidar_invalid():
-    lidar = choose_lidar_progress(
-        True,
-        0.213,
-        True,
-        0.270,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=True,
-    )
-
-    selection = choose_translation_progress(
-        odom_progress_m=0.249,
-        lidar_estimate=lidar,
-        mode='lidar_when_consistent',
-        max_lidar_ahead_of_odom_m=0.060,
-    )
-
-    assert selection.valid
-    assert selection.source == 'odom'
-    assert selection.progress_m == pytest.approx(0.249)
-    assert 'falling back to odom' in selection.reason
-
-
-def test_choose_translation_progress_rejects_when_lidar_required_and_invalid():
-    lidar = choose_lidar_progress(
-        True,
-        0.213,
-        True,
-        0.270,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=True,
-    )
-
-    selection = choose_translation_progress(
-        odom_progress_m=0.249,
-        lidar_estimate=lidar,
-        mode='lidar_required',
-        max_lidar_ahead_of_odom_m=0.060,
-    )
-
-    assert not selection.valid
-    assert selection.source != 'odom'
-    assert selection.source == 'lidar_required_unavailable'
-    assert selection.progress_m == pytest.approx(0.0)
-    assert 'LiDAR progress required' in selection.reason
-    assert 'odom progress 0.249 m ignored' in selection.reason
-
-
-def test_choose_translation_progress_lidar_required_rejects_lab_disagreement():
-    lidar = choose_lidar_progress(
-        True,
-        0.731,
-        True,
-        0.689,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=True,
-    )
-
-    selection = choose_translation_progress(
-        odom_progress_m=0.759,
-        lidar_estimate=lidar,
-        mode='lidar_required',
-        max_lidar_ahead_of_odom_m=0.060,
-    )
-
-    assert not selection.valid
-    assert selection.source == 'lidar_required_unavailable'
-    assert selection.source != 'odom'
-    assert selection.progress_m == pytest.approx(0.0)
-    assert 'front/rear progress disagreement 0.042 m > 0.025 m' in selection.reason
-    assert 'odom progress 0.759 m ignored' in selection.reason
-
-
-def test_choose_translation_progress_rejects_lidar_implausibly_ahead_of_odom():
-    lidar = choose_lidar_progress(
-        True,
-        0.400,
-        True,
-        0.405,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=True,
-    )
-
-    selection = choose_translation_progress(
-        odom_progress_m=0.250,
-        lidar_estimate=lidar,
-        mode='lidar_when_consistent',
-        max_lidar_ahead_of_odom_m=0.060,
-    )
-
-    assert selection.valid
-    assert selection.source == 'odom'
-    assert selection.progress_m == pytest.approx(0.250)
-
-
-def test_choose_translation_progress_odom_only_ignores_valid_lidar():
-    lidar = choose_lidar_progress(
-        True,
-        0.213,
-        True,
-        0.216,
-        max_disagreement_m=0.025,
-        min_progress_m=-0.010,
-        allow_single_source=True,
-    )
-
-    selection = choose_translation_progress(
-        odom_progress_m=0.249,
-        lidar_estimate=lidar,
-        mode='odom_only',
-        max_lidar_ahead_of_odom_m=0.060,
-    )
-
-    assert selection.valid
-    assert selection.source == 'odom'
-    assert selection.progress_m == pytest.approx(0.249)
-
-
-def test_valid_scan_points_xy_and_side_candidates_use_robot_frame():
-    scan = make_line_scan([(0.0, 0.20, -0.20, 0.45)])
-
-    points = valid_scan_points_xy(scan)
-    left_candidates = side_wall_candidate_points(
-        scan,
-        side='left',
-        min_x_m=-0.18,
-        max_x_m=0.45,
-        min_side_distance_m=0.06,
-        max_side_distance_m=0.45,
-    )
-
-    assert points
-    assert len(left_candidates) >= 8
-    assert all(y > 0.0 for _, y in left_candidates)
-
-
-def test_fit_side_wall_line_left_parallel_wall():
-    scan = make_line_scan([(0.0, 0.20, -0.20, 0.45)])
-
-    estimate = fit_side_wall_line(
-        scan,
-        side='left',
-        min_x_m=-0.18,
-        max_x_m=0.45,
-        min_side_distance_m=0.06,
-        max_side_distance_m=0.45,
-        min_points=8,
-        min_span_x_m=0.12,
-        max_rms_error_m=0.025,
-        max_abs_yaw_error_rad=0.35,
-    )
-
-    assert estimate.valid
-    assert estimate.offset_m == pytest.approx(0.20, abs=0.01)
-    assert estimate.yaw_error_rad == pytest.approx(0.0, abs=0.02)
-    assert estimate.support_count >= 8
-
-
-def test_fit_side_wall_line_right_parallel_wall():
-    scan = make_line_scan([(0.0, -0.18, -0.20, 0.45)])
-
-    estimate = fit_side_wall_line(
-        scan,
-        side='right',
-        min_x_m=-0.18,
-        max_x_m=0.45,
-        min_side_distance_m=0.06,
-        max_side_distance_m=0.45,
-        min_points=8,
-        min_span_x_m=0.12,
-        max_rms_error_m=0.025,
-        max_abs_yaw_error_rad=0.35,
-    )
-
-    assert estimate.valid
-    assert estimate.offset_m == pytest.approx(-0.18, abs=0.01)
-    assert estimate.yaw_error_rad == pytest.approx(0.0, abs=0.02)
-
-
-def test_fit_side_wall_line_rejects_far_wall_seen_through_opening():
-    scan = make_line_scan([(0.0, 1.20, -0.20, 0.45)])
-
-    estimate = fit_side_wall_line(
-        scan,
-        side='left',
-        min_x_m=-0.18,
-        max_x_m=0.45,
-        min_side_distance_m=0.06,
-        max_side_distance_m=0.45,
-        min_points=8,
-        min_span_x_m=0.12,
-        max_rms_error_m=0.025,
-        max_abs_yaw_error_rad=0.35,
-    )
-
-    assert not estimate.valid
-
-
-def test_estimate_grid_alignment_both_walls_centered():
-    scan = make_line_scan([
-        (0.0, 0.20, -0.20, 0.45),
-        (0.0, -0.20, -0.20, 0.45),
-    ])
-
-    estimate = estimate_grid_alignment(
-        scan,
-        expected_half_width_m=0.20,
-        min_x_m=-0.18,
-        max_x_m=0.45,
-        min_side_distance_m=0.06,
-        max_side_distance_m=0.45,
-        min_points=8,
-        min_span_x_m=0.12,
-        max_rms_error_m=0.025,
-        max_abs_yaw_error_rad=0.35,
-        max_reported_error_m=0.30,
-        max_reported_yaw_rad=0.50,
-    )
-
-    assert estimate.valid
-    assert estimate.source == 'left_right'
-    assert estimate.yaw_error_rad == pytest.approx(0.0, abs=0.02)
-    assert estimate.lateral_error_m == pytest.approx(0.0, abs=0.02)
-
-
-def test_estimate_grid_alignment_left_only_reports_centerline_left():
-    scan = make_line_scan([(0.0, 0.25, -0.20, 0.45)])
-
-    estimate = estimate_grid_alignment(
-        scan,
-        expected_half_width_m=0.20,
-        min_x_m=-0.18,
-        max_x_m=0.45,
-        min_side_distance_m=0.06,
-        max_side_distance_m=0.45,
-        min_points=8,
-        min_span_x_m=0.12,
-        max_rms_error_m=0.025,
-        max_abs_yaw_error_rad=0.35,
-        max_reported_error_m=0.30,
-        max_reported_yaw_rad=0.50,
-    )
-
-    assert estimate.valid
-    assert estimate.source == 'left'
-    assert estimate.lateral_error_m == pytest.approx(0.05, abs=0.02)
-
-
-def test_estimate_grid_alignment_right_only_reports_centerline_right():
-    scan = make_line_scan([(0.0, -0.25, -0.20, 0.45)])
-
-    estimate = estimate_grid_alignment(
-        scan,
-        expected_half_width_m=0.20,
-        min_x_m=-0.18,
-        max_x_m=0.45,
-        min_side_distance_m=0.06,
-        max_side_distance_m=0.45,
-        min_points=8,
-        min_span_x_m=0.12,
-        max_rms_error_m=0.025,
-        max_abs_yaw_error_rad=0.35,
-        max_reported_error_m=0.30,
-        max_reported_yaw_rad=0.50,
-    )
-
-    assert estimate.valid
-    assert estimate.source == 'right'
-    assert estimate.lateral_error_m == pytest.approx(-0.05, abs=0.02)
-
-
-def test_estimate_grid_alignment_reports_wall_yaw():
-    scan = make_line_scan([(0.10, 0.20, -0.20, 0.45)])
-
-    estimate = estimate_grid_alignment(
-        scan,
-        expected_half_width_m=0.20,
-        min_x_m=-0.18,
-        max_x_m=0.45,
-        min_side_distance_m=0.06,
-        max_side_distance_m=0.45,
-        min_points=8,
-        min_span_x_m=0.12,
-        max_rms_error_m=0.025,
-        max_abs_yaw_error_rad=0.35,
-        max_reported_error_m=0.30,
-        max_reported_yaw_rad=0.50,
-    )
-
-    assert estimate.valid
-    assert estimate.yaw_error_rad == pytest.approx(math.atan(0.10), abs=0.03)
-
-
-def estimate_grid_alignment_default(
-    scan,
-    expected_half_width_m=0.125,
-    adjacent_wall_tolerance_m=0.080,
-    pair_width_tolerance_m=0.080,
-):
-    return estimate_grid_alignment(
-        scan,
-        expected_half_width_m=expected_half_width_m,
-        min_x_m=-0.18,
-        max_x_m=0.45,
-        min_side_distance_m=0.06,
-        max_side_distance_m=0.45,
-        min_points=8,
-        min_span_x_m=0.12,
-        max_rms_error_m=0.025,
-        max_abs_yaw_error_rad=0.35,
-        max_reported_error_m=0.30,
-        max_reported_yaw_rad=0.50,
-        adjacent_wall_tolerance_m=adjacent_wall_tolerance_m,
-        pair_width_tolerance_m=pair_width_tolerance_m,
-    )
-
-
-def test_estimate_grid_alignment_uses_direct_right_not_far_left_pair():
-    # Lab geometry:
-    # - far/open left wall around +0.350 m
-    # - adjacent right wall around -0.142 m
-    # The raw left line may be geometrically valid, but it must not be paired
-    # with the adjacent right wall as the current-cell corridor.
-    scan = make_line_scan([
-        (0.08, 0.350, -0.20, 0.45),
-        (-0.03, -0.142, -0.20, 0.45),
-    ])
-
-    estimate = estimate_grid_alignment_default(scan)
-
-    assert estimate.left.valid
-    assert estimate.right.valid
-    assert estimate.valid
-    assert estimate.source == 'right'
-    assert estimate.confidence == pytest.approx(0.6)
-    assert estimate.yaw_error_rad == pytest.approx(math.atan(-0.03), abs=0.03)
-    assert estimate.lateral_error_m == pytest.approx(-0.017, abs=0.02)
-    assert 'left not adjacent' in estimate.reason
-
-
-def test_estimate_grid_alignment_right_adjacent_lateral_error_sign():
-    scan = make_line_scan([
-        (0.0, -0.142, -0.20, 0.45),
-    ])
-
-    estimate = estimate_grid_alignment_default(scan)
-
-    assert estimate.valid
-    assert estimate.source == 'right'
-    assert estimate.lateral_valid
-    # right.offset + expected_half_width = -0.142 + 0.125 = -0.017.
-    # Negative means desired centerline is to the robot's right.
-    assert estimate.lateral_error_m == pytest.approx(-0.017, abs=0.02)
-
-
-def test_estimate_grid_alignment_far_left_only_is_not_current_cell_alignment():
-    scan = make_line_scan([
-        (0.0, 0.350, -0.20, 0.45),
-    ])
-
-    estimate = estimate_grid_alignment_default(scan)
-
-    assert estimate.left.valid
-    assert not estimate.right.valid
-    assert not estimate.valid
-    assert not estimate.yaw_valid
-    assert not estimate.lateral_valid
-    assert estimate.source == 'none'
-    assert 'no adjacent side walls' in estimate.reason
-
-
-def test_estimate_grid_alignment_direct_pair_still_left_right():
-    scan = make_line_scan([
-        (0.0, 0.125, -0.20, 0.45),
-        (0.0, -0.125, -0.20, 0.45),
-    ])
-
-    estimate = estimate_grid_alignment_default(scan)
-
-    assert estimate.valid
-    assert estimate.source == 'left_right'
-    assert estimate.confidence == pytest.approx(1.0)
-    assert estimate.yaw_error_rad == pytest.approx(0.0, abs=0.02)
-    assert estimate.lateral_error_m == pytest.approx(0.0, abs=0.02)
-
-
-def test_estimate_grid_alignment_rejects_bad_pair_width_and_uses_better_wall():
-    # Both walls are barely individually adjacent, but together imply a corridor
-    # much wider than the current cell. This must not become left_right.
-    # Left has fewer points/span and worse geometry; right should be selected.
-    scan = make_line_scan([
-        (0.05, 0.204, -0.05, 0.20),
-        (-0.02, -0.204, -0.20, 0.45),
-    ])
-
-    estimate = estimate_grid_alignment_default(scan)
-
-    assert estimate.valid
-    assert estimate.source in {'left', 'right'}
-    assert estimate.source != 'left_right'
-    assert 'pair rejected by width' in estimate.reason
-
-
-def test_temporal_lidar_progress_raw_valid_resets_degraded_samples():
-    raw = LidarProgressEstimate(True, 0.12, 'front_rear', 0.001, 'raw ok')
-    estimate = choose_temporal_lidar_progress(
-        raw=raw,
-        previous_valid=True,
-        previous_progress_m=0.10,
-        previous_source='front_temporal',
-        front_valid=True,
-        front_progress_m=0.12,
-        rear_valid=True,
-        rear_progress_m=0.12,
-        degraded_samples=2,
-        max_backtrack_m=0.015,
-        max_jump_m=0.080,
-        max_degraded_samples=2,
-    )
-
-    assert estimate.valid
-    assert not estimate.degraded
-    assert estimate.degraded_samples == 0
-    assert estimate.source == 'front_rear'
-
-
-def test_temporal_lidar_progress_raw_invalid_without_previous_is_invalid():
-    raw = LidarProgressEstimate(False, 0.0, 'none', 0.0, 'raw bad')
-    estimate = choose_temporal_lidar_progress(
-        raw=raw,
-        previous_valid=False,
-        previous_progress_m=0.0,
-        previous_source='none',
-        front_valid=True,
-        front_progress_m=0.04,
-        rear_valid=False,
-        rear_progress_m=0.0,
-        degraded_samples=0,
-        max_backtrack_m=0.015,
-        max_jump_m=0.080,
-        max_degraded_samples=2,
-    )
-
-    assert not estimate.valid
-    assert 'no previous LiDAR progress' in estimate.reason
-
-
-def test_temporal_lidar_progress_recovers_with_monotonic_front_source():
-    raw = LidarProgressEstimate(False, 0.0, 'front_rear_rejected', 0.10, 'raw bad')
-    estimate = choose_temporal_lidar_progress(
-        raw=raw,
-        previous_valid=True,
-        previous_progress_m=0.10,
-        previous_source='front',
-        front_valid=True,
-        front_progress_m=0.14,
-        rear_valid=True,
-        rear_progress_m=0.20,
-        degraded_samples=0,
-        max_backtrack_m=0.015,
-        max_jump_m=0.080,
-        max_degraded_samples=2,
-    )
-
-    assert estimate.valid
-    assert estimate.degraded
-    assert estimate.source == 'front_temporal'
-    assert estimate.progress_m == pytest.approx(0.14)
-
-
-def test_temporal_lidar_progress_rejects_backtrack_candidates():
-    raw = LidarProgressEstimate(False, 0.0, 'front_rear_rejected', 0.10, 'raw bad')
-    estimate = choose_temporal_lidar_progress(
-        raw=raw,
-        previous_valid=True,
-        previous_progress_m=0.10,
-        previous_source='front',
-        front_valid=True,
-        front_progress_m=0.07,
-        rear_valid=True,
-        rear_progress_m=0.06,
-        degraded_samples=0,
-        max_backtrack_m=0.015,
-        max_jump_m=0.080,
-        max_degraded_samples=2,
-    )
-
-    assert not estimate.valid
-    assert 'no temporal LiDAR candidate' in estimate.reason
-
-
-def test_temporal_lidar_progress_rejects_when_degraded_exhausted():
-    raw = LidarProgressEstimate(False, 0.0, 'front_rear_rejected', 0.10, 'raw bad')
-    estimate = choose_temporal_lidar_progress(
-        raw=raw,
-        previous_valid=True,
-        previous_progress_m=0.10,
-        previous_source='front',
-        front_valid=True,
-        front_progress_m=0.11,
-        rear_valid=False,
-        rear_progress_m=0.0,
-        degraded_samples=2,
-        max_backtrack_m=0.015,
-        max_jump_m=0.080,
-        max_degraded_samples=2,
-    )
-
-    assert not estimate.valid
-    assert estimate.source == 'temporal_rejected'
-    assert 'exhausted' in estimate.reason
-
-
-def test_temporal_lidar_progress_never_references_odom():
-    raw = LidarProgressEstimate(False, 0.0, 'none', 0.0, 'raw bad')
-    estimate = choose_temporal_lidar_progress(
-        raw=raw,
-        previous_valid=True,
-        previous_progress_m=0.10,
-        previous_source='front',
-        front_valid=True,
-        front_progress_m=0.11,
-        rear_valid=False,
-        rear_progress_m=0.0,
-        degraded_samples=0,
-        max_backtrack_m=0.015,
-        max_jump_m=0.080,
-        max_degraded_samples=2,
-    )
-
-    assert 'odom' not in estimate.reason.lower()
-    assert 'odom' not in estimate.source.lower()
-
-
-def test_axial_cell_centering_rear_wall_too_far_forward_commands_reverse_error():
-    estimate = choose_axial_cell_centering(
-        expected_front=False,
-        front_valid=False,
-        front_distance_m=0.0,
-        expected_front_distance_m=0.125,
-        expected_rear=True,
-        rear_valid=True,
-        rear_distance_m=0.165,
-        expected_rear_distance_m=0.125,
-        max_disagreement_m=0.035,
-    )
-
-    assert isinstance(estimate, AxialCellCenterEstimate)
-    assert estimate.valid
-    assert estimate.source == 'rear'
-    assert estimate.error_m == pytest.approx(-0.040)
-
-
-def test_axial_cell_centering_front_wall_too_far_back_commands_forward_error():
-    estimate = choose_axial_cell_centering(
-        expected_front=True,
-        front_valid=True,
-        front_distance_m=0.160,
-        expected_front_distance_m=0.125,
-        expected_rear=False,
-        rear_valid=False,
-        rear_distance_m=0.0,
-        expected_rear_distance_m=0.125,
-        max_disagreement_m=0.035,
-    )
-
-    assert estimate.valid
-    assert estimate.source == 'front'
-    assert estimate.error_m == pytest.approx(0.035)
-
-
-def test_axial_cell_centering_rejects_front_rear_disagreement():
-    estimate = choose_axial_cell_centering(
-        expected_front=True,
-        front_valid=True,
-        front_distance_m=0.170,
-        expected_front_distance_m=0.125,
-        expected_rear=True,
-        rear_valid=True,
-        rear_distance_m=0.170,
-        expected_rear_distance_m=0.125,
-        max_disagreement_m=0.035,
-    )
-
-    assert not estimate.valid
-    assert estimate.source == 'front_rear_rejected'
-    assert estimate.disagreement_m == pytest.approx(0.090)
-
-
-def test_axial_cell_centering_does_not_invent_reference_without_front_or_rear_wall():
-    estimate = choose_axial_cell_centering(
-        expected_front=False,
-        front_valid=True,
-        front_distance_m=0.160,
-        expected_front_distance_m=0.125,
-        expected_rear=False,
-        rear_valid=True,
-        rear_distance_m=0.100,
-        expected_rear_distance_m=0.125,
-        max_disagreement_m=0.035,
-    )
-
-    assert not estimate.valid
-    assert estimate.source == 'none'
-    assert 'no expected front/rear wall' in estimate.reason
-
-
-# ================== FILE 58: ros2_ws/src/darth_maul_control_interfaces/CMakeLists.txt ==================
+# ================== FILE 53: ros2_ws/src/darth_maul_control_interfaces/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.8)
 project(darth_maul_control_interfaces)
@@ -11016,7 +9374,7 @@ ament_export_dependencies(rosidl_default_runtime)
 ament_package()
 
 
-# ================== FILE 59: ros2_ws/src/darth_maul_control_interfaces/package.xml ==================
+# ================== FILE 54: ros2_ws/src/darth_maul_control_interfaces/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -11049,7 +9407,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 60: ros2_ws/src/darth_maul_control_interfaces/action/ExecuteMotionPrimitive.action ==================
+# ================== FILE 55: ros2_ws/src/darth_maul_control_interfaces/action/ExecuteMotionPrimitive.action ==================
 
 # Goal
 # Execute one simple odom/LiDAR-based motion primitive.
@@ -11223,7 +9581,7 @@ float32 front_clearance_m
 string state
 
 
-# ================== FILE 61: ros2_ws/src/darth_maul_control_interfaces/msg/ControlStatus.msg ==================
+# ================== FILE 56: ros2_ws/src/darth_maul_control_interfaces/msg/ControlStatus.msg ==================
 
 builtin_interfaces/Time stamp
 
@@ -11320,7 +9678,7 @@ float64 right_wall_span_x_m
 uint16 right_wall_support_count
 
 
-# ================== FILE 62: ros2_ws/src/driver/controller/package.xml ==================
+# ================== FILE 57: ros2_ws/src/driver/controller/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -11342,7 +9700,7 @@ uint16 right_wall_support_count
 </package>
 
 
-# ================== FILE 63: ros2_ws/src/driver/controller/setup.cfg ==================
+# ================== FILE 58: ros2_ws/src/driver/controller/setup.cfg ==================
 
 [develop]
 script_dir=$base/lib/controller
@@ -11350,7 +9708,7 @@ script_dir=$base/lib/controller
 install_scripts=$base/lib/controller
 
 
-# ================== FILE 64: ros2_ws/src/driver/controller/setup.py ==================
+# ================== FILE 59: ros2_ws/src/driver/controller/setup.py ==================
 
 import os
 from glob import glob
@@ -11384,7 +9742,7 @@ setup(
 )
 
 
-# ================== FILE 65: ros2_ws/src/driver/controller/config/calibrate_params.yaml ==================
+# ================== FILE 60: ros2_ws/src/driver/controller/config/calibrate_params.yaml ==================
 
 /**:
   ros__parameters:
@@ -11392,7 +9750,7 @@ setup(
     angular_correction_factor: 1.01
 
 
-# ================== FILE 66: ros2_ws/src/driver/controller/config/ekf.yaml ==================
+# ================== FILE 61: ros2_ws/src/driver/controller/config/ekf.yaml ==================
 
 ### ekf config file ###
 /**:
@@ -11660,7 +10018,7 @@ setup(
                                    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,     0.0,     0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1e-9]
 
 
-# ================== FILE 67: ros2_ws/src/driver/controller/config/init_pose.yaml ==================
+# ================== FILE 62: ros2_ws/src/driver/controller/config/init_pose.yaml ==================
 
 init_pose:
   ros__parameters:
@@ -11672,7 +10030,7 @@ init_pose:
 
 
 
-# ================== FILE 68: ros2_ws/src/driver/controller/config/servo_config.yaml ==================
+# ================== FILE 63: ros2_ws/src/driver/controller/config/servo_config.yaml ==================
 
 1: 0
 2: 0
@@ -11680,12 +10038,12 @@ init_pose:
 4: 0
 
 
-# ================== FILE 69: ros2_ws/src/driver/controller/controller/__init__.py ==================
+# ================== FILE 64: ros2_ws/src/driver/controller/controller/__init__.py ==================
 
 
 
 
-# ================== FILE 70: ros2_ws/src/driver/controller/controller/ackermann.py ==================
+# ================== FILE 65: ros2_ws/src/driver/controller/controller/ackermann.py ==================
 
 #!/usr/bin/python3
 # coding=utf8
@@ -11755,7 +10113,7 @@ class AckermannChassis:
 
 
 
-# ================== FILE 71: ros2_ws/src/driver/controller/controller/init_pose.py ==================
+# ================== FILE 66: ros2_ws/src/driver/controller/controller/init_pose.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8
@@ -11813,7 +10171,7 @@ if __name__ == "__main__":
 
 
 
-# ================== FILE 72: ros2_ws/src/driver/controller/controller/mecanum.py ==================
+# ================== FILE 67: ros2_ws/src/driver/controller/controller/mecanum.py ==================
 
 #!/usr/bin/python3
 # coding=utf8
@@ -11877,7 +10235,7 @@ class MecanumChassis:
         return msg
 
 
-# ================== FILE 73: ros2_ws/src/driver/controller/controller/odom_publisher_node.py ==================
+# ================== FILE 68: ros2_ws/src/driver/controller/controller/odom_publisher_node.py ==================
 
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
@@ -12190,7 +10548,7 @@ if __name__ == "__main__":
     main()
 
 
-# ================== FILE 74: ros2_ws/src/driver/controller/launch/controller.launch.py ==================
+# ================== FILE 69: ros2_ws/src/driver/controller/launch/controller.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -12300,7 +10658,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 75: ros2_ws/src/driver/controller/launch/init_pose.launch.py ==================
+# ================== FILE 70: ros2_ws/src/driver/controller/launch/init_pose.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -12352,7 +10710,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 76: ros2_ws/src/driver/controller/launch/odom_publisher.launch.py ==================
+# ================== FILE 71: ros2_ws/src/driver/controller/launch/odom_publisher.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -12442,7 +10800,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 77: ros2_ws/src/driver/controller/launch/rf2o_laser_odometry.launch.py ==================
+# ================== FILE 72: ros2_ws/src/driver/controller/launch/rf2o_laser_odometry.launch.py ==================
 
 from launch_ros.actions import Node
 from launch import LaunchDescription, LaunchService
@@ -12475,12 +10833,12 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 78: ros2_ws/src/driver/controller/resource/controller ==================
+# ================== FILE 73: ros2_ws/src/driver/controller/resource/controller ==================
 
 
 
 
-# ================== FILE 79: ros2_ws/src/driver/controller/test/test_copyright.py ==================
+# ================== FILE 74: ros2_ws/src/driver/controller/test/test_copyright.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -12507,7 +10865,7 @@ def test_copyright():
     assert rc == 0, 'Found errors'
 
 
-# ================== FILE 80: ros2_ws/src/driver/controller/test/test_flake8.py ==================
+# ================== FILE 75: ros2_ws/src/driver/controller/test/test_flake8.py ==================
 
 # Copyright 2017 Open Source Robotics Foundation, Inc.
 #
@@ -12536,7 +10894,7 @@ def test_flake8():
         '\n'.join(errors)
 
 
-# ================== FILE 81: ros2_ws/src/driver/controller/test/test_pep257.py ==================
+# ================== FILE 76: ros2_ws/src/driver/controller/test/test_pep257.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -12563,7 +10921,7 @@ def test_pep257():
     assert rc == 0, 'Found code style errors / warnings'
 
 
-# ================== FILE 82: ros2_ws/src/driver/ros_robot_controller/package.xml ==================
+# ================== FILE 77: ros2_ws/src/driver/ros_robot_controller/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -12585,7 +10943,7 @@ def test_pep257():
 </package>
 
 
-# ================== FILE 83: ros2_ws/src/driver/ros_robot_controller/setup.cfg ==================
+# ================== FILE 78: ros2_ws/src/driver/ros_robot_controller/setup.cfg ==================
 
 [develop]
 script_dir=$base/lib/ros_robot_controller
@@ -12593,7 +10951,7 @@ script_dir=$base/lib/ros_robot_controller
 install_scripts=$base/lib/ros_robot_controller
 
 
-# ================== FILE 84: ros2_ws/src/driver/ros_robot_controller/setup.py ==================
+# ================== FILE 79: ros2_ws/src/driver/ros_robot_controller/setup.py ==================
 
 import os
 from glob import glob
@@ -12625,7 +10983,7 @@ setup(
 )
 
 
-# ================== FILE 85: ros2_ws/src/driver/ros_robot_controller/launch/ros_robot_controller.launch.py ==================
+# ================== FILE 80: ros2_ws/src/driver/ros_robot_controller/launch/ros_robot_controller.launch.py ==================
 
 from launch_ros.actions import Node
 from launch import LaunchDescription, LaunchService
@@ -12657,17 +11015,17 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 86: ros2_ws/src/driver/ros_robot_controller/resource/ros_robot_controller ==================
+# ================== FILE 81: ros2_ws/src/driver/ros_robot_controller/resource/ros_robot_controller ==================
 
 
 
 
-# ================== FILE 87: ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/__init__.py ==================
+# ================== FILE 82: ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/__init__.py ==================
 
 
 
 
-# ================== FILE 88: ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/ros_robot_controller_node.py ==================
+# ================== FILE 83: ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/ros_robot_controller_node.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8
@@ -13024,7 +11382,7 @@ if __name__ == '__main__':
     main()
 
 
-# ================== FILE 89: ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/ros_robot_controller_sdk.py ==================
+# ================== FILE 84: ros2_ws/src/driver/ros_robot_controller/ros_robot_controller/ros_robot_controller_sdk.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8
@@ -13671,14 +12029,14 @@ if __name__ == "__main__":
             break
 
 
-# ================== FILE 90: ros2_ws/src/driver/ros_robot_controller/scripts/99-ttyACM0.rules ==================
+# ================== FILE 85: ros2_ws/src/driver/ros_robot_controller/scripts/99-ttyACM0.rules ==================
 
 # Ignore ModemManager for ttyACM0 device
 KERNEL=="ttyACM0", SUBSYSTEM=="tty", GROUP="ubuntu", MODE="0777"
 ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55d4", ENV{ID_MM_PORT_IGNORE}="1"
 
 
-# ================== FILE 91: ros2_ws/src/driver/ros_robot_controller/scripts/create_udev_rules.sh ==================
+# ================== FILE 86: ros2_ws/src/driver/ros_robot_controller/scripts/create_udev_rules.sh ==================
 
 #!/bin/bash
 
@@ -13691,7 +12049,7 @@ sudo service udev restart
 echo "finish "
 
 
-# ================== FILE 92: ros2_ws/src/driver/ros_robot_controller/test/test_copyright.py ==================
+# ================== FILE 87: ros2_ws/src/driver/ros_robot_controller/test/test_copyright.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -13718,7 +12076,7 @@ def test_copyright():
     assert rc == 0, 'Found errors'
 
 
-# ================== FILE 93: ros2_ws/src/driver/ros_robot_controller/test/test_flake8.py ==================
+# ================== FILE 88: ros2_ws/src/driver/ros_robot_controller/test/test_flake8.py ==================
 
 # Copyright 2017 Open Source Robotics Foundation, Inc.
 #
@@ -13747,7 +12105,7 @@ def test_flake8():
         '\n'.join(errors)
 
 
-# ================== FILE 94: ros2_ws/src/driver/ros_robot_controller/test/test_pep257.py ==================
+# ================== FILE 89: ros2_ws/src/driver/ros_robot_controller/test/test_pep257.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -13774,7 +12132,7 @@ def test_pep257():
     assert rc == 0, 'Found code style errors / warnings'
 
 
-# ================== FILE 95: ros2_ws/src/driver/ros_robot_controller_msgs/CMakeLists.txt ==================
+# ================== FILE 90: ros2_ws/src/driver/ros_robot_controller_msgs/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.8)
 project(ros_robot_controller_msgs)
@@ -13832,7 +12190,7 @@ endif()
 ament_package()
 
 
-# ================== FILE 96: ros2_ws/src/driver/ros_robot_controller_msgs/package.xml ==================
+# ================== FILE 91: ros2_ws/src/driver/ros_robot_controller_msgs/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -13860,7 +12218,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 97: ros2_ws/src/driver/ros_robot_controller_msgs/msg/BusServoState.msg ==================
+# ================== FILE 92: ros2_ws/src/driver/ros_robot_controller_msgs/msg/BusServoState.msg ==================
 
 uint16[] present_id
 uint16[] target_id
@@ -13876,13 +12234,13 @@ uint16[] save_offset
 uint16[] stop
 
 
-# ================== FILE 98: ros2_ws/src/driver/ros_robot_controller_msgs/msg/ButtonState.msg ==================
+# ================== FILE 93: ros2_ws/src/driver/ros_robot_controller_msgs/msg/ButtonState.msg ==================
 
 uint8 id
 uint8 state
 
 
-# ================== FILE 99: ros2_ws/src/driver/ros_robot_controller_msgs/msg/BuzzerState.msg ==================
+# ================== FILE 94: ros2_ws/src/driver/ros_robot_controller_msgs/msg/BuzzerState.msg ==================
 
 uint16 freq
 float32 on_time
@@ -13890,7 +12248,7 @@ float32 off_time
 uint16 repeat
 
 
-# ================== FILE 100: ros2_ws/src/driver/ros_robot_controller_msgs/msg/GetBusServoCmd.msg ==================
+# ================== FILE 95: ros2_ws/src/driver/ros_robot_controller_msgs/msg/GetBusServoCmd.msg ==================
 
 uint8 id
 uint8 get_id
@@ -13904,14 +12262,14 @@ uint8 get_max_temperature_limit
 uint8 get_torque_state
 
 
-# ================== FILE 101: ros2_ws/src/driver/ros_robot_controller_msgs/msg/GetPWMServoCmd.msg ==================
+# ================== FILE 96: ros2_ws/src/driver/ros_robot_controller_msgs/msg/GetPWMServoCmd.msg ==================
 
 uint8 id
 uint8 get_position
 uint8 get_offset
 
 
-# ================== FILE 102: ros2_ws/src/driver/ros_robot_controller_msgs/msg/LedState.msg ==================
+# ================== FILE 97: ros2_ws/src/driver/ros_robot_controller_msgs/msg/LedState.msg ==================
 
 uint8 id
 float32 on_time
@@ -13919,31 +12277,31 @@ float32 off_time
 uint16 repeat
 
 
-# ================== FILE 103: ros2_ws/src/driver/ros_robot_controller_msgs/msg/MotorsState.msg ==================
+# ================== FILE 98: ros2_ws/src/driver/ros_robot_controller_msgs/msg/MotorsState.msg ==================
 
 ros_robot_controller_msgs/MotorState[] data
 
 
-# ================== FILE 104: ros2_ws/src/driver/ros_robot_controller_msgs/msg/MotorState.msg ==================
+# ================== FILE 99: ros2_ws/src/driver/ros_robot_controller_msgs/msg/MotorState.msg ==================
 
 uint16 id
 float64 rps
 
 
-# ================== FILE 105: ros2_ws/src/driver/ros_robot_controller_msgs/msg/OLEDState.msg ==================
+# ================== FILE 100: ros2_ws/src/driver/ros_robot_controller_msgs/msg/OLEDState.msg ==================
 
 uint8 index
 string text
 
 
-# ================== FILE 106: ros2_ws/src/driver/ros_robot_controller_msgs/msg/PWMServoState.msg ==================
+# ================== FILE 101: ros2_ws/src/driver/ros_robot_controller_msgs/msg/PWMServoState.msg ==================
 
 uint16[] id
 uint16[] position
 int16[] offset
 
 
-# ================== FILE 107: ros2_ws/src/driver/ros_robot_controller_msgs/msg/RGBState.msg ==================
+# ================== FILE 102: ros2_ws/src/driver/ros_robot_controller_msgs/msg/RGBState.msg ==================
 
 int32 index
 uint8 red
@@ -13952,43 +12310,43 @@ uint8 blue
 
 
 
-# ================== FILE 108: ros2_ws/src/driver/ros_robot_controller_msgs/msg/RGBStates.msg ==================
+# ================== FILE 103: ros2_ws/src/driver/ros_robot_controller_msgs/msg/RGBStates.msg ==================
 
 RGBState[] states
 
 
-# ================== FILE 109: ros2_ws/src/driver/ros_robot_controller_msgs/msg/Sbus.msg ==================
+# ================== FILE 104: ros2_ws/src/driver/ros_robot_controller_msgs/msg/Sbus.msg ==================
 
 std_msgs/Header header
 float32[] channel
 
 
-# ================== FILE 110: ros2_ws/src/driver/ros_robot_controller_msgs/msg/ServoPosition.msg ==================
+# ================== FILE 105: ros2_ws/src/driver/ros_robot_controller_msgs/msg/ServoPosition.msg ==================
 
 uint16 id
 uint16 position
 
 
-# ================== FILE 111: ros2_ws/src/driver/ros_robot_controller_msgs/msg/ServosPosition.msg ==================
+# ================== FILE 106: ros2_ws/src/driver/ros_robot_controller_msgs/msg/ServosPosition.msg ==================
 
 float64 duration
 ros_robot_controller_msgs/ServoPosition[] position
 
 
-# ================== FILE 112: ros2_ws/src/driver/ros_robot_controller_msgs/msg/SetBusServoState.msg ==================
+# ================== FILE 107: ros2_ws/src/driver/ros_robot_controller_msgs/msg/SetBusServoState.msg ==================
 
 ros_robot_controller_msgs/BusServoState[] state
 
 float64 duration
 
 
-# ================== FILE 113: ros2_ws/src/driver/ros_robot_controller_msgs/msg/SetPWMServoState.msg ==================
+# ================== FILE 108: ros2_ws/src/driver/ros_robot_controller_msgs/msg/SetPWMServoState.msg ==================
 
 ros_robot_controller_msgs/PWMServoState[] state
 float64 duration
 
 
-# ================== FILE 114: ros2_ws/src/driver/ros_robot_controller_msgs/srv/GetBusServoState.srv ==================
+# ================== FILE 109: ros2_ws/src/driver/ros_robot_controller_msgs/srv/GetBusServoState.srv ==================
 
 ros_robot_controller_msgs/GetBusServoCmd[] cmd
 ---
@@ -13996,7 +12354,7 @@ bool success
 ros_robot_controller_msgs/BusServoState[] state
 
 
-# ================== FILE 115: ros2_ws/src/driver/ros_robot_controller_msgs/srv/GetPWMServoState.srv ==================
+# ================== FILE 110: ros2_ws/src/driver/ros_robot_controller_msgs/srv/GetPWMServoState.srv ==================
 
 ros_robot_controller_msgs/GetPWMServoCmd[] cmd
 ---
@@ -14004,7 +12362,7 @@ bool success
 ros_robot_controller_msgs/PWMServoState[] state
 
 
-# ================== FILE 116: ros2_ws/src/driver/sdk/package.xml ==================
+# ================== FILE 111: ros2_ws/src/driver/sdk/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -14026,7 +12384,7 @@ ros_robot_controller_msgs/PWMServoState[] state
 </package>
 
 
-# ================== FILE 117: ros2_ws/src/driver/sdk/setup.cfg ==================
+# ================== FILE 112: ros2_ws/src/driver/sdk/setup.cfg ==================
 
 [develop]
 script_dir=$base/lib/sdk
@@ -14034,7 +12392,7 @@ script_dir=$base/lib/sdk
 install_scripts=$base/lib/sdk
 
 
-# ================== FILE 118: ros2_ws/src/driver/sdk/setup.py ==================
+# ================== FILE 113: ros2_ws/src/driver/sdk/setup.py ==================
 
 from setuptools import setup
 
@@ -14063,17 +12421,17 @@ setup(
 )
 
 
-# ================== FILE 119: ros2_ws/src/driver/sdk/resource/sdk ==================
+# ================== FILE 114: ros2_ws/src/driver/sdk/resource/sdk ==================
 
 
 
 
-# ================== FILE 120: ros2_ws/src/driver/sdk/sdk/__init__.py ==================
+# ================== FILE 115: ros2_ws/src/driver/sdk/sdk/__init__.py ==================
 
 
 
 
-# ================== FILE 121: ros2_ws/src/driver/sdk/sdk/common.py ==================
+# ================== FILE 116: ros2_ws/src/driver/sdk/sdk/common.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8
@@ -14332,7 +12690,7 @@ def mat_to_xyz_euler(mat, degrees=True):
     return t, euler
 
 
-# ================== FILE 122: ros2_ws/src/driver/sdk/sdk/fps.py ==================
+# ================== FILE 117: ros2_ws/src/driver/sdk/sdk/fps.py ==================
 
 #!/usr/bin/python3
 # coding=utf8
@@ -14366,7 +12724,7 @@ class FPS:
 
 
 
-# ================== FILE 123: ros2_ws/src/driver/sdk/sdk/led.py ==================
+# ================== FILE 118: ros2_ws/src/driver/sdk/sdk/led.py ==================
 
 #!/usr/bin/python3
 # coding=utf8
@@ -14400,7 +12758,7 @@ if __name__ == "__main__":
         time.sleep(1)
 
 
-# ================== FILE 124: ros2_ws/src/driver/sdk/sdk/pid.py ==================
+# ================== FILE 119: ros2_ws/src/driver/sdk/sdk/pid.py ==================
 
 """Ivmech PID Controller is simple implementation of a Proportional-Integral-Derivative (PID) Controller in the Python Programming Language.
 More information about PID Controller: http://en.wikipedia.org/wiki/PID_controller
@@ -14510,7 +12868,7 @@ if __name__ == '__main__':
     print(out)
 
 
-# ================== FILE 125: ros2_ws/src/driver/sdk/test/test_copyright.py ==================
+# ================== FILE 120: ros2_ws/src/driver/sdk/test/test_copyright.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -14537,7 +12895,7 @@ def test_copyright():
     assert rc == 0, 'Found errors'
 
 
-# ================== FILE 126: ros2_ws/src/driver/sdk/test/test_flake8.py ==================
+# ================== FILE 121: ros2_ws/src/driver/sdk/test/test_flake8.py ==================
 
 # Copyright 2017 Open Source Robotics Foundation, Inc.
 #
@@ -14566,7 +12924,7 @@ def test_flake8():
         '\n'.join(errors)
 
 
-# ================== FILE 127: ros2_ws/src/driver/sdk/test/test_pep257.py ==================
+# ================== FILE 122: ros2_ws/src/driver/sdk/test/test_pep257.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -14593,7 +12951,7 @@ def test_pep257():
     assert rc == 0, 'Found code style errors / warnings'
 
 
-# ================== FILE 128: ros2_ws/src/imu_calib/CMakeLists.txt ==================
+# ================== FILE 123: ros2_ws/src/imu_calib/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.8)
 project(imu_calib)
@@ -14670,7 +13028,7 @@ ament_export_include_directories(include)
 ament_package()
 
 
-# ================== FILE 129: ros2_ws/src/imu_calib/package.xml ==================
+# ================== FILE 124: ros2_ws/src/imu_calib/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -14697,7 +13055,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 130: ros2_ws/src/imu_calib/include/imu_calib/accel_calib.h ==================
+# ================== FILE 125: ros2_ws/src/imu_calib/include/imu_calib/accel_calib.h ==================
 
 #include <Eigen/Dense>
 
@@ -14753,7 +13111,7 @@ protected:
 } // namespace accel_calib
 
 
-# ================== FILE 131: ros2_ws/src/imu_calib/include/imu_calib/apply_calib.h ==================
+# ================== FILE 126: ros2_ws/src/imu_calib/include/imu_calib/apply_calib.h ==================
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
@@ -14788,7 +13146,7 @@ private:
 } // namespace imu_calib
 
 
-# ================== FILE 132: ros2_ws/src/imu_calib/include/imu_calib/do_calib.h ==================
+# ================== FILE 127: ros2_ws/src/imu_calib/include/imu_calib/do_calib.h ==================
 
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
@@ -14834,7 +13192,7 @@ private:
 } // namespace accel_calib
 
 
-# ================== FILE 133: ros2_ws/src/imu_calib/src/accel_calib.cpp ==================
+# ================== FILE 128: ros2_ws/src/imu_calib/src/accel_calib.cpp ==================
 
 #include "imu_calib/accel_calib.h"
 
@@ -15020,7 +13378,7 @@ void AccelCalib::applyCalib(double raw_x, double raw_y, double raw_z, double *co
 } // namespace imu_calib
 
 
-# ================== FILE 134: ros2_ws/src/imu_calib/src/apply_calib.cpp ==================
+# ================== FILE 129: ros2_ws/src/imu_calib/src/apply_calib.cpp ==================
 
 #include "imu_calib/apply_calib.h"
 
@@ -15093,7 +13451,7 @@ void ApplyCalib::rawImuCallback(sensor_msgs::msg::Imu::SharedPtr raw)
 } // namespace accel_calib
 
 
-# ================== FILE 135: ros2_ws/src/imu_calib/src/apply_calib_node.cpp ==================
+# ================== FILE 130: ros2_ws/src/imu_calib/src/apply_calib_node.cpp ==================
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -15113,7 +13471,7 @@ int main(int argc, char** argv)
 }
 
 
-# ================== FILE 136: ros2_ws/src/imu_calib/src/do_calib.cpp ==================
+# ================== FILE 131: ros2_ws/src/imu_calib/src/do_calib.cpp ==================
 
 #include "imu_calib/do_calib.h"
 #include "rclcpp/rclcpp.hpp"
@@ -15236,7 +13594,7 @@ void DoCalib::imuCallback(const sensor_msgs::msg::Imu::SharedPtr imu)
 } // namespace accel_calib
 
 
-# ================== FILE 137: ros2_ws/src/imu_calib/src/do_calib_node.cpp ==================
+# ================== FILE 132: ros2_ws/src/imu_calib/src/do_calib_node.cpp ==================
 
 #include "rclcpp/rclcpp.hpp"
 #include "imu_calib/do_calib.h"
@@ -15256,7 +13614,7 @@ int main(int argc, char** argv)
 }
 
 
-# ================== FILE 138: ros2_ws/src/ldrobot-lidar-ros2/CHANGELOG.md ==================
+# ================== FILE 133: ros2_ws/src/ldrobot-lidar-ros2/CHANGELOG.md ==================
 
 CHANGELOG
 =========
@@ -15301,7 +13659,7 @@ v0.1.0
 * Examples
 
 
-# ================== FILE 139: ros2_ws/src/ldrobot-lidar-ros2/CODE_OF_CONDUCT.md ==================
+# ================== FILE 134: ros2_ws/src/ldrobot-lidar-ros2/CODE_OF_CONDUCT.md ==================
 
 # Contributor Covenant Code of Conduct
 
@@ -15433,7 +13791,7 @@ https://www.contributor-covenant.org/faq. Translations are available at
 https://www.contributor-covenant.org/translations.
 
 
-# ================== FILE 140: ros2_ws/src/ldrobot-lidar-ros2/CONTRIBUTING.md ==================
+# ================== FILE 135: ros2_ws/src/ldrobot-lidar-ros2/CONTRIBUTING.md ==================
 
 
 ## Submitting your code changes
@@ -15485,7 +13843,7 @@ the code they are contributing to the project according to the
 [Developer Certificate of Origin (DCO)](https://developercertificate.org/).
 
 
-# ================== FILE 141: ros2_ws/src/ldrobot-lidar-ros2/LICENSE ==================
+# ================== FILE 136: ros2_ws/src/ldrobot-lidar-ros2/LICENSE ==================
 
                                  Apache License
                            Version 2.0, January 2004
@@ -15690,7 +14048,7 @@ the code they are contributing to the project according to the
    limitations under the License.
 
 
-# ================== FILE 142: ros2_ws/src/ldrobot-lidar-ros2/README.md ==================
+# ================== FILE 137: ros2_ws/src/ldrobot-lidar-ros2/README.md ==================
 
 <h1 align="center">
   ldrobot-lidar-ros2
@@ -15914,7 +14272,7 @@ the final result should be similar to
 
 
 
-# ================== FILE 143: ros2_ws/src/ldrobot-lidar-ros2/ldlidar/CMakeLists.txt ==================
+# ================== FILE 138: ros2_ws/src/ldrobot-lidar-ros2/ldlidar/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.5)
 
@@ -15932,7 +14290,7 @@ add_custom_target(all_${PROJECT_NAME}_files SOURCES ${all_files})
 ament_package()
 
 
-# ================== FILE 144: ros2_ws/src/ldrobot-lidar-ros2/ldlidar/package.xml ==================
+# ================== FILE 139: ros2_ws/src/ldrobot-lidar-ros2/ldlidar/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model
@@ -15960,7 +14318,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 145: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/CMakeLists.txt ==================
+# ================== FILE 140: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.5)
 project(ldlidar_component)
@@ -16174,7 +14532,7 @@ ament_export_dependencies(${DEPENDENCIES})
 ament_package()
 
 
-# ================== FILE 146: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/package.xml ==================
+# ================== FILE 141: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format2.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -16210,7 +14568,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 147: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/cmake-modules/FindUDEV.cmake ==================
+# ================== FILE 142: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/cmake-modules/FindUDEV.cmake ==================
 
 # - try to find the udev library
 #
@@ -16311,7 +14669,7 @@ mark_as_advanced(UDEV_INCLUDE_DIR
 
 
 
-# ================== FILE 148: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/include/defines.hpp ==================
+# ================== FILE 143: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/include/defines.hpp ==================
 
 #ifndef DEFINES_HPP
 #define DEFINES_HPP
@@ -16324,7 +14682,7 @@ namespace ldlidar
 #endif // DEFINES_HPP
 
 
-# ================== FILE 149: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/include/ldlidar_component.hpp ==================
+# ================== FILE 144: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/include/ldlidar_component.hpp ==================
 
 //  Copyright 2022 Walter Lucetti
 //
@@ -16498,7 +14856,7 @@ private:
 #endif  // LDLIDAR_COMPONENT_HPP_
 
 
-# ================== FILE 150: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/src/ldlidar_component.cpp ==================
+# ================== FILE 145: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/component/src/ldlidar_component.cpp ==================
 
 //  Copyright 2022 Walter Lucetti
 //
@@ -17135,7 +15493,7 @@ void LdLidarComponent::callback_updateDiagnostic(diagnostic_updater::DiagnosticS
 RCLCPP_COMPONENTS_REGISTER_NODE(ldlidar::LdLidarComponent)
 
 
-# ================== FILE 151: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/include/visibility_control.hpp ==================
+# ================== FILE 146: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/include/visibility_control.hpp ==================
 
 //  Copyright 2022 Walter Lucetti
 //
@@ -17198,7 +15556,7 @@ extern "C"
 #endif  // VISIBILITY_CONTROL_HPP_
 
 
-# ================== FILE 152: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/CMakeLists.txt ==================
+# ================== FILE 147: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.5)
 project(ldlidar)
@@ -17235,7 +15593,7 @@ target_include_directories( ldlidar PUBLIC
 )
 
 
-# ================== FILE 153: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/core/ldlidar_datatype.h ==================
+# ================== FILE 148: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/core/ldlidar_datatype.h ==================
 
 /**
  * @file pointdata.h
@@ -17338,7 +15696,7 @@ namespace ldlidar {
  * FILE ********/
 
 
-# ================== FILE 154: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/core/ldlidar_driver.h ==================
+# ================== FILE 149: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/core/ldlidar_driver.h ==================
 
 /**
  * @file ldlidar_driver.h
@@ -17510,7 +15868,7 @@ private:
  * FILE ********/
 
 
-# ================== FILE 155: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/dataprocess/lipkg.h ==================
+# ================== FILE 150: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/dataprocess/lipkg.h ==================
 
 /**
  * @file lipkg.h
@@ -17652,7 +16010,7 @@ private:
  * FILE ********/
 
 
-# ================== FILE 156: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/filter/tofbf.h ==================
+# ================== FILE 151: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/filter/tofbf.h ==================
 
 /**
  * @file tofbf.h
@@ -17727,7 +16085,7 @@ private:
  * FILE ********/
 
 
-# ================== FILE 157: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/logger/log_module.h ==================
+# ================== FILE 152: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/logger/log_module.h ==================
 
 /**
 * @file         ldlidar_logger.h
@@ -17946,7 +16304,7 @@ private:
 /********************* (C) COPYRIGHT SHENZHEN LDROBOT CO., LTD *******END OF FILE ********/
 
 
-# ================== FILE 158: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/networkcom/network_socket_interface_linux.h ==================
+# ================== FILE 153: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/networkcom/network_socket_interface_linux.h ==================
 
 /**
  * @file network_socket_interface_linux.h
@@ -18074,7 +16432,7 @@ private:
  * FILE ********/
 
 
-# ================== FILE 159: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/serialcom/serial_interface_linux.h ==================
+# ================== FILE 154: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/include/serialcom/serial_interface_linux.h ==================
 
 /**
  * @file cmd_interface_linux.h
@@ -18160,7 +16518,7 @@ private:
  * FILE ********/
 
 
-# ================== FILE 160: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/core/ldlidar_driver.cpp ==================
+# ================== FILE 155: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/core/ldlidar_driver.cpp ==================
 
 /**
  * @file ldlidar_driver.cpp
@@ -18518,7 +16876,7 @@ void LDLidarDriver::EnableFilterAlgorithnmProcess(bool is_enable)
  * FILE ********/
 
 
-# ================== FILE 161: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/dataprocess/lipkg.cpp ==================
+# ================== FILE 156: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/dataprocess/lipkg.cpp ==================
 
 /**
  * @file lipkg.cpp
@@ -18874,7 +17232,7 @@ void LiPkg::CommReadCallback(const char * byte, size_t len)
  * FILE ********/
 
 
-# ================== FILE 162: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/filter/tofbf.cpp ==================
+# ================== FILE 157: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/filter/tofbf.cpp ==================
 
 ﻿/**
  * @file tofbf.cpp
@@ -19161,7 +17519,7 @@ std::vector<PointData> Tofbf::NoiseFilter(
  * FILE ********/
 
 
-# ================== FILE 163: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/logger/log_module.cpp ==================
+# ================== FILE 158: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/logger/log_module.cpp ==================
 
 /**
 * @file         ldlidar_logger.cpp
@@ -19469,7 +17827,7 @@ void LogPrint::LogPrintInf(const char * str)
 /********************* (C) COPYRIGHT SHENZHEN LDROBOT CO., LTD *******END OF FILE ********/
 
 
-# ================== FILE 164: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/networkcom/network_socket_interface_linux.cpp ==================
+# ================== FILE 159: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/networkcom/network_socket_interface_linux.cpp ==================
 
 /**
  * @file network_socket_interface_linux.cpp
@@ -19963,7 +18321,7 @@ void TCPSocketInterfaceLinux::RecvThreadProc(void * param)
  * FILE ********/
 
 
-# ================== FILE 165: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/serialcom/serial_interface_linux.cpp ==================
+# ================== FILE 160: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/ldlidar_driver/src/serialcom/serial_interface_linux.cpp ==================
 
 /**
  * @file cmd_interface_linux.cpp
@@ -20171,7 +18529,7 @@ void SerialInterfaceLinux::RxThreadProc(void * param)
  * FILE ********/
 
 
-# ================== FILE 166: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/tools/include/ldlidar_tools.hpp ==================
+# ================== FILE 161: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/tools/include/ldlidar_tools.hpp ==================
 
 //  Copyright 2022 Walter Lucetti
 //
@@ -20227,7 +18585,7 @@ uint64_t GetSystemTimeStamp(void);
 #endif  // LDLIDAR_TOOLS_HPP_
 
 
-# ================== FILE 167: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/tools/src/ldlidar_tools.cpp ==================
+# ================== FILE 162: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_component/tools/src/ldlidar_tools.cpp ==================
 
 //  Copyright 2022 Walter Lucetti
 //
@@ -20335,7 +18693,7 @@ uint64_t GetSystemTimeStamp(void)
 }  // namespace tools
 
 
-# ================== FILE 168: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/CMakeLists.txt ==================
+# ================== FILE 163: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.5)
 project(ldlidar_node)
@@ -20492,7 +18850,7 @@ endif()
 ament_package()
 
 
-# ================== FILE 169: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/package.xml ==================
+# ================== FILE 164: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format2.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -20537,7 +18895,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 170: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/config/ldlidar.rviz ==================
+# ================== FILE 165: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/config/ldlidar.rviz ==================
 
 Panels:
   - Class: rviz_common/Displays
@@ -20773,7 +19131,7 @@ Window Geometry:
   Y: 27
 
 
-# ================== FILE 171: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/config/ldlidar_slam.rviz ==================
+# ================== FILE 166: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/config/ldlidar_slam.rviz ==================
 
 Panels:
   - Class: rviz_common/Displays
@@ -21042,7 +19400,7 @@ Window Geometry:
   Y: 27
 
 
-# ================== FILE 172: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar.launch.py ==================
+# ================== FILE 167: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -21121,7 +19479,7 @@ def generate_launch_description():
     return ld
 
 
-# ================== FILE 173: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_rviz2.launch.py ==================
+# ================== FILE 168: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_rviz2.launch.py ==================
 
 # Copyright 2022 Walter Lucetti
 #
@@ -21201,7 +19559,7 @@ def generate_launch_description():
     return ld
 
 
-# ================== FILE 174: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_slam.launch.py ==================
+# ================== FILE 169: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_slam.launch.py ==================
 
 # Copyright 2022 Walter Lucetti
 #
@@ -21331,7 +19689,7 @@ def generate_launch_description():
     return ld
 
 
-# ================== FILE 175: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_slam_only.launch.py ==================
+# ================== FILE 170: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_slam_only.launch.py ==================
 
 # Copyright 2022 Walter Lucetti
 #
@@ -21412,7 +19770,7 @@ def generate_launch_description():
     return ld
 
 
-# ================== FILE 176: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_with_mgr.launch.py ==================
+# ================== FILE 171: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/launch/ldlidar_with_mgr.launch.py ==================
 
 # Copyright 2022 Walter Lucetti
 #
@@ -21485,7 +19843,7 @@ def generate_launch_description():
     return ld
 
 
-# ================== FILE 177: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/ldlidar.yaml ==================
+# ================== FILE 172: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/ldlidar.yaml ==================
 
 # config/ldlidar.yaml
 #
@@ -21514,7 +19872,7 @@ def generate_launch_description():
       angle_crop_max: 270.0 # maximum angle for cropping
 
 
-# ================== FILE 178: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/lifecycle_mgr.yaml ==================
+# ================== FILE 173: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/lifecycle_mgr.yaml ==================
 
 # config/lifecycle_mgr.yaml
 #
@@ -21529,7 +19887,7 @@ def generate_launch_description():
     bond_respawn_max_duration: 10.0
 
 
-# ================== FILE 179: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/lifecycle_mgr_slam.yaml ==================
+# ================== FILE 174: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/lifecycle_mgr_slam.yaml ==================
 
 # config/lifecycle_mgr.yaml
 #
@@ -21544,7 +19902,7 @@ def generate_launch_description():
     bond_respawn_max_duration: 10.0
 
 
-# ================== FILE 180: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/slam_toolbox.yaml ==================
+# ================== FILE 175: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/params/slam_toolbox.yaml ==================
 
 slam_toolbox:
   ros__parameters:
@@ -21622,7 +19980,7 @@ slam_toolbox:
     use_response_expansion: true
 
 
-# ================== FILE 181: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/src/ldlidar_container_node.cpp ==================
+# ================== FILE 176: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/src/ldlidar_container_node.cpp ==================
 
 //  Copyright 2022 Walter Lucetti
 //
@@ -21672,7 +20030,7 @@ int main(int argc, char * argv[])
 }
 
 
-# ================== FILE 182: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/test/ldlidar_benchmark.py ==================
+# ================== FILE 177: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/test/ldlidar_benchmark.py ==================
 
 # SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
 # Copyright (c) 2023-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
@@ -21806,7 +20164,7 @@ class TestLDLidarNode(ROS2BenchmarkTest):
         self.run_benchmark()
 
 
-# ================== FILE 183: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/urdf/ldlidar_descr.urdf.xml ==================
+# ================== FILE 178: ros2_ws/src/ldrobot-lidar-ros2/ldlidar_node/urdf/ldlidar_descr.urdf.xml ==================
 
 <?xml version="1.0"?>
 
@@ -21835,7 +20193,7 @@ class TestLDLidarNode(ROS2BenchmarkTest):
 </robot>
 
 
-# ================== FILE 184: ros2_ws/src/ldrobot-lidar-ros2/rules/ldlidar.rules ==================
+# ================== FILE 179: ros2_ws/src/ldrobot-lidar-ros2/rules/ldlidar.rules ==================
 
 # set the udev rule , make the device_port be fixed by ldlidar
 # CP210x USB Device
@@ -21843,7 +20201,7 @@ KERNEL=="ttyUSB*", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", MODE:="077
 
 
 
-# ================== FILE 185: ros2_ws/src/ldrobot-lidar-ros2/scripts/create_udev_rules.sh ==================
+# ================== FILE 180: ros2_ws/src/ldrobot-lidar-ros2/scripts/create_udev_rules.sh ==================
 
 #!/bin/bash
 
@@ -21860,7 +20218,7 @@ sudo udevadm trigger
 echo "finish "
 
 
-# ================== FILE 186: ros2_ws/src/ldrobot-lidar-ros2/scripts/delete_udev_rules.sh ==================
+# ================== FILE 181: ros2_ws/src/ldrobot-lidar-ros2/scripts/delete_udev_rules.sh ==================
 
 #!/bin/bash
 
@@ -21876,7 +20234,7 @@ sudo udevadm trigger
 echo "finish  delete"
 
 
-# ================== FILE 187: ros2_ws/src/maze_grading_node/CMakeLists.txt ==================
+# ================== FILE 182: ros2_ws/src/maze_grading_node/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.8)
 project(maze_grading_node)
@@ -21910,7 +20268,7 @@ install(
 ament_package()
 
 
-# ================== FILE 188: ros2_ws/src/maze_grading_node/package.xml ==================
+# ================== FILE 183: ros2_ws/src/maze_grading_node/package.xml ==================
 
 <?xml version="1.0"?>
 <package format="3">
@@ -21935,7 +20293,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 189: ros2_ws/src/maze_grading_node/mazes/1.maze ==================
+# ================== FILE 184: ros2_ws/src/maze_grading_node/mazes/1.maze ==================
 
 7
 4
@@ -21972,7 +20330,7 @@ ament_package()
 7
 
 
-# ================== FILE 190: ros2_ws/src/maze_grading_node/src/grade_maze_server.cpp ==================
+# ================== FILE 185: ros2_ws/src/maze_grading_node/src/grade_maze_server.cpp ==================
 
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
@@ -22129,7 +20487,7 @@ int main(int argc, char ** argv)
 }
 
 
-# ================== FILE 191: ros2_ws/src/maze_interface/CMakeLists.txt ==================
+# ================== FILE 186: ros2_ws/src/maze_interface/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.8)
 project(maze_interface)
@@ -22164,7 +20522,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 ament_package()
 
 
-# ================== FILE 192: ros2_ws/src/maze_interface/package.xml ==================
+# ================== FILE 187: ros2_ws/src/maze_interface/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -22190,7 +20548,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 193: ros2_ws/src/maze_interface/msg/RosMaze.msg ==================
+# ================== FILE 188: ros2_ws/src/maze_interface/msg/RosMaze.msg ==================
 
 uint8 n
 uint8 m
@@ -22200,14 +20558,14 @@ uint8 start_orientation
 uint8[] l
 
 
-# ================== FILE 194: ros2_ws/src/maze_interface/srv/GetRosMaze.srv ==================
+# ================== FILE 189: ros2_ws/src/maze_interface/srv/GetRosMaze.srv ==================
 
 int8 maze_nr
 ---
 maze_interface/RosMaze maze
 
 
-# ================== FILE 195: ros2_ws/src/maze_interface/srv/GradeCubes.srv ==================
+# ================== FILE 190: ros2_ws/src/maze_interface/srv/GradeCubes.srv ==================
 
 uint8 n
 int16[] x
@@ -22217,7 +20575,7 @@ uint8[] color
 int16 score
 
 
-# ================== FILE 196: ros2_ws/src/maze_interface/srv/GradeMaze.srv ==================
+# ================== FILE 191: ros2_ws/src/maze_interface/srv/GradeMaze.srv ==================
 
 int8 maze_nr
 maze_interface/RosMaze maze
@@ -22225,7 +20583,7 @@ maze_interface/RosMaze maze
 int32 score
 
 
-# ================== FILE 197: ros2_ws/src/maze_publisher_node/CMakeLists.txt ==================
+# ================== FILE 192: ros2_ws/src/maze_publisher_node/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.8)
 project(maze_publisher_node)
@@ -22269,7 +20627,7 @@ install(
 ament_package()
 
 
-# ================== FILE 198: ros2_ws/src/maze_publisher_node/LICENSE ==================
+# ================== FILE 193: ros2_ws/src/maze_publisher_node/LICENSE ==================
 
 
                                  Apache License
@@ -22475,7 +20833,7 @@ ament_package()
    limitations under the License.
 
 
-# ================== FILE 199: ros2_ws/src/maze_publisher_node/package.xml ==================
+# ================== FILE 194: ros2_ws/src/maze_publisher_node/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -22501,7 +20859,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 200: ros2_ws/src/maze_publisher_node/mazes/1.maze ==================
+# ================== FILE 195: ros2_ws/src/maze_publisher_node/mazes/1.maze ==================
 
 7
 4
@@ -22538,7 +20896,7 @@ ament_package()
 7
 
 
-# ================== FILE 201: ros2_ws/src/maze_publisher_node/mazes/2.maze ==================
+# ================== FILE 196: ros2_ws/src/maze_publisher_node/mazes/2.maze ==================
 
 7
 11
@@ -22624,7 +20982,7 @@ ament_package()
 5
 
 
-# ================== FILE 202: ros2_ws/src/maze_publisher_node/src/maze_publisher_node.cpp ==================
+# ================== FILE 197: ros2_ws/src/maze_publisher_node/src/maze_publisher_node.cpp ==================
 
 #include "rclcpp/rclcpp.hpp"
 #include "maze_interface/msg/ros_maze.hpp"
@@ -22701,7 +21059,7 @@ int main(int argc, char **argv) {
 }
 
 
-# ================== FILE 203: ros2_ws/src/maze_solver/camera_tilt_node.py ==================
+# ================== FILE 198: ros2_ws/src/maze_solver/camera_tilt_node.py ==================
 
 #!/usr/bin/env python3
 
@@ -22766,7 +21124,7 @@ if __name__ == '__main__':
     main()
 
 
-# ================== FILE 204: ros2_ws/src/maze_solver/maze_solver_node.py ==================
+# ================== FILE 199: ros2_ws/src/maze_solver/maze_solver_node.py ==================
 
 import math
 import time
@@ -23509,7 +21867,7 @@ if __name__ == '__main__':
     main()
 
 
-# ================== FILE 205: ros2_ws/src/maze_solver/package.xml ==================
+# ================== FILE 200: ros2_ws/src/maze_solver/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -23543,7 +21901,7 @@ if __name__ == '__main__':
 </package>
 
 
-# ================== FILE 206: ros2_ws/src/maze_solver/setup.cfg ==================
+# ================== FILE 201: ros2_ws/src/maze_solver/setup.cfg ==================
 
 [develop]
 script_dir=$base/lib/maze_solver
@@ -23552,7 +21910,7 @@ script_dir=$base/lib/maze_solver
 install_scripts=$base/lib/maze_solver
 
 
-# ================== FILE 207: ros2_ws/src/maze_solver/setup.py ==================
+# ================== FILE 202: ros2_ws/src/maze_solver/setup.py ==================
 
 from glob import glob
 from os.path import join
@@ -23586,7 +21944,7 @@ setup(
 )
 
 
-# ================== FILE 208: ros2_ws/src/maze_solver/launch/exam_task1.launch.py ==================
+# ================== FILE 203: ros2_ws/src/maze_solver/launch/exam_task1.launch.py ==================
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
@@ -23649,347 +22007,12 @@ def generate_launch_description():
     ])
 
 
-# ================== FILE 209: ros2_ws/src/maze_solver/resource/maze_solver ==================
+# ================== FILE 204: ros2_ws/src/maze_solver/resource/maze_solver ==================
 
 
 
 
-# ================== FILE 210: ros2_ws/src/maze_solver/test/test_motion_command_compression.py ==================
-
-import math
-from pathlib import Path
-
-import pytest
-
-from maze_solver_node import (
-    build_motion_commands,
-    parse_bool_parameter,
-    validate_maze_fields,
-    validate_solver_parameters,
-)
-
-
-PACKAGE_ROOT = Path(__file__).resolve().parents[1]
-REMOVED_CELL_CAP_PARAM = 'max_cells' + '_per_drive'
-
-
-def assert_commands_close(actual, expected, tol=1e-6):
-    assert len(actual) == len(expected)
-    for actual_cmd, expected_cmd in zip(actual, expected):
-        expected_name, expected_value = expected_cmd[:2]
-        assert actual_cmd.name == expected_name
-        assert actual_cmd.value == pytest.approx(expected_value, abs=tol)
-
-        if len(expected_cmd) >= 5:
-            _, _, start_idx, heading, run_cells = expected_cmd
-            assert actual_cmd.start_idx == start_idx
-            assert actual_cmd.heading == heading
-            assert actual_cmd.run_cells == run_cells
-
-
-def test_straight_three_cells_one_continuous_drive():
-    commands = build_motion_commands(
-        start_orientation=1,
-        orientations=[1, 1, 1],
-        cell_length_m=0.254,
-    )
-
-    assert_commands_close(commands, [
-        ('drive_forward', 0.762),
-    ])
-
-
-def test_five_cell_straight_is_one_continuous_drive():
-    commands = build_motion_commands(
-        start_orientation=1,
-        orientations=[1, 1, 1, 1, 1],
-        cell_length_m=0.254,
-    )
-
-    assert_commands_close(commands, [
-        ('drive_forward', 1.270),
-    ])
-
-
-def test_empty_orientation_list_produces_no_motion_commands():
-    commands = build_motion_commands(
-        start_orientation=1,
-        orientations=[],
-        cell_length_m=0.254,
-    )
-
-    assert_commands_close(commands, [])
-
-
-def test_turn_then_continuous_straight_run():
-    commands = build_motion_commands(
-        start_orientation=1,
-        orientations=[1, 4, 4],
-        cell_length_m=0.254,
-    )
-
-    assert_commands_close(commands, [
-        ('drive_forward', 0.254),
-        ('rotate', math.pi / 2.0),
-        ('drive_forward', 0.508),
-    ])
-
-
-def test_multiple_straight_runs_are_split_only_by_turns():
-    commands = build_motion_commands(
-        start_orientation=1,
-        orientations=[1, 1, 4, 4, 4, 2, 2],
-        cell_length_m=0.254,
-    )
-
-    assert_commands_close(commands, [
-        ('drive_forward', 0.508),
-        ('rotate', math.pi / 2.0),
-        ('drive_forward', 0.762),
-        ('rotate', math.pi / 2.0),
-        ('drive_forward', 0.508),
-    ])
-
-
-def test_negative_turn_between_runs_is_preserved():
-    commands = build_motion_commands(
-        start_orientation=4,
-        orientations=[4, 1, 1],
-        cell_length_m=0.254,
-    )
-
-    assert_commands_close(commands, [
-        ('drive_forward', 0.254),
-        ('rotate', -math.pi / 2.0),
-        ('drive_forward', 0.508),
-    ])
-
-
-def test_left_turn_back_to_forward():
-    commands = build_motion_commands(
-        start_orientation=1,
-        orientations=[4, 4, 1],
-        cell_length_m=0.254,
-    )
-
-    assert_commands_close(commands, [
-        ('rotate', math.pi / 2.0),
-        ('drive_forward', 0.508),
-        ('rotate', -math.pi / 2.0),
-        ('drive_forward', 0.254),
-    ])
-
-
-def test_compressed_commands_include_grid_context_when_path_provided():
-    commands = build_motion_commands(
-        start_orientation=1,
-        orientations=[1, 1, 4, 4],
-        cell_length_m=0.254,
-        path=[1, 2, 3, 10, 17],
-    )
-
-    assert_commands_close(commands, [
-        ('drive_forward', 0.508, 1, 1, 2),
-        ('rotate', math.pi / 2.0),
-        ('drive_forward', 0.508, 3, 4, 2),
-    ])
-
-
-def test_parse_bool_parameter_accepts_common_false_strings():
-    assert parse_bool_parameter('false') is False
-    assert parse_bool_parameter('False') is False
-    assert parse_bool_parameter('0') is False
-    assert parse_bool_parameter('no') is False
-    assert parse_bool_parameter('off') is False
-
-
-def test_parse_bool_parameter_accepts_common_true_strings():
-    assert parse_bool_parameter('true') is True
-    assert parse_bool_parameter('True') is True
-    assert parse_bool_parameter('1') is True
-    assert parse_bool_parameter('yes') is True
-    assert parse_bool_parameter('on') is True
-
-
-def test_validate_maze_fields_accepts_valid_minimal_maze():
-    assert validate_maze_fields(
-        n=2,
-        m=2,
-        start_idx=1,
-        end_idx=4,
-        start_orientation=1,
-        flattened_l=[10, 9, 6, 5],
-    ) is None
-
-
-def test_validate_maze_fields_rejects_wrong_flattened_length():
-    error = validate_maze_fields(
-        n=2,
-        m=2,
-        start_idx=1,
-        end_idx=4,
-        start_orientation=1,
-        flattened_l=[10, 9, 6],
-    )
-
-    assert error is not None
-    assert 'invalid maze length' in error
-
-
-def test_validate_maze_fields_rejects_invalid_start_orientation():
-    error = validate_maze_fields(
-        n=2,
-        m=2,
-        start_idx=1,
-        end_idx=4,
-        start_orientation=3,
-        flattened_l=[10, 9, 6, 5],
-    )
-
-    assert error is not None
-    assert 'invalid start_orientation' in error
-
-
-def test_validate_maze_fields_rejects_missing_start_or_end_cell():
-    start_error = validate_maze_fields(
-        n=2,
-        m=2,
-        start_idx=1,
-        end_idx=4,
-        start_orientation=1,
-        flattened_l=[15, 9, 6, 5],
-    )
-    end_error = validate_maze_fields(
-        n=2,
-        m=2,
-        start_idx=1,
-        end_idx=4,
-        start_orientation=1,
-        flattened_l=[10, 9, 6, 15],
-    )
-
-    assert start_error is not None
-    assert 'start_idx' in start_error
-    assert end_error is not None
-    assert 'end_idx' in end_error
-
-
-def test_validate_solver_parameters_accepts_exam_defaults():
-    assert validate_solver_parameters(
-        maze_nr=1,
-        cell_length_m=0.254,
-        max_commands_to_execute=0,
-        motion_server_timeout_s=5.0,
-        maze_service_timeout_s=15.0,
-        maze_service_name='/get_ros_maze',
-    ) is None
-
-
-def test_validate_solver_parameters_rejects_bad_maze_nr():
-    error = validate_solver_parameters(
-        maze_nr=200,
-        cell_length_m=0.254,
-        max_commands_to_execute=0,
-        motion_server_timeout_s=5.0,
-        maze_service_timeout_s=15.0,
-        maze_service_name='/get_ros_maze',
-    )
-
-    assert error is not None
-    assert 'int8 range' in error
-
-
-def test_validate_solver_parameters_rejects_bad_cell_length():
-    for bad_value in (0.0, -0.1, float('nan'), float('inf')):
-        error = validate_solver_parameters(
-            maze_nr=1,
-            cell_length_m=bad_value,
-            max_commands_to_execute=0,
-            motion_server_timeout_s=5.0,
-            maze_service_timeout_s=15.0,
-            maze_service_name='/get_ros_maze',
-        )
-
-        assert error is not None
-        assert 'cell_length_m' in error
-
-
-def test_validate_solver_parameters_rejects_bad_max_commands_to_execute():
-    error = validate_solver_parameters(
-        maze_nr=1,
-        cell_length_m=0.254,
-        max_commands_to_execute=-1,
-        motion_server_timeout_s=5.0,
-        maze_service_timeout_s=15.0,
-        maze_service_name='/get_ros_maze',
-    )
-
-    assert error is not None
-    assert 'max_commands_to_execute' in error
-
-
-def test_validate_solver_parameters_rejects_bad_motion_timeout():
-    for bad_value in (0.0, -1.0, float('nan'), float('inf')):
-        error = validate_solver_parameters(
-            maze_nr=1,
-            cell_length_m=0.254,
-            max_commands_to_execute=0,
-            motion_server_timeout_s=bad_value,
-            maze_service_timeout_s=15.0,
-            maze_service_name='/get_ros_maze',
-        )
-
-        assert error is not None
-        assert 'motion_server_timeout_s' in error
-
-
-def test_validate_solver_parameters_rejects_bad_maze_timeout():
-    for bad_value in (0.0, -1.0, float('nan'), float('inf')):
-        error = validate_solver_parameters(
-            maze_nr=1,
-            cell_length_m=0.254,
-            max_commands_to_execute=0,
-            motion_server_timeout_s=5.0,
-            maze_service_timeout_s=bad_value,
-            maze_service_name='/get_ros_maze',
-        )
-
-        assert error is not None
-        assert 'maze_service_timeout_s' in error
-
-
-def test_validate_solver_parameters_rejects_relative_maze_service_name():
-    error = validate_solver_parameters(
-        maze_nr=1,
-        cell_length_m=0.254,
-        max_commands_to_execute=0,
-        motion_server_timeout_s=5.0,
-        maze_service_timeout_s=15.0,
-        maze_service_name='get_ros_maze',
-    )
-
-    assert error is not None
-    assert 'absolute service name' in error
-
-
-def test_exam_launch_has_no_removed_cell_cap_argument():
-    launch_text = (
-        PACKAGE_ROOT / 'launch' / 'exam_task1.launch.py'
-    ).read_text()
-
-    assert REMOVED_CELL_CAP_PARAM not in launch_text
-    assert 'max_commands_to_execute' in launch_text
-    assert 'execute_motions' in launch_text
-    assert 'cell_length_m' in launch_text
-
-
-def test_solver_node_has_no_removed_cell_cap_parameter():
-    solver_text = (PACKAGE_ROOT / 'maze_solver_node.py').read_text()
-
-    assert REMOVED_CELL_CAP_PARAM not in solver_text
-
-
-# ================== FILE 211: ros2_ws/src/orchestrator_launch/CMakeLists.txt ==================
+# ================== FILE 205: ros2_ws/src/orchestrator_launch/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.5)
 project(orchestrator_launch)
@@ -24007,7 +22030,7 @@ install(
 ament_package()
 
 
-# ================== FILE 212: ros2_ws/src/orchestrator_launch/package.xml ==================
+# ================== FILE 206: ros2_ws/src/orchestrator_launch/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -24038,7 +22061,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 213: ros2_ws/src/orchestrator_launch/config/mapper_params_online_async.yaml ==================
+# ================== FILE 207: ros2_ws/src/orchestrator_launch/config/mapper_params_online_async.yaml ==================
 
 slam_toolbox:
   ros__parameters:
@@ -24117,7 +22140,7 @@ slam_toolbox:
     use_response_expansion: true
 
 
-# ================== FILE 214: ros2_ws/src/orchestrator_launch/launch/launch_full_slam_stack.launch.py ==================
+# ================== FILE 208: ros2_ws/src/orchestrator_launch/launch/launch_full_slam_stack.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -24164,7 +22187,7 @@ def generate_launch_description():
     ])
 
 
-# ================== FILE 215: ros2_ws/src/orchestrator_launch/launch/slam_toolbox.launch.py ==================
+# ================== FILE 209: ros2_ws/src/orchestrator_launch/launch/slam_toolbox.launch.py ==================
 
 import os
 
@@ -24256,7 +22279,7 @@ def generate_launch_description():
     return ld
 
 
-# ================== FILE 216: ros2_ws/src/peripherals/package.xml ==================
+# ================== FILE 210: ros2_ws/src/peripherals/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -24278,7 +22301,7 @@ def generate_launch_description():
 </package>
 
 
-# ================== FILE 217: ros2_ws/src/peripherals/setup.cfg ==================
+# ================== FILE 211: ros2_ws/src/peripherals/setup.cfg ==================
 
 [develop]
 script_dir=$base/lib/peripherals
@@ -24286,7 +22309,7 @@ script_dir=$base/lib/peripherals
 install_scripts=$base/lib/peripherals
 
 
-# ================== FILE 218: ros2_ws/src/peripherals/setup.py ==================
+# ================== FILE 212: ros2_ws/src/peripherals/setup.py ==================
 
 import os
 from glob import glob
@@ -24324,7 +22347,7 @@ setup(
 )
 
 
-# ================== FILE 219: ros2_ws/src/peripherals/config/apriltag_config.yaml ==================
+# ================== FILE 213: ros2_ws/src/peripherals/config/apriltag_config.yaml ==================
 
 apriltag_detector:
   ros__parameters:
@@ -24351,7 +22374,7 @@ apriltag_detector:
 
 
 
-# ================== FILE 220: ros2_ws/src/peripherals/config/camera_info.yaml ==================
+# ================== FILE 214: ros2_ws/src/peripherals/config/camera_info.yaml ==================
 
 image_width: 640
 image_height: 480
@@ -24375,7 +22398,7 @@ projection_matrix:
   data: [465.8162841796875, 0, 321.2985662909559, 0, 0, 470.4940490722656, 236.298464380614, 0, 0, 0, 1, 0]
 
 
-# ================== FILE 221: ros2_ws/src/peripherals/config/usb_cam_param.yaml ==================
+# ================== FILE 215: ros2_ws/src/peripherals/config/usb_cam_param.yaml ==================
 
 /**:
     ros__parameters:
@@ -24403,7 +22426,7 @@ projection_matrix:
 
 
 
-# ================== FILE 222: ros2_ws/src/peripherals/launch/apriltag.launch.py ==================
+# ================== FILE 216: ros2_ws/src/peripherals/launch/apriltag.launch.py ==================
 
 import os
 from launch import LaunchDescription
@@ -24431,7 +22454,7 @@ def generate_launch_description():
 
 
 
-# ================== FILE 223: ros2_ws/src/peripherals/launch/image_pipeline.launch.py ==================
+# ================== FILE 217: ros2_ws/src/peripherals/launch/image_pipeline.launch.py ==================
 
 import os
 from launch import LaunchDescription
@@ -24484,7 +22507,7 @@ def generate_launch_description():
 
 
 
-# ================== FILE 224: ros2_ws/src/peripherals/launch/imu_filter.launch.py ==================
+# ================== FILE 218: ros2_ws/src/peripherals/launch/imu_filter.launch.py ==================
 
 from launch import LaunchDescription
 from launch_ros.actions import Node
@@ -24551,7 +22574,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 225: ros2_ws/src/peripherals/launch/imu_view.launch.py ==================
+# ================== FILE 219: ros2_ws/src/peripherals/launch/imu_view.launch.py ==================
 
 import os
 from launch_ros.actions import Node
@@ -24632,7 +22655,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 226: ros2_ws/src/peripherals/launch/joystick_control.launch.py ==================
+# ================== FILE 220: ros2_ws/src/peripherals/launch/joystick_control.launch.py ==================
 
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
@@ -24691,7 +22714,7 @@ if __name__ == '__main__':
 
 
 
-# ================== FILE 227: ros2_ws/src/peripherals/launch/teleop_key_control.launch.py ==================
+# ================== FILE 221: ros2_ws/src/peripherals/launch/teleop_key_control.launch.py ==================
 
 import os
 from launch.actions import DeclareLaunchArgument
@@ -24742,7 +22765,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 228: ros2_ws/src/peripherals/launch/usb_cam.launch.py ==================
+# ================== FILE 222: ros2_ws/src/peripherals/launch/usb_cam.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -24777,7 +22800,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 229: ros2_ws/src/peripherals/launch/include/ascamera.launch.py ==================
+# ================== FILE 223: ros2_ws/src/peripherals/launch/include/ascamera.launch.py ==================
 
 from launch import LaunchDescription
 import launch_ros.actions
@@ -24826,12 +22849,12 @@ def generate_launch_description():
 
 
 
-# ================== FILE 230: ros2_ws/src/peripherals/peripherals/__init__.py ==================
+# ================== FILE 224: ros2_ws/src/peripherals/peripherals/__init__.py ==================
 
 
 
 
-# ================== FILE 231: ros2_ws/src/peripherals/peripherals/demo.py ==================
+# ================== FILE 225: ros2_ws/src/peripherals/peripherals/demo.py ==================
 
 #!/usr/bin/env python3
 import rclpy
@@ -24863,7 +22886,7 @@ if __name__ == '__main__':
 
 
 
-# ================== FILE 232: ros2_ws/src/peripherals/peripherals/joystick_control.py ==================
+# ================== FILE 226: ros2_ws/src/peripherals/peripherals/joystick_control.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8
@@ -25140,7 +23163,7 @@ if __name__ == "__main__":
     main()
 
 
-# ================== FILE 233: ros2_ws/src/peripherals/peripherals/teleop_key_control.py ==================
+# ================== FILE 227: ros2_ws/src/peripherals/peripherals/teleop_key_control.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8
@@ -25293,7 +23316,7 @@ if __name__ == "__main__":
     main()
 
 
-# ================== FILE 234: ros2_ws/src/peripherals/peripherals/tf_broadcaster_imu.py ==================
+# ================== FILE 228: ros2_ws/src/peripherals/peripherals/tf_broadcaster_imu.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8 
@@ -25370,12 +23393,12 @@ if __name__ == "__main__":
     main()
 
 
-# ================== FILE 235: ros2_ws/src/peripherals/resource/peripherals ==================
+# ================== FILE 229: ros2_ws/src/peripherals/resource/peripherals ==================
 
 
 
 
-# ================== FILE 236: ros2_ws/src/peripherals/rviz/imu_view.rviz ==================
+# ================== FILE 230: ros2_ws/src/peripherals/rviz/imu_view.rviz ==================
 
 Panels:
   - Class: rviz_common/Displays
@@ -25642,7 +23665,7 @@ Window Geometry:
   Y: 46
 
 
-# ================== FILE 237: ros2_ws/src/peripherals/rviz/lidar_view.rviz ==================
+# ================== FILE 231: ros2_ws/src/peripherals/rviz/lidar_view.rviz ==================
 
 Panels:
   - Class: rviz_common/Displays
@@ -25967,7 +23990,7 @@ Window Geometry:
   Y: 151
 
 
-# ================== FILE 238: ros2_ws/src/peripherals/scripts/99-obsensor-libusb.rules ==================
+# ================== FILE 232: ros2_ws/src/peripherals/scripts/99-obsensor-libusb.rules ==================
 
 # UVC Modules
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="2bc5", ATTRS{idProduct}=="0635", MODE:="0666",  OWNER:="root", GROUP:="video", SYMLINK+="Femto"
@@ -26073,19 +24096,19 @@ KERNEL=="video*", ATTRS{idVendor}=="2bc5", ATTRS{idProduct}=="0559", MODE:="0777
 KERNEL=="video*", ATTRS{idVendor}=="2bc5", ATTRS{idProduct}=="0659", MODE:="0777", SYMLINK+="depth_cam"
 
 
-# ================== FILE 239: ros2_ws/src/peripherals/scripts/99-ttyACM0.rules ==================
+# ================== FILE 233: ros2_ws/src/peripherals/scripts/99-ttyACM0.rules ==================
 
 # Ignore ModemManager for ttyACM0 device
 KERNEL=="ttyACM*", SUBSYSTEM=="tty", GROUP="users", MODE="0777", SYMLINK+="rrc"
 ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55d4", ENV{ID_MM_PORT_IGNORE}="1"1"
 
 
-# ================== FILE 240: ros2_ws/src/peripherals/scripts/99-usb-cam.rules ==================
+# ================== FILE 234: ros2_ws/src/peripherals/scripts/99-usb-cam.rules ==================
 
 KERNEL=="video*",KERNELS=="1-2.1:1.0", MODE:="0777", SYMLINK+="depth_cam"
 
 
-# ================== FILE 241: ros2_ws/src/peripherals/scripts/create_udev_rules.sh ==================
+# ================== FILE 235: ros2_ws/src/peripherals/scripts/create_udev_rules.sh ==================
 
 #!/bin/bash
 
@@ -26098,13 +24121,13 @@ sudo service udev restart
 echo "finish "
 
 
-# ================== FILE 242: ros2_ws/src/peripherals/scripts/lidar.rules ==================
+# ================== FILE 236: ros2_ws/src/peripherals/scripts/lidar.rules ==================
 
 SUBSYSTEM=="tty", KERNELS=="1-2.3.4:1.0", SYMLINK+="lidar"
 SUBSYSTEM=="tty", KERNELS=="1-2.1.4:1.0", SYMLINK+="lidar"
 
 
-# ================== FILE 243: ros2_ws/src/peripherals/scripts/xf_mic.rules ==================
+# ================== FILE 237: ros2_ws/src/peripherals/scripts/xf_mic.rules ==================
 
 SUBSYSTEM=="tty", KERNELS=="1-2.3.1.1:1.0", SYMLINK+="ring_mic"
 SUBSYSTEM=="tty", KERNELS=="1-2.1.1.1:1.0", SYMLINK+="ring_mic"
@@ -26112,7 +24135,7 @@ KERNEL=="ttyCH341USB*", MODE:="0666", GROUP:="dialout"
 KERNEL=="ttyUSB*", MODE:="0666", GROUP:="dialout"
 
 
-# ================== FILE 244: ros2_ws/src/peripherals/test/test_copyright.py ==================
+# ================== FILE 238: ros2_ws/src/peripherals/test/test_copyright.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -26139,7 +24162,7 @@ def test_copyright():
     assert rc == 0, 'Found errors'
 
 
-# ================== FILE 245: ros2_ws/src/peripherals/test/test_flake8.py ==================
+# ================== FILE 239: ros2_ws/src/peripherals/test/test_flake8.py ==================
 
 # Copyright 2017 Open Source Robotics Foundation, Inc.
 #
@@ -26168,7 +24191,7 @@ def test_flake8():
         '\n'.join(errors)
 
 
-# ================== FILE 246: ros2_ws/src/peripherals/test/test_pep257.py ==================
+# ================== FILE 240: ros2_ws/src/peripherals/test/test_pep257.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -26195,7 +24218,7 @@ def test_pep257():
     assert rc == 0, 'Found code style errors / warnings'
 
 
-# ================== FILE 247: ros2_ws/src/simulations/mentorpi_description/package.xml ==================
+# ================== FILE 241: ros2_ws/src/simulations/mentorpi_description/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -26219,7 +24242,7 @@ def test_pep257():
 </package>
 
 
-# ================== FILE 248: ros2_ws/src/simulations/mentorpi_description/setup.cfg ==================
+# ================== FILE 242: ros2_ws/src/simulations/mentorpi_description/setup.cfg ==================
 
 [develop]
 script_dir=$base/lib/mentorpi_description
@@ -26227,7 +24250,7 @@ script_dir=$base/lib/mentorpi_description
 install_scripts=$base/lib/mentorpi_description
 
 
-# ================== FILE 249: ros2_ws/src/simulations/mentorpi_description/setup.py ==================
+# ================== FILE 243: ros2_ws/src/simulations/mentorpi_description/setup.py ==================
 
 import os
 from glob import glob
@@ -26263,7 +24286,7 @@ setup(
 )
 
 
-# ================== FILE 250: ros2_ws/src/simulations/mentorpi_description/launch/display.launch.py ==================
+# ================== FILE 244: ros2_ws/src/simulations/mentorpi_description/launch/display.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -26344,7 +24367,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 251: ros2_ws/src/simulations/mentorpi_description/launch/robot_description.launch.py ==================
+# ================== FILE 245: ros2_ws/src/simulations/mentorpi_description/launch/robot_description.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -26442,7 +24465,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 252: ros2_ws/src/simulations/mentorpi_description/launch/rviz.launch.py ==================
+# ================== FILE 246: ros2_ws/src/simulations/mentorpi_description/launch/rviz.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -26548,17 +24571,17 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 253: ros2_ws/src/simulations/mentorpi_description/mentorpi_description/__init__.py ==================
+# ================== FILE 247: ros2_ws/src/simulations/mentorpi_description/mentorpi_description/__init__.py ==================
 
 
 
 
-# ================== FILE 254: ros2_ws/src/simulations/mentorpi_description/resource/mentorpi_description ==================
+# ================== FILE 248: ros2_ws/src/simulations/mentorpi_description/resource/mentorpi_description ==================
 
 
 
 
-# ================== FILE 255: ros2_ws/src/simulations/mentorpi_description/rviz/view.rviz ==================
+# ================== FILE 249: ros2_ws/src/simulations/mentorpi_description/rviz/view.rviz ==================
 
 Panels:
   - Class: rviz_common/Displays
@@ -26821,7 +24844,7 @@ Window Geometry:
   Y: 153
 
 
-# ================== FILE 256: ros2_ws/src/simulations/mentorpi_description/test/test_copyright.py ==================
+# ================== FILE 250: ros2_ws/src/simulations/mentorpi_description/test/test_copyright.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -26850,7 +24873,7 @@ def test_copyright():
     assert rc == 0, 'Found errors'
 
 
-# ================== FILE 257: ros2_ws/src/simulations/mentorpi_description/test/test_flake8.py ==================
+# ================== FILE 251: ros2_ws/src/simulations/mentorpi_description/test/test_flake8.py ==================
 
 # Copyright 2017 Open Source Robotics Foundation, Inc.
 #
@@ -26879,7 +24902,7 @@ def test_flake8():
         '\n'.join(errors)
 
 
-# ================== FILE 258: ros2_ws/src/simulations/mentorpi_description/test/test_pep257.py ==================
+# ================== FILE 252: ros2_ws/src/simulations/mentorpi_description/test/test_pep257.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -26906,7 +24929,7 @@ def test_pep257():
     assert rc == 0, 'Found code style errors / warnings'
 
 
-# ================== FILE 259: ros2_ws/src/simulations/mentorpi_description/urdf/ack.xacro ==================
+# ================== FILE 253: ros2_ws/src/simulations/mentorpi_description/urdf/ack.xacro ==================
 
 <?xml version="1.0" ?>
 <robot name="ack" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -27127,7 +25150,7 @@ def test_pep257():
 
 
 
-# ================== FILE 260: ros2_ws/src/simulations/mentorpi_description/urdf/imu.urdf.xacro ==================
+# ================== FILE 254: ros2_ws/src/simulations/mentorpi_description/urdf/imu.urdf.xacro ==================
 
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="imu" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -27154,7 +25177,7 @@ def test_pep257():
 
 
 
-# ================== FILE 261: ros2_ws/src/simulations/mentorpi_description/urdf/inertial_matrix.xacro ==================
+# ================== FILE 255: ros2_ws/src/simulations/mentorpi_description/urdf/inertial_matrix.xacro ==================
 
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="inertial_matrix" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -27205,7 +25228,7 @@ def test_pep257():
 </robot>
 
 
-# ================== FILE 262: ros2_ws/src/simulations/mentorpi_description/urdf/lidar.urdf.xacro ==================
+# ================== FILE 256: ros2_ws/src/simulations/mentorpi_description/urdf/lidar.urdf.xacro ==================
 
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="lidar_a1" xmlns:xacro="http://ros.org/wiki/xacro" >
@@ -27221,7 +25244,7 @@ def test_pep257():
 </robot>
 
 
-# ================== FILE 263: ros2_ws/src/simulations/mentorpi_description/urdf/materials.xacro ==================
+# ================== FILE 257: ros2_ws/src/simulations/mentorpi_description/urdf/materials.xacro ==================
 
 <?xml version="1.0"?>
 <robot name="material" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -27259,7 +25282,7 @@ def test_pep257():
 </robot>
 
 
-# ================== FILE 264: ros2_ws/src/simulations/mentorpi_description/urdf/mecanum.xacro ==================
+# ================== FILE 258: ros2_ws/src/simulations/mentorpi_description/urdf/mecanum.xacro ==================
 
 <?xml version="1.0" ?>
 <robot name="mecanum" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -27479,7 +25502,7 @@ def test_pep257():
 </robot>
 
 
-# ================== FILE 265: ros2_ws/src/simulations/mentorpi_description/urdf/mentorpi.xacro ==================
+# ================== FILE 259: ros2_ws/src/simulations/mentorpi_description/urdf/mentorpi.xacro ==================
 
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="rosmentor" xmlns:xacro="http://ros.org/wiki/xacro">

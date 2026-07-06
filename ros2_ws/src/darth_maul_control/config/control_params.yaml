@@ -54,10 +54,14 @@ darth_maul_control:
     lidar_diagnostic_min_samples: 3
 
     # Straight translation distance authority.
-    # In final maze mode, straight completion must come from front/rear LiDAR
-    # range progress. Odom is allowed only as a sanity bound and diagnostic.
-    # It must not complete a drive when LiDAR progress is missing or inconsistent.
+    # LiDAR remains the preferred progress source whenever front/rear range
+    # progress is physically meaningful and internally consistent. If LiDAR
+    # becomes unavailable or contradictory, use odom only as a bounded fallback
+    # while yaw remains sane, then keep correcting from LiDAR geometry whenever
+    # side, front, rear, or Manhattan wall references reappear.
     translation_progress_source: lidar_required
+    translation_odom_fallback_enabled: true
+    translation_odom_fallback_max_heading_error_rad: 0.090
 
     # If required LiDAR progress becomes invalid after temporal recovery is exhausted,
     # hold zero velocity briefly, then fail instead of completing from odom.
