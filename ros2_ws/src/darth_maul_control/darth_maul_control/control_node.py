@@ -2603,11 +2603,25 @@ class DarthMaulControlNode(Node):
             front_guard_source = 'unavailable'
             front_guard_reason = 'front guard inactive'
 
-            if (
+            stale_forward_error_m = float(commanded_distance) - float(last_progress)
+
+            front_guard_should_check = bool(
                 self.grid_cell_settle_front_guard_enabled
-                and longitudinal_valid
-                and longitudinal_error_m > 0.0
-            ):
+                and direction > 0.0
+                and (
+                    (
+                        longitudinal_valid
+                        and longitudinal_error_m > 0.0
+                    )
+                    or (
+                        not longitudinal_valid
+                        and stale_forward_error_m
+                        > self.grid_cell_settle_position_tolerance_m
+                    )
+                )
+            )
+
+            if front_guard_should_check:
                 front_guard_distance_m, front_guard_source = (
                     self._settle_front_distance(current_ranges)
                 )
@@ -2621,7 +2635,7 @@ class DarthMaulControlNode(Node):
                         f'front guard active: {front_guard_source}='
                         f'{front_guard_distance_m:.3f} m <= '
                         f'{self.grid_cell_settle_min_front_distance_m:.3f} m; '
-                        'suppressing forward longitudinal settle'
+                        'accepting longitudinal settle without forward creep'
                     )
                 else:
                     front_guard_reason = (
@@ -2630,10 +2644,25 @@ class DarthMaulControlNode(Node):
                         f'{self.grid_cell_settle_min_front_distance_m:.3f} m'
                     )
 
+            if front_guard_active and not longitudinal_valid:
+                longitudinal_valid = True
+                longitudinal_error_m = 0.0
+                longitudinal_source = f'front_guard/{front_guard_source}'
+                longitudinal_reason = (
+                    f'{front_guard_reason}; original longitudinal unavailable: '
+                    f'{progress_selection.reason}'
+                )
+
             if longitudinal_valid:
                 last_position_error = abs(longitudinal_error_m)
             else:
                 last_position_error = abs(float(commanded_distance) - last_progress)
+
+            if front_guard_active:
+                last_position_error = min(
+                    last_position_error,
+                    self.grid_cell_settle_position_tolerance_m,
+                )
 
             if heading_error > self.grid_cell_settle_abort_heading_error_rad:
                 self.publish_zero_twist()
