@@ -1,0 +1,242 @@
+darth_maul_control:
+  ros__parameters:
+    # Topics
+    odom_topic: "/odom"
+    scan_topic: "/ldlidar_node/scan"
+    cmd_vel_topic: "/controller/cmd_vel"
+    status_topic: "/darth_maul_control/status"
+
+    # Robot/maze constants
+    cell_length_m: 0.254
+
+    # Main loop
+    control_rate_hz: 25.0
+
+    # Default tolerances
+    default_position_tolerance_m: 0.045
+    default_heading_tolerance_rad: 0.075
+
+    # Fast but still bounded real-robot defaults.
+    default_linear_speed_mps: 0.135
+    default_reverse_speed_mps: 0.055
+    default_angular_speed_radps: 0.420
+
+    max_linear_x_mps: 0.150
+    max_linear_y_mps: 0.050
+    max_angular_z_radps: 0.550
+
+    # Minimum commands to overcome static friction.
+    # These are only used while outside tolerance.
+    min_linear_x_mps: 0.025
+    min_angular_z_radps: 0.080
+
+    # Capped-P gains
+    k_distance: 0.90
+    k_heading: 1.70
+
+    # Acceleration limiting
+    max_linear_accel_mps2: 0.360
+    max_lateral_accel_mps2: 0.180
+    max_angular_accel_radps2: 1.300
+
+    # Sensor freshness
+    odom_timeout_sec: 0.50
+    scan_timeout_sec: 0.50
+
+    # LiDAR front stop
+    require_scan_for_forward: true
+    front_sector_deg: 35.0
+    front_stop_distance_m: 0.09
+
+    # LiDAR cardinal-sector diagnostics.
+    lidar_diagnostics_enabled: true
+    lidar_diagnostic_sector_width_deg: 10.0
+    lidar_diagnostic_min_samples: 3
+
+    # Straight translation distance authority.
+    # In final maze mode, straight completion must come from front/rear LiDAR
+    # range progress. Odom is allowed only as a sanity bound and diagnostic.
+    # It must not complete a drive when LiDAR progress is missing or inconsistent.
+    translation_progress_source: lidar_required
+
+    # If required LiDAR progress becomes invalid after temporal recovery is exhausted,
+    # hold zero velocity briefly, then fail instead of completing from odom.
+    translation_lidar_required_invalid_max_consecutive_samples: 4
+
+    # Maximum allowed disagreement between front and rear LiDAR progress.
+    # If both are valid and disagree more than this, reject LiDAR progress.
+    lidar_progress_max_disagreement_m: 0.035
+
+    # Reject negative LiDAR progress below this threshold.
+    lidar_progress_min_m: -0.010
+
+    # Allow one valid source, front-only or rear-only, when the other side is invalid.
+    # Needed for long corridors where only one cardinal reference is visible.
+    lidar_progress_allow_single_source: true
+
+    # Reject LiDAR progress if it is implausibly ahead of odom.
+    # Odom is not trusted as truth, but it is still useful as a sanity bound.
+    lidar_progress_max_ahead_of_odom_m: 0.075
+
+    # Diagnostic warning threshold for odom/LiDAR disagreement.
+    lidar_odom_warning_threshold_m: 0.030
+
+    # LiDAR grid-alignment estimation.
+    # Used for diagnostics and, when explicitly enabled below, low-gain straight-drive yaw correction.
+    grid_alignment_diagnostics_enabled: true
+
+    # Expected distance from robot centerline to one side wall when centered.
+    # This is used only for one-wall lateral error diagnostics.
+    grid_alignment_expected_half_width_m: 0.125
+
+    # A geometrically valid side-wall line is only an adjacent current-cell wall
+    # if its fitted offset is close to the expected centered side-wall offset.
+    #
+    # Expected centered offsets:
+    #   left adjacent wall:  +grid_alignment_expected_half_width_m
+    #   right adjacent wall: -grid_alignment_expected_half_width_m
+    #
+    # Example from lab:
+    #   right offset -0.142 is adjacent for expected -0.125
+    #   left offset +0.350 is not adjacent for expected +0.125
+    grid_alignment_adjacent_wall_tolerance_m: 0.080
+
+    # If both side-wall lines are individually adjacent, they are only used as
+    # a paired left_right corridor if their observed width is plausible.
+    # observed_width = left.offset_m - right.offset_m
+    # expected_width = 2 * grid_alignment_expected_half_width_m
+    grid_alignment_pair_width_tolerance_m: 0.080
+
+    # Side wall candidate filter in robot base frame.
+    # x is forward, y is left. A useful side wall must have enough points
+    # beside the robot over a longitudinal span.
+    grid_alignment_min_x_m: -0.18
+    grid_alignment_max_x_m: 0.45
+
+    # Reject walls too close to be reliable and far walls seen through openings.
+    # This is intentionally conservative to avoid chasing distant cross-walls.
+    grid_alignment_min_side_distance_m: 0.06
+    grid_alignment_max_side_distance_m: 0.45
+
+    # Minimum support for line fitting.
+    grid_alignment_min_points: 8
+    grid_alignment_min_span_x_m: 0.12
+
+    # Reject noisy/curved/corner-like clusters.
+    grid_alignment_max_rms_error_m: 0.025
+    grid_alignment_max_abs_yaw_error_rad: 0.35
+
+    # Clamp reported diagnostics so invalid estimates never explode logs.
+    grid_alignment_max_reported_error_m: 0.30
+    grid_alignment_max_reported_yaw_rad: 0.50
+
+    # Live map-aware grid tracking for compressed straight runs.
+    #
+    # This is the active straight-drive controller:
+    #   linear.x  = front/rear LiDAR distance progress
+    #   linear.y  = side-wall lateral centering when an expected side wall is observable
+    #   angular.z = global Manhattan yaw from clean LiDAR wall lines
+    #   fallback  = odom/IMU heading hold when Manhattan yaw is unobservable
+    grid_live_control_enabled: true
+
+    # Global Manhattan yaw estimator.
+    #
+    # This uses all clean wall line segments in the LiDAR scan to estimate
+    # the robot yaw error relative to the orthogonal maze grid. It does not
+    # require adjacent side walls and must not be used for lateral centering.
+    grid_manhattan_yaw_enabled: true
+    grid_manhattan_yaw_min_range_m: 0.08
+    grid_manhattan_yaw_max_range_m: 2.50
+    grid_manhattan_yaw_max_point_gap_m: 0.055
+    grid_manhattan_yaw_max_range_jump_m: 0.080
+    grid_manhattan_yaw_min_cluster_points: 8
+    grid_manhattan_yaw_min_segment_points: 8
+    grid_manhattan_yaw_min_segment_length_m: 0.120
+    grid_manhattan_yaw_max_line_rms_m: 0.020
+    grid_manhattan_yaw_min_line_count: 1
+    grid_manhattan_yaw_min_total_weight: 0.20
+    grid_manhattan_yaw_min_concentration: 0.70
+    grid_manhattan_yaw_min_confidence: 0.55
+    grid_manhattan_yaw_max_abs_error_rad: 0.140
+
+    # Positive lateral error means the desired grid centerline is left of the robot.
+    # Positive cmd.linear.y should strafe left.
+    k_grid_lateral: 1.60
+    max_grid_lateral_mps: 0.045
+    grid_lateral_min_confidence: 0.55
+
+    # Controller gain for global Manhattan yaw.
+    # Reuses the live yaw command cap, but yaw observation is no longer
+    # tied to expected adjacent side walls.
+    k_grid_live_yaw: 2.40
+    max_grid_live_yaw_correction_radps: 0.140
+
+    # Side-wall yaw quality gate for local centering lines.
+    # This is not the global Manhattan yaw max error.
+    grid_live_max_abs_yaw_error_rad: 0.120
+
+    # Stricter side-wall-line quality for local centering than diagnostics.
+    grid_live_min_span_x_m: 0.120
+    grid_live_min_support_count: 8
+    grid_live_max_rms_error_m: 0.025
+
+    # Virtual-cell tracking inside compressed long runs.
+    grid_virtual_cell_boundary_margin_m: 0.025
+
+    # Reacquisition after an open or unobservable section.
+    grid_reacquire_stable_samples: 3
+    grid_reacquire_small_yaw_rad: 0.055
+    grid_reacquire_large_yaw_rad: 0.200
+    grid_reacquire_speed_scale: 0.65
+
+    # Destination-cell settle/snap after each forward translation.
+    # This is intentionally short and bounded. It does not split compressed runs;
+    # it only prevents starting the next rotate from a badly off-center cell pose.
+    grid_cell_settle_enabled: true
+    grid_cell_settle_timeout_sec: 2.0
+    grid_cell_settle_max_linear_x_mps: 0.045
+    grid_cell_settle_max_linear_y_mps: 0.030
+    grid_cell_settle_max_yaw_radps: 0.100
+    grid_cell_settle_position_tolerance_m: 0.025
+    grid_cell_settle_lateral_tolerance_m: 0.020
+    grid_cell_settle_heading_tolerance_rad: 0.060
+    grid_cell_settle_require_longitudinal_reference: false
+    grid_cell_settle_abort_position_error_m: 0.120
+    grid_cell_settle_abort_heading_error_rad: 0.220
+
+    # Calibrated front/rear ranges when the robot is centered in one cell.
+    # Do not assume this is exactly cell_length_m / 2. Measure it on the real robot
+    # because LiDAR mounting offset and wall/socket geometry change the value.
+    grid_center_expected_front_distance_m: 0.125
+    grid_center_expected_rear_distance_m: 0.125
+    grid_center_front_rear_agreement_tolerance_m: 0.035
+
+    # LiDAR-only temporal progress resilience. This does not use odom as a
+    # completion fallback. It only prevents one bad front/rear frame from
+    # aborting when a previously trusted LiDAR source remains monotonic.
+    lidar_progress_temporal_filter_enabled: true
+    lidar_progress_temporal_max_backtrack_m: 0.020
+    lidar_progress_temporal_max_jump_m: 0.080
+    lidar_progress_temporal_max_degraded_samples: 6
+
+    # Rotation remains odom/IMU primary. The next straight segment corrects
+    # accumulated yaw/lateral error live when legal wall geometry reappears.
+    rotate_timeout_accept_heading_error_rad: 0.090
+
+    # Movement diagnostics. These are no longer "diagnostic only" philosophically:
+    # the live controller actively uses lateral error when observable.
+    grid_lateral_drift_diagnostics_enabled: true
+    grid_lateral_drift_require_left_right: false
+    grid_lateral_drift_min_confidence: 0.55
+
+    # Timing
+    timeout_margin_sec: 5.0
+    wait_timeout_margin_sec: 1.0
+
+    # Stop behavior
+    stop_publish_duration_sec: 0.30
+    stop_publish_rate_hz: 25.0
+    settle_time_sec: 0.10
+
+    # Final validation
+    enforce_final_error: true

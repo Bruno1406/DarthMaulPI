@@ -1,0 +1,170 @@
+# Goal
+# Execute one simple odom/LiDAR-based motion primitive.
+#
+# Coordinate convention:
+# - DRIVE_FORWARD: value is meters forward, must be > 0.
+# - DRIVE_BACKWARD: value is meters backward, must be > 0.
+# - ROTATE_RELATIVE: value is signed radians, positive counterclockwise.
+# - STOP: value ignored.
+# - WAIT: value is seconds.
+# - ADVANCE_CELL: value ignored, uses configured cell_length_m.
+
+uint8 DRIVE_FORWARD=1
+uint8 DRIVE_BACKWARD=2
+uint8 ROTATE_RELATIVE=3
+uint8 STOP=4
+uint8 WAIT=5
+uint8 ADVANCE_CELL=6
+
+uint8 primitive_type
+float32 value
+
+# Optional tolerances. <= 0 means use configured defaults.
+float32 position_tolerance_m
+float32 heading_tolerance_rad
+
+# Optional per-goal velocity caps. <= 0 means use configured defaults.
+float32 max_linear_x_mps
+float32 max_linear_y_mps
+float32 max_angular_z_radps
+
+# Optional timeout. <= 0 means compute from distance/speed plus configured margin.
+float32 timeout_s
+
+# If true, forward motion requires fresh LiDAR and stops if front is blocked.
+bool collision_check_enabled
+
+# Optional known-grid context for map-aware live corridor tracking.
+# Defaults/empty mean "no map context", so the controller falls back to
+# odom heading hold plus mapless diagnostics.
+#
+# grid_l uses the README maze encoding:
+#   1 = +x wall
+#   2 = -x wall
+#   4 = +y wall
+#   8 = -y wall
+#   15 = missing/unreachable cell
+#
+# grid_heading uses the same encoding as start_orientation:
+#   1 = +x
+#   2 = -x
+#   4 = +y
+#   8 = -y
+uint8 grid_n
+uint8 grid_m
+int16 grid_start_idx
+uint8 grid_heading
+uint8 grid_run_cells
+uint8[] grid_l
+
+---
+# Result
+
+bool success
+
+uint8 SUCCESS=0
+uint8 REJECTED_INVALID_GOAL=1
+uint8 TIMEOUT=2
+uint8 OBSTACLE_TOO_CLOSE=3
+uint8 FINAL_ERROR_TOO_LARGE=4
+uint8 CANCELED=5
+uint8 ODOM_UNAVAILABLE=6
+uint8 INTERNAL_ERROR=7
+
+uint8 result_code
+string message
+
+float32 final_position_error_m
+float32 final_heading_error_rad
+
+# Translation diagnostics. These are populated for DRIVE_FORWARD,
+# DRIVE_BACKWARD, and ADVANCE_CELL. For non-translation primitives,
+# valid flags are false and numeric fields are zero.
+float32 final_odom_progress_m
+
+bool front_range_valid
+float32 front_range_start_m
+float32 front_range_end_m
+float32 front_progress_m
+
+bool rear_range_valid
+float32 rear_range_start_m
+float32 rear_range_end_m
+float32 rear_progress_m
+
+bool left_range_valid
+float32 left_range_start_m
+float32 left_range_end_m
+
+bool right_range_valid
+float32 right_range_start_m
+float32 right_range_end_m
+
+bool lidar_progress_valid
+float32 lidar_progress_m
+float32 lidar_minus_odom_m
+
+# Progress source actually used for translation stopping.
+# For non-translation primitives these remain default/empty.
+float32 final_control_progress_m
+string progress_source_used
+
+# LiDAR progress selection details.
+string lidar_progress_source
+float32 lidar_progress_disagreement_m
+string lidar_progress_reason
+string control_progress_reason
+
+# LiDAR grid-alignment diagnostics.
+bool grid_alignment_valid
+bool grid_yaw_valid
+float32 grid_yaw_error_rad
+bool grid_lateral_valid
+float32 grid_lateral_error_m
+string grid_alignment_source
+float32 grid_alignment_confidence
+string grid_alignment_reason
+
+# Straight-drive grid-yaw control diagnostics. These are populated for
+# DRIVE_FORWARD, DRIVE_BACKWARD, and ADVANCE_CELL. They remain false/zero/empty
+# for non-translation primitives.
+bool grid_yaw_correction_used
+float32 final_grid_yaw_correction_radps
+string grid_yaw_control_reason
+
+# Movement-parallelity diagnostics. Positive drift means the desired grid
+# centerline moved left relative to the robot over the segment. Negative means
+# it moved right relative to the robot. This is diagnostic only, not control.
+bool grid_lateral_start_valid
+float32 grid_lateral_start_error_m
+bool grid_lateral_end_valid
+float32 grid_lateral_end_error_m
+bool grid_lateral_drift_valid
+float32 grid_lateral_drift_m
+float32 grid_lateral_drift_per_m
+string grid_lateral_drift_reason
+
+bool left_wall_line_valid
+float32 left_wall_offset_m
+float32 left_wall_yaw_error_rad
+float32 left_wall_rms_error_m
+float32 left_wall_span_x_m
+uint16 left_wall_support_count
+string left_wall_reason
+
+bool right_wall_line_valid
+float32 right_wall_offset_m
+float32 right_wall_yaw_error_rad
+float32 right_wall_rms_error_m
+float32 right_wall_span_x_m
+uint16 right_wall_support_count
+string right_wall_reason
+
+---
+# Feedback
+
+float32 progress
+float32 distance_remaining_m
+float32 heading_remaining_rad
+float32 front_clearance_m
+string state

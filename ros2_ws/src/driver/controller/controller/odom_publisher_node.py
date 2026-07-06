@@ -78,9 +78,10 @@ class Controller(Node):
         self.linear_x = 0.0
         self.linear_y = 0.0
         self.angular_z = 0.0
-        self.pose_yaw = 0
+        self.pose_yaw = 0.0
         self.last_time = None
         self.current_time = None
+        self.odom_lock = threading.RLock()
         signal.signal(signal.SIGINT, self.shutdown)
 
         self.ackermann = ackermann.AckermannChassis(wheelbase=0.145, track_width=0.133, wheel_diameter=0.067)
@@ -156,26 +157,42 @@ class Controller(Node):
         return response
 
     def set_odom(self, msg):
-        self.odom = Odometry()
-        self.odom.header.frame_id = self.odom_frame_id
-        self.odom.child_frame_id = self.base_frame_id
-        
-        self.odom.pose.covariance = ODOM_POSE_COVARIANCE
-        self.odom.twist.covariance = ODOM_TWIST_COVARIANCE
-        self.odom.pose.pose.position.x = msg.x
-        self.odom.pose.pose.position.y = msg.y
-        self.pose_yaw = msg.theta
-        self.odom.pose.pose.orientation = rpy2qua(0, 0, self.pose_yaw)
-        
-        self.linear_x = 0
-        self.linear_y = 0
-        self.angular_z = 0
-        
-        pose = PoseWithCovarianceStamped()
-        pose.header.frame_id = self.odom_frame_id
-        pose.header.stamp = self.clock().now().to_msg()
-        pose.pose.pose = self.odom.pose.pose
-        pose.pose.covariance = ODOM_POSE_COVARIANCE
+        reset_x = float(msg.x)
+        reset_y = float(msg.y)
+        reset_yaw = float(msg.theta)
+        linear_factor = float(self.linear_factor)
+
+        with self.odom_lock:
+            if linear_factor != 0.0:
+                self.x = reset_x / linear_factor
+                self.y = reset_y / linear_factor
+            else:
+                self.x = reset_x
+                self.y = reset_y
+
+            self.pose_yaw = reset_yaw
+            self.linear_x = 0.0
+            self.linear_y = 0.0
+            self.angular_z = 0.0
+
+            self.odom = Odometry()
+            self.odom.header.frame_id = self.odom_frame_id
+            self.odom.child_frame_id = self.base_frame_id
+
+            self.odom.pose.covariance = ODOM_POSE_COVARIANCE
+            self.odom.twist.covariance = ODOM_TWIST_COVARIANCE
+            self.odom.pose.pose.position.x = reset_x
+            self.odom.pose.pose.position.y = reset_y
+            self.odom.pose.pose.orientation = rpy2qua(0.0, 0.0, self.pose_yaw)
+            self.odom.twist.twist.linear.x = self.linear_x
+            self.odom.twist.twist.linear.y = self.linear_y
+            self.odom.twist.twist.angular.z = self.angular_z
+
+            pose = PoseWithCovarianceStamped()
+            pose.header.frame_id = self.odom_frame_id
+            pose.header.stamp = self.clock.now().to_msg()
+            pose.pose.pose = self.odom.pose.pose
+            pose.pose.covariance = ODOM_POSE_COVARIANCE
         self.pose_pub.publish(pose)
 
     def app_cmd_vel_callback(self, msg):
@@ -192,49 +209,34 @@ class Controller(Node):
         if msg.angular.z < -0.5:
             msg.angular.z = -0.5
         self.cmd_vel_callback(msg)
-    # def cmd_vel_callback(self, msg):
-    #     if self.machine_type == 'MentorPi_Mecanum':
-    #         self.linear_x = msg.linear.x
-    #         self.linear_y = msg.linear.y
-    #         self.angular_z = msg.angular.z
-    #         speeds = self.mecanum.set_velocity(self.linear_x, self.linear_y, self.angular_z)
-    #         self.motor_pub.publish(speeds)
-    #     elif self.machine_type == 'MentorPi_Acker':
-    #         self.linear_x = msg.linear.x
-    #         if msg.angular.z != 0:
-    #             r = self.linear_x / msg.angular.z
-    #             self.angular_z = msg.angular.z
-    #         else:
-    #             self.angular_z = 0.0
-    #         speeds = self.ackermann.set_velocity(self.linear_x, self.angular_z)
-    #         self.motor_pub.publish(speeds[1])
-    #         if speeds[0] is not None:
-    #             servo_state = PWMServoState()
-    #             servo_state.id = [3]
-    #             servo_state.position = [int(speeds[0])]
-    #             data = SetPWMServoState()
-    #             data.state = [servo_state]
-    #             data.duration = 0.02
-    #             self.servo_state_pub.publish(data)
+
     def cmd_vel_callback(self, msg):
         if self.machine_type == 'MentorPi_Mecanum':
-            self.linear_x = msg.linear.x
-            self.linear_y = msg.linear.y
-            self.angular_z = msg.angular.z
-            speeds = self.mecanum.set_velocity(self.linear_x, self.linear_y, self.angular_z)
+            with self.odom_lock:
+                self.linear_x = float(msg.linear.x)
+                self.linear_y = float(msg.linear.y)
+                self.angular_z = float(msg.angular.z)
+                linear_x = self.linear_x
+                linear_y = self.linear_y
+                angular_z = self.angular_z
+            speeds = self.mecanum.set_velocity(linear_x, linear_y, angular_z)
             self.motor_pub.publish(speeds)
         elif self.machine_type == 'MentorPi_Acker':
-            self.linear_x = msg.linear.x
+            linear_x = float(msg.linear.x)
 
             if msg.angular.z != 0:
-                r = self.linear_x / msg.angular.z
+                angular_z = float(msg.angular.z)
+                r = linear_x / angular_z
                 if r == 0:
-                    self.angular_z = 0.0
+                    angular_z = 0.0
                 else:
-                    self.angular_z = msg.angular.z
+                    angular_z = float(msg.angular.z)
+                with self.odom_lock:
+                    self.linear_x = linear_x
+                    self.angular_z = angular_z
                 servo_state = PWMServoState()
                 servo_state.id = [3]
-                speeds = self.ackermann.set_velocity(self.linear_x, self.angular_z)
+                speeds = self.ackermann.set_velocity(linear_x, angular_z)
                 self.motor_pub.publish(speeds[1])
                 
                 if speeds[0] is not None:
@@ -244,44 +246,59 @@ class Controller(Node):
                     data.duration = 0.02
                     self.servo_state_pub.publish(data)
             else:
-                self.angular_z = 0.0
-                speeds = self.ackermann.set_velocity(self.linear_x, self.angular_z)
+                with self.odom_lock:
+                    self.linear_x = linear_x
+                    self.angular_z = 0.0
+                speeds = self.ackermann.set_velocity(linear_x, 0.0)
                 self.motor_pub.publish(speeds[1])
 
     def cal_odom_fun(self):
         while True:
-            self.current_time = time.time()
-            if self.last_time is None:
-                self.dt = 0.0
-            else:
-                self.dt = self.current_time - self.last_time
+            with self.odom_lock:
+                self.current_time = time.time()
+                if self.last_time is None:
+                    self.dt = 0.0
+                else:
+                    self.dt = self.current_time - self.last_time
 
-            self.odom.header.stamp = self.clock.now().to_msg()
-            
-            delta_x = self.linear_x * self.dt * math.cos(self.pose_yaw)
-            delta_y = self.linear_x * self.dt * math.sin(self.pose_yaw)
-            delta_yaw = self.angular_z * self.dt
+                self.odom.header.stamp = self.clock.now().to_msg()
 
-            self.x += delta_x
-            self.y += delta_y
-            self.pose_yaw += delta_yaw
+                delta_x = (
+                    (
+                        self.linear_x * math.cos(self.pose_yaw)
+                        - self.linear_y * math.sin(self.pose_yaw)
+                    )
+                    * self.dt
+                )
+                delta_y = (
+                    (
+                        self.linear_x * math.sin(self.pose_yaw)
+                        + self.linear_y * math.cos(self.pose_yaw)
+                    )
+                    * self.dt
+                )
+                delta_yaw = self.angular_z * self.dt
 
-            self.odom.pose.pose.position.x = self.linear_factor * self.x
-            self.odom.pose.pose.position.y = self.linear_factor * self.y
-            self.odom.pose.pose.orientation = rpy2qua(0.0, 0.0, self.pose_yaw)
-            self.odom.twist.twist.linear.x = self.linear_x
-            self.odom.twist.twist.linear.y = self.linear_y
-            self.odom.twist.twist.angular.z = self.angular_z
+                self.x += delta_x
+                self.y += delta_y
+                self.pose_yaw += delta_yaw
 
-            if self.linear_x == 0 and self.linear_y == 0 and self.angular_z == 0:
-                self.odom.pose.covariance = ODOM_POSE_COVARIANCE_STOP
-                self.odom.twist.covariance = ODOM_TWIST_COVARIANCE_STOP
-            else:
-                self.odom.pose.covariance = ODOM_POSE_COVARIANCE
-                self.odom.twist.covariance = ODOM_TWIST_COVARIANCE
+                self.odom.pose.pose.position.x = self.linear_factor * self.x
+                self.odom.pose.pose.position.y = self.linear_factor * self.y
+                self.odom.pose.pose.orientation = rpy2qua(0.0, 0.0, self.pose_yaw)
+                self.odom.twist.twist.linear.x = self.linear_x
+                self.odom.twist.twist.linear.y = self.linear_y
+                self.odom.twist.twist.angular.z = self.angular_z
 
-            self.odom_pub.publish(self.odom)
-            self.last_time = self.current_time
+                if self.linear_x == 0.0 and self.linear_y == 0.0 and self.angular_z == 0.0:
+                    self.odom.pose.covariance = ODOM_POSE_COVARIANCE_STOP
+                    self.odom.twist.covariance = ODOM_TWIST_COVARIANCE_STOP
+                else:
+                    self.odom.pose.covariance = ODOM_POSE_COVARIANCE
+                    self.odom.twist.covariance = ODOM_TWIST_COVARIANCE
+
+                self.odom_pub.publish(self.odom)
+                self.last_time = self.current_time
             time.sleep(0.02)
 
 
@@ -290,4 +307,3 @@ def main():
     rclpy.spin(node)  
 if __name__ == "__main__":
     main()
-
