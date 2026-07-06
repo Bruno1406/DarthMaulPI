@@ -2,6 +2,8 @@
 import rclpy
 from rclpy.node import Node
 import numpy as np
+from enum import Enum
+from std_msgs.msg import UInt8
 import math
 
 from geometry_msgs.msg import Twist, PoseStamped # /pose topic'i için eklendi
@@ -18,6 +20,12 @@ class AStarNode:
 
     def __eq__(self, other):
         return self.position == other.position
+    
+class ExplorationState(Enum):
+    EXPLORING = 1
+    NAVIGATING = 2
+    COMPLETED = 3
+    PAUSED = 4
 
 class FrontierExplorer(Node):
     def __init__(self):
@@ -48,12 +56,21 @@ class FrontierExplorer(Node):
             '/cmd_vel', 
             10
         )
+
+        self.exploration_state_pub = self.create_publisher(
+            UInt8, 
+            '/exploration_state', 
+            10
+        )
+            
+
+        self.pause_serv = self.create_service(SetBool, '/pause_exploration', self.pause_callback)
         
         # =========================================================================
         # 2. CONTROL LOOP TIMERS & STATE MACHINE
         # =========================================================================
         self.control_timer = self.create_timer(0.1, self.control_loop)
-        self.state = 'EXPLORING' # Internal states: 'EXPLORING', 'NAVIGATING', 'COMPLETED'
+        self.state = ExplorationState.EXPLORING # Internal states: 'EXPLORING', 'NAVIGATING', 'COMPLETED'
         
         # =========================================================================
         # 3. MAP & NAVIGATION VARIABLES
@@ -94,10 +111,11 @@ class FrontierExplorer(Node):
 
     def control_loop(self):
         """Main periodic finite-state machine handling navigation tasks."""
+        self.exploration_state_pub.publish(UInt8(data=self.state.value))
         if self.grid_map is None:
             return
 
-        if self.state == 'EXPLORING':
+        if self.state == ExplorationState.EXPLORING:
             frontiers = self.find_frontiers()
             best_target = self.select_best_frontier(frontiers)
             
@@ -108,20 +126,20 @@ class FrontierExplorer(Node):
                 self.current_path = self.a_star_pathfind(start_pos, best_target)
                 
                 if self.current_path and len(self.current_path) > 1:
-                    self.state = 'NAVIGATING'
+                    self.state = ExplorationState.NAVIGATING
                     self.current_path.pop(0) 
             else:
-                self.state = 'COMPLETED'
+                self.state = ExplorationState.COMPLETED
                 self.get_logger().info('Maze fully mapped. No additional frontiers discovered.')
                 self.stop_robot()
 
-        elif self.state == 'NAVIGATING':
+        elif self.state == ExplorationState.NAVIGATING:
             self.navigate_along_path()
 
     def navigate_along_path(self):
         """Generates proactive Twist signals to track calculated route waypoints."""
         if not self.current_path:
-            self.state = 'EXPLORING'
+            self.state = ExplorationState.EXPLORING
             return
             
         target_x, target_y = self.current_path[0]
@@ -133,7 +151,7 @@ class FrontierExplorer(Node):
         if distance_to_target < 1.0: 
             self.current_path.pop(0)
             if not self.current_path:
-                self.state = 'EXPLORING'
+                self.state = ExplorationState.EXPLORING
                 self.stop_robot()
                 return
             return
@@ -226,6 +244,19 @@ class FrontierExplorer(Node):
 
                 open_list.append(child)
         return []
+    
+    def pause_callback(self, request, response):
+        """Service callback to pause or resume exploration."""
+        if request.data:
+            self.state = ExplorationState.PAUSED
+            self.stop_robot()
+            response.success = True
+            response.message = "Exploration paused."
+        else:
+            self.state = ExplorationState.EXPLORING
+            response.success = True
+            response.message = "Exploration resumed."
+        return response
 
     def stop_robot(self):
         twist_msg = Twist()
