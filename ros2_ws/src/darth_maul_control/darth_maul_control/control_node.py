@@ -738,9 +738,9 @@ class DarthMaulControlNode(Node):
             'grid_cell_settle_front_guard_enabled',
             True,
         )
-        self.grid_cell_settle_front_guard_margin_m = self._nonnegative_float_param(
-            'grid_cell_settle_front_guard_margin_m',
-            0.010,
+        self.grid_cell_settle_min_front_distance_m = self._positive_float_param(
+            'grid_cell_settle_min_front_distance_m',
+            0.120,
         )
         self.grid_center_expected_front_distance_m = self._positive_float_param(
             'grid_center_expected_front_distance_m',
@@ -2611,30 +2611,23 @@ class DarthMaulControlNode(Node):
                 front_guard_distance_m, front_guard_source = (
                     self._settle_front_distance(current_ranges)
                 )
-                front_guard_threshold_m = (
-                    self.grid_center_expected_front_distance_m
-                    + self.grid_cell_settle_front_guard_margin_m
-                )
                 front_guard_active = bool(
                     math.isfinite(front_guard_distance_m)
-                    and front_guard_distance_m <= front_guard_threshold_m
+                    and front_guard_distance_m
+                    <= self.grid_cell_settle_min_front_distance_m
                 )
                 if front_guard_active:
                     front_guard_reason = (
                         f'front guard active: {front_guard_source}='
                         f'{front_guard_distance_m:.3f} m <= '
-                        f'{front_guard_threshold_m:.3f} m '
-                        f'(expected={self.grid_center_expected_front_distance_m:.3f} m, '
-                        f'margin={self.grid_cell_settle_front_guard_margin_m:.3f} m); '
+                        f'{self.grid_cell_settle_min_front_distance_m:.3f} m; '
                         'suppressing forward longitudinal settle'
                     )
                 else:
                     front_guard_reason = (
                         f'front guard clear: {front_guard_source}='
                         f'{front_guard_distance_m:.3f} m > '
-                        f'{front_guard_threshold_m:.3f} m '
-                        f'(expected={self.grid_center_expected_front_distance_m:.3f} m, '
-                        f'margin={self.grid_cell_settle_front_guard_margin_m:.3f} m)'
+                        f'{self.grid_cell_settle_min_front_distance_m:.3f} m'
                     )
 
             if longitudinal_valid:
@@ -2980,21 +2973,16 @@ class DarthMaulControlNode(Node):
         self,
         ranges: Optional[LidarRangeSnapshot],
     ) -> tuple[float, str]:
-        candidates: list[tuple[float, str]] = []
-
         if ranges is not None and ranges.front.valid:
             distance = self._range_value(ranges.front)
             if math.isfinite(distance) and distance > 0.0:
-                candidates.append((float(distance), 'front_cardinal_median'))
+                return distance, 'front_cardinal_median'
 
         clearance = self._front_clearance()
         if math.isfinite(clearance) and clearance > 0.0:
-            candidates.append((float(clearance), 'front_sector_min'))
+            return float(clearance), 'front_sector_min'
 
-        if not candidates:
-            return float('inf'), 'unavailable'
-
-        return min(candidates, key=lambda item: item[0])
+        return float('inf'), 'unavailable'
 
     @staticmethod
     def _range_value(measurement: SectorRange) -> float:
