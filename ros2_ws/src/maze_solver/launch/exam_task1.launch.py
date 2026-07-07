@@ -15,6 +15,8 @@ def generate_launch_description():
     camera_face_down = LaunchConfiguration('camera_face_down')
     camera_vertical_servo_id = LaunchConfiguration('camera_vertical_servo_id')
     camera_down_position = LaunchConfiguration('camera_down_position')
+    camera_horizontal_servo_id = LaunchConfiguration('camera_horizontal_servo_id')
+    camera_left_position = LaunchConfiguration('camera_left_position')
 
     return LaunchDescription([
         DeclareLaunchArgument('maze_nr', default_value='1'),
@@ -26,6 +28,8 @@ def generate_launch_description():
         DeclareLaunchArgument('camera_face_down', default_value='true'),
         DeclareLaunchArgument('camera_vertical_servo_id', default_value='1'),
         DeclareLaunchArgument('camera_down_position', default_value='2000'),
+        DeclareLaunchArgument('camera_horizontal_servo_id', default_value='2'),
+        DeclareLaunchArgument('camera_left_position', default_value='2000'),
 
         Node(
             package='maze_solver',
@@ -36,6 +40,8 @@ def generate_launch_description():
             parameters=[{
                 'servo_id': camera_vertical_servo_id,
                 'position': camera_down_position,
+                'horizontal_servo_id': camera_horizontal_servo_id,
+                'left_position': camera_left_position,
                 'duration': 0.5,
                 'publish_for_s': 3.0,
             }],
