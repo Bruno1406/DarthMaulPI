@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 260
-Skipped files: 13649
+Skipped files: 13654
 
 # Included File Index
 
@@ -272,7 +272,7 @@ Skipped files: 13649
 - binary, media, generated, or not useful as text: 57
 - not UTF-8 text: 1
 - previous merged output: 1
-- skipped directory: 13590
+- skipped directory: 13595
 
 # File Contents
 
@@ -23402,13 +23402,13 @@ def generate_launch_description():
         DeclareLaunchArgument('start_heading', default_value='1'),
         DeclareLaunchArgument('wall_threshold_m', default_value='0.18'),
         DeclareLaunchArgument('open_threshold_m', default_value='0.30'),
-        DeclareLaunchArgument('drive_max_linear_x_mps', default_value='0.18'),
-        DeclareLaunchArgument('reverse_max_linear_x_mps', default_value='0.075'),
+        DeclareLaunchArgument('drive_max_linear_x_mps', default_value='0.22'),
+        DeclareLaunchArgument('reverse_max_linear_x_mps', default_value='0.070'),
         DeclareLaunchArgument('reverse_backtracking_enabled', default_value='true'),
         DeclareLaunchArgument('reverse_backtracking_max_consecutive_cells', default_value='1'),
-        DeclareLaunchArgument('reverse_position_tolerance_m', default_value='0.018'),
-        DeclareLaunchArgument('reverse_heading_tolerance_rad', default_value='0.180'),
-        DeclareLaunchArgument('rotate_max_angular_z_radps', default_value='0.85'),
+        DeclareLaunchArgument('reverse_position_tolerance_m', default_value='0.045'),
+        DeclareLaunchArgument('reverse_heading_tolerance_rad', default_value='0.260'),
+        DeclareLaunchArgument('rotate_max_angular_z_radps', default_value='0.95'),
         DeclareLaunchArgument('max_cells_to_visit', default_value='0'),
         DeclareLaunchArgument('output_maze_file', default_value=''),
         DeclareLaunchArgument('shutdown_on_complete', default_value='true'),
