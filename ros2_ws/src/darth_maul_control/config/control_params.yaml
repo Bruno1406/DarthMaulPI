@@ -15,7 +15,7 @@ darth_maul_control:
     # Default tolerances
     # Keep distance tight. LiDAR progress can resolve this far better than 45 mm
     # when front/rear progress is valid.
-    default_position_tolerance_m: 0.015
+    default_position_tolerance_m: 0.005
     default_heading_tolerance_rad: 0.060
 
     # Competition aggressive speed limits.
@@ -220,7 +220,7 @@ darth_maul_control:
     # Calibrated front/rear ranges when the robot is centered in one cell.
     # Do not assume this is exactly cell_length_m / 2. Measure it on the real robot
     # because LiDAR mounting offset and wall/socket geometry change the value.
-    grid_center_expected_front_distance_m: 0.125
+    grid_center_expected_front_distance_m: 0.14
     grid_center_expected_rear_distance_m: 0.125
     grid_center_front_rear_agreement_tolerance_m: 0.035
 
