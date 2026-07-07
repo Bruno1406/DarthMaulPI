@@ -448,7 +448,7 @@ class DarthMaulControlNode(Node):
 
         self.translation_odom_fallback_enabled = self._bool_param(
             'translation_odom_fallback_enabled',
-            True,
+            False,
         )
         self.translation_odom_fallback_max_heading_error_rad = (
             self._positive_float_param(
@@ -479,6 +479,18 @@ class DarthMaulControlNode(Node):
         self.lidar_progress_max_ahead_of_odom_m = self._positive_float_param(
             'lidar_progress_max_ahead_of_odom_m',
             0.075,
+        )
+        self.lidar_progress_odom_arbitration_tolerance_m = (
+            self._positive_float_param(
+                'lidar_progress_odom_arbitration_tolerance_m',
+                0.060,
+            )
+        )
+        self.lidar_progress_odom_arbitration_min_margin_m = (
+            self._nonnegative_float_param(
+                'lidar_progress_odom_arbitration_min_margin_m',
+                0.010,
+            )
         )
         self.lidar_odom_warning_threshold_m = self._positive_float_param(
             'lidar_odom_warning_threshold_m',
@@ -3123,6 +3135,13 @@ class DarthMaulControlNode(Node):
             max_disagreement_m=self.lidar_progress_max_disagreement_m,
             min_progress_m=self.lidar_progress_min_m,
             allow_single_source=self.lidar_progress_allow_single_source,
+            odom_progress_m=odom_progress_m,
+            odom_arbitration_tolerance_m=(
+                self.lidar_progress_odom_arbitration_tolerance_m
+            ),
+            odom_arbitration_min_margin_m=(
+                self.lidar_progress_odom_arbitration_min_margin_m
+            ),
         )
 
         temporal_degraded = False

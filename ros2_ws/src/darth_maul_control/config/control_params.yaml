@@ -62,7 +62,7 @@ darth_maul_control:
     # while yaw remains sane, then keep correcting from LiDAR geometry whenever
     # side, front, rear, or Manhattan wall references reappear.
     translation_progress_source: lidar_required
-    translation_odom_fallback_enabled: true
+    translation_odom_fallback_enabled: false
     translation_odom_fallback_max_heading_error_rad: 0.090
 
     # If required LiDAR progress becomes invalid after temporal recovery is exhausted,
@@ -83,6 +83,11 @@ darth_maul_control:
     # Reject LiDAR progress if it is implausibly ahead of odom.
     # Odom is not trusted as truth, but it is still useful as a sanity bound.
     lidar_progress_max_ahead_of_odom_m: 0.075
+
+    # When front/rear LiDAR progress both exist but disagree, odom is used only
+    # to choose the plausible LiDAR side. Odom is not used as final progress.
+    lidar_progress_odom_arbitration_tolerance_m: 0.060
+    lidar_progress_odom_arbitration_min_margin_m: 0.010
 
     # Diagnostic warning threshold for odom/LiDAR disagreement.
     lidar_odom_warning_threshold_m: 0.030

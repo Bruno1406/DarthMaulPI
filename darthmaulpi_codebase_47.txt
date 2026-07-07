@@ -1,8 +1,8 @@
 # DarthMaulPI Codebase Text Snapshot
 
 Project root: /home/dtdav/Development/DarthMaulPI
-Included files: 261
-Skipped files: 13499
+Included files: 260
+Skipped files: 13597
 
 # Included File Index
 
@@ -201,79 +201,78 @@ Skipped files: 13499
 193. ros2_ws/src/maze_publisher_node/LICENSE
 194. ros2_ws/src/maze_publisher_node/package.xml
 195. ros2_ws/src/maze_publisher_node/mazes/1.maze
-196. ros2_ws/src/maze_publisher_node/mazes/2.maze
-197. ros2_ws/src/maze_publisher_node/src/maze_publisher_node.cpp
-198. ros2_ws/src/maze_solver/camera_tilt_node.py
-199. ros2_ws/src/maze_solver/maze_explorer_node.py
-200. ros2_ws/src/maze_solver/maze_solver_node.py
-201. ros2_ws/src/maze_solver/package.xml
-202. ros2_ws/src/maze_solver/setup.cfg
-203. ros2_ws/src/maze_solver/setup.py
-204. ros2_ws/src/maze_solver/launch/exam_task1.launch.py
-205. ros2_ws/src/maze_solver/launch/exam_task2.launch.py
-206. ros2_ws/src/maze_solver/resource/maze_solver
-207. ros2_ws/src/orchestrator_launch/CMakeLists.txt
-208. ros2_ws/src/orchestrator_launch/package.xml
-209. ros2_ws/src/orchestrator_launch/config/mapper_params_online_async.yaml
-210. ros2_ws/src/orchestrator_launch/launch/launch_full_slam_stack.launch.py
-211. ros2_ws/src/orchestrator_launch/launch/slam_toolbox.launch.py
-212. ros2_ws/src/peripherals/package.xml
-213. ros2_ws/src/peripherals/setup.cfg
-214. ros2_ws/src/peripherals/setup.py
-215. ros2_ws/src/peripherals/config/apriltag_config.yaml
-216. ros2_ws/src/peripherals/config/camera_info.yaml
-217. ros2_ws/src/peripherals/config/usb_cam_param.yaml
-218. ros2_ws/src/peripherals/launch/apriltag.launch.py
-219. ros2_ws/src/peripherals/launch/image_pipeline.launch.py
-220. ros2_ws/src/peripherals/launch/imu_filter.launch.py
-221. ros2_ws/src/peripherals/launch/imu_view.launch.py
-222. ros2_ws/src/peripherals/launch/joystick_control.launch.py
-223. ros2_ws/src/peripherals/launch/teleop_key_control.launch.py
-224. ros2_ws/src/peripherals/launch/usb_cam.launch.py
-225. ros2_ws/src/peripherals/launch/include/ascamera.launch.py
-226. ros2_ws/src/peripherals/peripherals/__init__.py
-227. ros2_ws/src/peripherals/peripherals/demo.py
-228. ros2_ws/src/peripherals/peripherals/joystick_control.py
-229. ros2_ws/src/peripherals/peripherals/teleop_key_control.py
-230. ros2_ws/src/peripherals/peripherals/tf_broadcaster_imu.py
-231. ros2_ws/src/peripherals/resource/peripherals
-232. ros2_ws/src/peripherals/rviz/imu_view.rviz
-233. ros2_ws/src/peripherals/rviz/lidar_view.rviz
-234. ros2_ws/src/peripherals/scripts/99-obsensor-libusb.rules
-235. ros2_ws/src/peripherals/scripts/99-ttyACM0.rules
-236. ros2_ws/src/peripherals/scripts/99-usb-cam.rules
-237. ros2_ws/src/peripherals/scripts/create_udev_rules.sh
-238. ros2_ws/src/peripherals/scripts/lidar.rules
-239. ros2_ws/src/peripherals/scripts/xf_mic.rules
-240. ros2_ws/src/peripherals/test/test_copyright.py
-241. ros2_ws/src/peripherals/test/test_flake8.py
-242. ros2_ws/src/peripherals/test/test_pep257.py
-243. ros2_ws/src/simulations/mentorpi_description/package.xml
-244. ros2_ws/src/simulations/mentorpi_description/setup.cfg
-245. ros2_ws/src/simulations/mentorpi_description/setup.py
-246. ros2_ws/src/simulations/mentorpi_description/launch/display.launch.py
-247. ros2_ws/src/simulations/mentorpi_description/launch/robot_description.launch.py
-248. ros2_ws/src/simulations/mentorpi_description/launch/rviz.launch.py
-249. ros2_ws/src/simulations/mentorpi_description/mentorpi_description/__init__.py
-250. ros2_ws/src/simulations/mentorpi_description/resource/mentorpi_description
-251. ros2_ws/src/simulations/mentorpi_description/rviz/view.rviz
-252. ros2_ws/src/simulations/mentorpi_description/test/test_copyright.py
-253. ros2_ws/src/simulations/mentorpi_description/test/test_flake8.py
-254. ros2_ws/src/simulations/mentorpi_description/test/test_pep257.py
-255. ros2_ws/src/simulations/mentorpi_description/urdf/ack.xacro
-256. ros2_ws/src/simulations/mentorpi_description/urdf/imu.urdf.xacro
-257. ros2_ws/src/simulations/mentorpi_description/urdf/inertial_matrix.xacro
-258. ros2_ws/src/simulations/mentorpi_description/urdf/lidar.urdf.xacro
-259. ros2_ws/src/simulations/mentorpi_description/urdf/materials.xacro
-260. ros2_ws/src/simulations/mentorpi_description/urdf/mecanum.xacro
-261. ros2_ws/src/simulations/mentorpi_description/urdf/mentorpi.xacro
+196. ros2_ws/src/maze_publisher_node/src/maze_publisher_node.cpp
+197. ros2_ws/src/maze_solver/camera_tilt_node.py
+198. ros2_ws/src/maze_solver/maze_explorer_node.py
+199. ros2_ws/src/maze_solver/maze_solver_node.py
+200. ros2_ws/src/maze_solver/package.xml
+201. ros2_ws/src/maze_solver/setup.cfg
+202. ros2_ws/src/maze_solver/setup.py
+203. ros2_ws/src/maze_solver/launch/exam_task1.launch.py
+204. ros2_ws/src/maze_solver/launch/exam_task2.launch.py
+205. ros2_ws/src/maze_solver/resource/maze_solver
+206. ros2_ws/src/orchestrator_launch/CMakeLists.txt
+207. ros2_ws/src/orchestrator_launch/package.xml
+208. ros2_ws/src/orchestrator_launch/config/mapper_params_online_async.yaml
+209. ros2_ws/src/orchestrator_launch/launch/launch_full_slam_stack.launch.py
+210. ros2_ws/src/orchestrator_launch/launch/slam_toolbox.launch.py
+211. ros2_ws/src/peripherals/package.xml
+212. ros2_ws/src/peripherals/setup.cfg
+213. ros2_ws/src/peripherals/setup.py
+214. ros2_ws/src/peripherals/config/apriltag_config.yaml
+215. ros2_ws/src/peripherals/config/camera_info.yaml
+216. ros2_ws/src/peripherals/config/usb_cam_param.yaml
+217. ros2_ws/src/peripherals/launch/apriltag.launch.py
+218. ros2_ws/src/peripherals/launch/image_pipeline.launch.py
+219. ros2_ws/src/peripherals/launch/imu_filter.launch.py
+220. ros2_ws/src/peripherals/launch/imu_view.launch.py
+221. ros2_ws/src/peripherals/launch/joystick_control.launch.py
+222. ros2_ws/src/peripherals/launch/teleop_key_control.launch.py
+223. ros2_ws/src/peripherals/launch/usb_cam.launch.py
+224. ros2_ws/src/peripherals/launch/include/ascamera.launch.py
+225. ros2_ws/src/peripherals/peripherals/__init__.py
+226. ros2_ws/src/peripherals/peripherals/demo.py
+227. ros2_ws/src/peripherals/peripherals/joystick_control.py
+228. ros2_ws/src/peripherals/peripherals/teleop_key_control.py
+229. ros2_ws/src/peripherals/peripherals/tf_broadcaster_imu.py
+230. ros2_ws/src/peripherals/resource/peripherals
+231. ros2_ws/src/peripherals/rviz/imu_view.rviz
+232. ros2_ws/src/peripherals/rviz/lidar_view.rviz
+233. ros2_ws/src/peripherals/scripts/99-obsensor-libusb.rules
+234. ros2_ws/src/peripherals/scripts/99-ttyACM0.rules
+235. ros2_ws/src/peripherals/scripts/99-usb-cam.rules
+236. ros2_ws/src/peripherals/scripts/create_udev_rules.sh
+237. ros2_ws/src/peripherals/scripts/lidar.rules
+238. ros2_ws/src/peripherals/scripts/xf_mic.rules
+239. ros2_ws/src/peripherals/test/test_copyright.py
+240. ros2_ws/src/peripherals/test/test_flake8.py
+241. ros2_ws/src/peripherals/test/test_pep257.py
+242. ros2_ws/src/simulations/mentorpi_description/package.xml
+243. ros2_ws/src/simulations/mentorpi_description/setup.cfg
+244. ros2_ws/src/simulations/mentorpi_description/setup.py
+245. ros2_ws/src/simulations/mentorpi_description/launch/display.launch.py
+246. ros2_ws/src/simulations/mentorpi_description/launch/robot_description.launch.py
+247. ros2_ws/src/simulations/mentorpi_description/launch/rviz.launch.py
+248. ros2_ws/src/simulations/mentorpi_description/mentorpi_description/__init__.py
+249. ros2_ws/src/simulations/mentorpi_description/resource/mentorpi_description
+250. ros2_ws/src/simulations/mentorpi_description/rviz/view.rviz
+251. ros2_ws/src/simulations/mentorpi_description/test/test_copyright.py
+252. ros2_ws/src/simulations/mentorpi_description/test/test_flake8.py
+253. ros2_ws/src/simulations/mentorpi_description/test/test_pep257.py
+254. ros2_ws/src/simulations/mentorpi_description/urdf/ack.xacro
+255. ros2_ws/src/simulations/mentorpi_description/urdf/imu.urdf.xacro
+256. ros2_ws/src/simulations/mentorpi_description/urdf/inertial_matrix.xacro
+257. ros2_ws/src/simulations/mentorpi_description/urdf/lidar.urdf.xacro
+258. ros2_ws/src/simulations/mentorpi_description/urdf/materials.xacro
+259. ros2_ws/src/simulations/mentorpi_description/urdf/mecanum.xacro
+260. ros2_ws/src/simulations/mentorpi_description/urdf/mentorpi.xacro
 
 # Skipped File Summary
 
 - binary, media, generated, or not useful as text: 57
 - not UTF-8 text: 1
 - previous merged output: 1
-- skipped directory: 13440
+- skipped directory: 13538
 
 # File Contents
 
@@ -3117,7 +3116,7 @@ darth_maul_control:
     # Default tolerances
     # Keep distance tight. LiDAR progress can resolve this far better than 45 mm
     # when front/rear progress is valid.
-    default_position_tolerance_m: 0.015
+    default_position_tolerance_m: 0.02
     default_heading_tolerance_rad: 0.060
 
     # Competition aggressive speed limits.
@@ -3164,7 +3163,7 @@ darth_maul_control:
     # while yaw remains sane, then keep correcting from LiDAR geometry whenever
     # side, front, rear, or Manhattan wall references reappear.
     translation_progress_source: lidar_required
-    translation_odom_fallback_enabled: true
+    translation_odom_fallback_enabled: false
     translation_odom_fallback_max_heading_error_rad: 0.090
 
     # If required LiDAR progress becomes invalid after temporal recovery is exhausted,
@@ -3186,6 +3185,11 @@ darth_maul_control:
     # Odom is not trusted as truth, but it is still useful as a sanity bound.
     lidar_progress_max_ahead_of_odom_m: 0.075
 
+    # When front/rear LiDAR progress both exist but disagree, odom is used only
+    # to choose the plausible LiDAR side. Odom is not used as final progress.
+    lidar_progress_odom_arbitration_tolerance_m: 0.060
+    lidar_progress_odom_arbitration_min_margin_m: 0.010
+
     # Diagnostic warning threshold for odom/LiDAR disagreement.
     lidar_odom_warning_threshold_m: 0.030
 
@@ -3195,7 +3199,7 @@ darth_maul_control:
 
     # Expected distance from robot centerline to one side wall when centered.
     # This is used only for one-wall lateral error diagnostics.
-    grid_alignment_expected_half_width_m: 0.125
+    grid_alignment_expected_half_width_m: 0.14
 
     # A geometrically valid side-wall line is only an adjacent current-cell wall
     # if its fitted offset is close to the expected centered side-wall offset.
@@ -3322,7 +3326,7 @@ darth_maul_control:
     # Calibrated front/rear ranges when the robot is centered in one cell.
     # Do not assume this is exactly cell_length_m / 2. Measure it on the real robot
     # because LiDAR mounting offset and wall/socket geometry change the value.
-    grid_center_expected_front_distance_m: 0.125
+    grid_center_expected_front_distance_m: 0.14
     grid_center_expected_rear_distance_m: 0.125
     grid_center_front_rear_agreement_tolerance_m: 0.035
 
@@ -3814,7 +3818,7 @@ class DarthMaulControlNode(Node):
 
         self.translation_odom_fallback_enabled = self._bool_param(
             'translation_odom_fallback_enabled',
-            True,
+            False,
         )
         self.translation_odom_fallback_max_heading_error_rad = (
             self._positive_float_param(
@@ -3845,6 +3849,18 @@ class DarthMaulControlNode(Node):
         self.lidar_progress_max_ahead_of_odom_m = self._positive_float_param(
             'lidar_progress_max_ahead_of_odom_m',
             0.075,
+        )
+        self.lidar_progress_odom_arbitration_tolerance_m = (
+            self._positive_float_param(
+                'lidar_progress_odom_arbitration_tolerance_m',
+                0.060,
+            )
+        )
+        self.lidar_progress_odom_arbitration_min_margin_m = (
+            self._nonnegative_float_param(
+                'lidar_progress_odom_arbitration_min_margin_m',
+                0.010,
+            )
         )
         self.lidar_odom_warning_threshold_m = self._positive_float_param(
             'lidar_odom_warning_threshold_m',
@@ -6489,6 +6505,13 @@ class DarthMaulControlNode(Node):
             max_disagreement_m=self.lidar_progress_max_disagreement_m,
             min_progress_m=self.lidar_progress_min_m,
             allow_single_source=self.lidar_progress_allow_single_source,
+            odom_progress_m=odom_progress_m,
+            odom_arbitration_tolerance_m=(
+                self.lidar_progress_odom_arbitration_tolerance_m
+            ),
+            odom_arbitration_min_margin_m=(
+                self.lidar_progress_odom_arbitration_min_margin_m
+            ),
         )
 
         temporal_degraded = False
@@ -9072,6 +9095,9 @@ def choose_lidar_progress(
     max_disagreement_m: float,
     min_progress_m: float,
     allow_single_source: bool,
+    odom_progress_m: float | None = None,
+    odom_arbitration_tolerance_m: float = 0.060,
+    odom_arbitration_min_margin_m: float = 0.010,
 ) -> LidarProgressEstimate:
     def rejection_reason(
         name: str,
@@ -9111,8 +9137,90 @@ def choose_lidar_progress(
     )
 
     if front_ok and rear_ok:
-        disagreement = abs(float(front_progress_m) - float(rear_progress_m))
+        front_progress = float(front_progress_m)
+        rear_progress = float(rear_progress_m)
+        disagreement = abs(front_progress - rear_progress)
+
         if disagreement > float(max_disagreement_m):
+            odom_available = bool(
+                odom_progress_m is not None
+                and math.isfinite(float(odom_progress_m))
+            )
+            tolerance_ok = bool(
+                math.isfinite(float(odom_arbitration_tolerance_m))
+                and float(odom_arbitration_tolerance_m) > 0.0
+            )
+            margin_ok = bool(
+                math.isfinite(float(odom_arbitration_min_margin_m))
+                and float(odom_arbitration_min_margin_m) >= 0.0
+            )
+
+            if odom_available and tolerance_ok and margin_ok:
+                odom_progress = max(0.0, float(odom_progress_m))
+                tolerance = float(odom_arbitration_tolerance_m)
+                min_margin = float(odom_arbitration_min_margin_m)
+
+                candidates = [
+                    (
+                        'front',
+                        front_progress,
+                        abs(front_progress - odom_progress),
+                    ),
+                    (
+                        'rear',
+                        rear_progress,
+                        abs(rear_progress - odom_progress),
+                    ),
+                ]
+                candidates.sort(key=lambda item: item[2])
+
+                winner_source, winner_progress, winner_error = candidates[0]
+                other_source = candidates[1][0]
+                other_error = candidates[1][2]
+
+                if (
+                    winner_error <= tolerance
+                    and (other_error - winner_error) >= min_margin
+                ):
+                    return LidarProgressEstimate(
+                        valid=True,
+                        progress_m=float(winner_progress),
+                        source=f'{winner_source}_odom_arb',
+                        disagreement_m=float(disagreement),
+                        reason=(
+                            f'front/rear progress disagreement {disagreement:.3f} m '
+                            f'> {float(max_disagreement_m):.3f} m; '
+                            f'using {winner_source} LiDAR by odom arbitration: '
+                            f'front={front_progress:.3f} m, '
+                            f'rear={rear_progress:.3f} m, '
+                            f'odom={odom_progress:.3f} m, '
+                            f'{winner_source}_error={winner_error:.3f} m <= '
+                            f'{tolerance:.3f} m, '
+                            f'{other_source}_error={other_error:.3f} m, '
+                            f'margin={(other_error - winner_error):.3f} m >= '
+                            f'{min_margin:.3f} m'
+                        ),
+                    )
+
+                return LidarProgressEstimate(
+                    valid=False,
+                    progress_m=0.0,
+                    source='front_rear_rejected',
+                    disagreement_m=float(disagreement),
+                    reason=(
+                        f'front/rear progress disagreement {disagreement:.3f} m '
+                        f'> {float(max_disagreement_m):.3f} m; '
+                        f'odom arbitration rejected: '
+                        f'front={front_progress:.3f} m, '
+                        f'rear={rear_progress:.3f} m, '
+                        f'odom={odom_progress:.3f} m, '
+                        f'best={winner_source} error {winner_error:.3f} m, '
+                        f'other={other_source} error {other_error:.3f} m, '
+                        f'tolerance={tolerance:.3f} m, '
+                        f'margin={(other_error - winner_error):.3f} m'
+                    ),
+                )
+
             return LidarProgressEstimate(
                 valid=False,
                 progress_m=0.0,
@@ -9120,13 +9228,14 @@ def choose_lidar_progress(
                 disagreement_m=float(disagreement),
                 reason=(
                     f'front/rear progress disagreement {disagreement:.3f} m '
-                    f'> {float(max_disagreement_m):.3f} m'
+                    f'> {float(max_disagreement_m):.3f} m; '
+                    'odom arbitration unavailable'
                 ),
             )
 
         return LidarProgressEstimate(
             valid=True,
-            progress_m=float((float(front_progress_m) + float(rear_progress_m)) / 2.0),
+            progress_m=float((front_progress + rear_progress) / 2.0),
             source='front_rear',
             disagreement_m=float(disagreement),
             reason='front and rear progress consistent',
@@ -20986,46 +21095,9 @@ ament_package()
 # ================== FILE 195: ros2_ws/src/maze_publisher_node/mazes/1.maze ==================
 
 7
-4
-1
-19
-1
-10
-8
-8
-8
-8
-8
-9
-6
-4
-0
-0
-4
-0
-1
-10
-9
-2
-0
-9
-2
-1
-6
-4
-4
-4
-4
-5
-7
-
-
-# ================== FILE 196: ros2_ws/src/maze_publisher_node/mazes/2.maze ==================
-
-7
 11
-37
-77
+7
+71
 8
 10
 8
@@ -21106,7 +21178,7 @@ ament_package()
 5
 
 
-# ================== FILE 197: ros2_ws/src/maze_publisher_node/src/maze_publisher_node.cpp ==================
+# ================== FILE 196: ros2_ws/src/maze_publisher_node/src/maze_publisher_node.cpp ==================
 
 #include "rclcpp/rclcpp.hpp"
 #include "maze_interface/msg/ros_maze.hpp"
@@ -21183,7 +21255,7 @@ int main(int argc, char **argv) {
 }
 
 
-# ================== FILE 198: ros2_ws/src/maze_solver/camera_tilt_node.py ==================
+# ================== FILE 197: ros2_ws/src/maze_solver/camera_tilt_node.py ==================
 
 #!/usr/bin/env python3
 
@@ -21197,15 +21269,22 @@ class CameraTiltNode(Node):
         super().__init__('camera_tilt_node')
         self.declare_parameter('servo_id', 1)
         self.declare_parameter('position', 2000)
+        self.declare_parameter('horizontal_servo_id', 0)
+        self.declare_parameter('left_position', 2000)
         self.declare_parameter('duration', 0.5)
         self.declare_parameter('publish_period_s', 0.25)
         self.declare_parameter('publish_for_s', 3.0)
 
         self.servo_id = int(self.get_parameter('servo_id').value)
         self.position = int(self.get_parameter('position').value)
+        self.horizontal_servo_id = int(self.get_parameter('horizontal_servo_id').value)
+        self.left_position = int(self.get_parameter('left_position').value)
         self.duration = float(self.get_parameter('duration').value)
         publish_period_s = float(self.get_parameter('publish_period_s').value)
         publish_for_s = float(self.get_parameter('publish_for_s').value)
+        self.servo_commands = [(self.servo_id, self.position)]
+        if self.horizontal_servo_id > 0:
+            self.servo_commands.append((self.horizontal_servo_id, self.left_position))
 
         self.publisher = self.create_publisher(
             SetPWMServoState,
@@ -21217,18 +21296,23 @@ class CameraTiltNode(Node):
         self.publish_tilt_command()
 
     def publish_tilt_command(self):
-        servo_state = PWMServoState()
-        servo_state.id = [self.servo_id]
-        servo_state.position = [self.position]
-
         msg = SetPWMServoState()
-        msg.state = [servo_state]
+        msg.state = []
+        for servo_id, position in self.servo_commands:
+            servo_state = PWMServoState()
+            servo_state.id = [servo_id]
+            servo_state.position = [position]
+            msg.state.append(servo_state)
         msg.duration = self.duration
         self.publisher.publish(msg)
 
         if self.get_clock().now().nanoseconds >= self.stop_at:
+            command_summary = ', '.join(
+                f'servo {servo_id} to position {position}'
+                for servo_id, position in self.servo_commands
+            )
             self.get_logger().info(
-                f'Set camera servo {self.servo_id} to position {self.position}'
+                f'Set camera {command_summary}'
             )
             rclpy.shutdown()
 
@@ -21248,7 +21332,7 @@ if __name__ == '__main__':
     main()
 
 
-# ================== FILE 199: ros2_ws/src/maze_solver/maze_explorer_node.py ==================
+# ================== FILE 198: ros2_ws/src/maze_solver/maze_explorer_node.py ==================
 
 from __future__ import annotations
 
@@ -21625,6 +21709,7 @@ class MazeExplorerNode(Node):
         self.declare_parameter('drive_max_linear_x_mps', 0.18)
         self.declare_parameter('reverse_max_linear_x_mps', 0.075)
         self.declare_parameter('reverse_backtracking_enabled', True)
+        self.declare_parameter('reverse_backtracking_max_consecutive_cells', 1)
         self.declare_parameter('reverse_position_tolerance_m', 0.018)
         self.declare_parameter('reverse_heading_tolerance_rad', 0.180)
         self.declare_parameter('rotate_max_angular_z_radps', 0.85)
@@ -21655,6 +21740,9 @@ class MazeExplorerNode(Node):
         )
         self.reverse_backtracking_enabled = parse_bool(
             self.get_parameter('reverse_backtracking_enabled').value
+        )
+        self.reverse_backtracking_max_consecutive_cells = int(
+            self.get_parameter('reverse_backtracking_max_consecutive_cells').value
         )
         self.reverse_position_tolerance_m = float(
             self.get_parameter('reverse_position_tolerance_m').value
@@ -21735,6 +21823,8 @@ class MazeExplorerNode(Node):
             errors.append('drive_max_linear_x_mps must be > 0')
         if self.reverse_max_linear_x_mps <= 0.0:
             errors.append('reverse_max_linear_x_mps must be > 0')
+        if self.reverse_backtracking_max_consecutive_cells < 0:
+            errors.append('reverse_backtracking_max_consecutive_cells must be >= 0')
         if self.reverse_position_tolerance_m <= 0.0:
             errors.append('reverse_position_tolerance_m must be > 0')
         if self.reverse_heading_tolerance_rad <= 0.0:
@@ -21913,14 +22003,29 @@ class MazeExplorerNode(Node):
             )
             return
 
+        reverse_budget = int(self.reverse_backtracking_max_consecutive_cells)
+
         for target_cell in path[1:]:
             direction = direction_between(simulated_cell, target_cell)
-            simulated_heading = self._enqueue_segment(
+
+            allow_reverse = bool(
+                reverse_budget > 0
+                and direction == OPPOSITE[simulated_heading]
+            )
+
+            simulated_heading, used_reverse = self._enqueue_segment(
                 from_cell=simulated_cell,
                 from_heading=simulated_heading,
                 direction=direction,
                 target_cell=target_cell,
+                allow_reverse=allow_reverse,
             )
+
+            if used_reverse:
+                reverse_budget -= 1
+            else:
+                reverse_budget = int(self.reverse_backtracking_max_consecutive_cells)
+
             simulated_cell = target_cell
 
     def _enqueue_step(self, direction: int) -> None:
@@ -21930,6 +22035,7 @@ class MazeExplorerNode(Node):
             from_heading=self.heading,
             direction=direction,
             target_cell=target_cell,
+            allow_reverse=False,
         )
 
     def _enqueue_segment(
@@ -21939,7 +22045,8 @@ class MazeExplorerNode(Node):
         from_heading: int,
         direction: int,
         target_cell: Cell,
-    ) -> int:
+        allow_reverse: bool,
+    ) -> tuple[int, bool]:
         expected_target = neighbor(from_cell, direction)
         if target_cell != expected_target:
             self._fatal(
@@ -21947,10 +22054,11 @@ class MazeExplorerNode(Node):
                 f'direction={DIR_NAME[direction]}, '
                 f'target={target_cell}, expected={expected_target}'
             )
-            return from_heading
+            return from_heading, False
 
         should_reverse = bool(
-            self.reverse_backtracking_enabled
+            allow_reverse
+            and self.reverse_backtracking_enabled
             and direction == OPPOSITE[from_heading]
         )
 
@@ -21966,7 +22074,7 @@ class MazeExplorerNode(Node):
                 f'drive_backward={self.cell_length_m:.3f})'
             )
 
-            return from_heading
+            return from_heading, True
 
         turn = turn_between(from_heading, direction)
 
@@ -21983,7 +22091,7 @@ class MazeExplorerNode(Node):
             f'drive={self.cell_length_m:.3f})'
         )
 
-        return direction
+        return direction, False
 
     def _send_next_motion_step(self) -> None:
         if self.motion_in_flight or not self.motion_queue:
@@ -22203,7 +22311,7 @@ if __name__ == '__main__':
     main()
 
 
-# ================== FILE 200: ros2_ws/src/maze_solver/maze_solver_node.py ==================
+# ================== FILE 199: ros2_ws/src/maze_solver/maze_solver_node.py ==================
 
 import math
 import time
@@ -22946,7 +23054,7 @@ if __name__ == '__main__':
     main()
 
 
-# ================== FILE 201: ros2_ws/src/maze_solver/package.xml ==================
+# ================== FILE 200: ros2_ws/src/maze_solver/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -22981,7 +23089,7 @@ if __name__ == '__main__':
 </package>
 
 
-# ================== FILE 202: ros2_ws/src/maze_solver/setup.cfg ==================
+# ================== FILE 201: ros2_ws/src/maze_solver/setup.cfg ==================
 
 [develop]
 script_dir=$base/lib/maze_solver
@@ -22990,7 +23098,7 @@ script_dir=$base/lib/maze_solver
 install_scripts=$base/lib/maze_solver
 
 
-# ================== FILE 203: ros2_ws/src/maze_solver/setup.py ==================
+# ================== FILE 202: ros2_ws/src/maze_solver/setup.py ==================
 
 from glob import glob
 from os.path import join
@@ -23025,7 +23133,7 @@ setup(
 )
 
 
-# ================== FILE 204: ros2_ws/src/maze_solver/launch/exam_task1.launch.py ==================
+# ================== FILE 203: ros2_ws/src/maze_solver/launch/exam_task1.launch.py ==================
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
@@ -23044,6 +23152,8 @@ def generate_launch_description():
     camera_face_down = LaunchConfiguration('camera_face_down')
     camera_vertical_servo_id = LaunchConfiguration('camera_vertical_servo_id')
     camera_down_position = LaunchConfiguration('camera_down_position')
+    camera_horizontal_servo_id = LaunchConfiguration('camera_horizontal_servo_id')
+    camera_left_position = LaunchConfiguration('camera_left_position')
 
     return LaunchDescription([
         DeclareLaunchArgument('maze_nr', default_value='1'),
@@ -23055,6 +23165,8 @@ def generate_launch_description():
         DeclareLaunchArgument('camera_face_down', default_value='true'),
         DeclareLaunchArgument('camera_vertical_servo_id', default_value='1'),
         DeclareLaunchArgument('camera_down_position', default_value='2000'),
+        DeclareLaunchArgument('camera_horizontal_servo_id', default_value='2'),
+        DeclareLaunchArgument('camera_left_position', default_value='2000'),
 
         Node(
             package='maze_solver',
@@ -23065,6 +23177,8 @@ def generate_launch_description():
             parameters=[{
                 'servo_id': camera_vertical_servo_id,
                 'position': camera_down_position,
+                'horizontal_servo_id': camera_horizontal_servo_id,
+                'left_position': camera_left_position,
                 'duration': 0.5,
                 'publish_for_s': 3.0,
             }],
@@ -23088,7 +23202,7 @@ def generate_launch_description():
     ])
 
 
-# ================== FILE 205: ros2_ws/src/maze_solver/launch/exam_task2.launch.py ==================
+# ================== FILE 204: ros2_ws/src/maze_solver/launch/exam_task2.launch.py ==================
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
@@ -23106,6 +23220,9 @@ def generate_launch_description():
     drive_max_linear_x_mps = LaunchConfiguration('drive_max_linear_x_mps')
     reverse_max_linear_x_mps = LaunchConfiguration('reverse_max_linear_x_mps')
     reverse_backtracking_enabled = LaunchConfiguration('reverse_backtracking_enabled')
+    reverse_backtracking_max_consecutive_cells = LaunchConfiguration(
+        'reverse_backtracking_max_consecutive_cells'
+    )
     reverse_position_tolerance_m = LaunchConfiguration('reverse_position_tolerance_m')
     reverse_heading_tolerance_rad = LaunchConfiguration('reverse_heading_tolerance_rad')
     rotate_max_angular_z_radps = LaunchConfiguration('rotate_max_angular_z_radps')
@@ -23117,6 +23234,8 @@ def generate_launch_description():
     camera_face_down = LaunchConfiguration('camera_face_down')
     camera_vertical_servo_id = LaunchConfiguration('camera_vertical_servo_id')
     camera_down_position = LaunchConfiguration('camera_down_position')
+    camera_horizontal_servo_id = LaunchConfiguration('camera_horizontal_servo_id')
+    camera_left_position = LaunchConfiguration('camera_left_position')
 
     return LaunchDescription([
         DeclareLaunchArgument('scan_topic', default_value='/ldlidar_node/scan'),
@@ -23127,6 +23246,7 @@ def generate_launch_description():
         DeclareLaunchArgument('drive_max_linear_x_mps', default_value='0.18'),
         DeclareLaunchArgument('reverse_max_linear_x_mps', default_value='0.075'),
         DeclareLaunchArgument('reverse_backtracking_enabled', default_value='true'),
+        DeclareLaunchArgument('reverse_backtracking_max_consecutive_cells', default_value='1'),
         DeclareLaunchArgument('reverse_position_tolerance_m', default_value='0.018'),
         DeclareLaunchArgument('reverse_heading_tolerance_rad', default_value='0.180'),
         DeclareLaunchArgument('rotate_max_angular_z_radps', default_value='0.85'),
@@ -23141,6 +23261,8 @@ def generate_launch_description():
         DeclareLaunchArgument('camera_face_down', default_value='true'),
         DeclareLaunchArgument('camera_vertical_servo_id', default_value='1'),
         DeclareLaunchArgument('camera_down_position', default_value='2000'),
+        DeclareLaunchArgument('camera_horizontal_servo_id', default_value='2'),
+        DeclareLaunchArgument('camera_left_position', default_value='2000'),
 
         Node(
             package='maze_solver',
@@ -23151,6 +23273,8 @@ def generate_launch_description():
             parameters=[{
                 'servo_id': camera_vertical_servo_id,
                 'position': camera_down_position,
+                'horizontal_servo_id': camera_horizontal_servo_id,
+                'left_position': camera_left_position,
                 'duration': 0.5,
                 'publish_for_s': 3.0,
             }],
@@ -23170,6 +23294,9 @@ def generate_launch_description():
                 'drive_max_linear_x_mps': drive_max_linear_x_mps,
                 'reverse_max_linear_x_mps': reverse_max_linear_x_mps,
                 'reverse_backtracking_enabled': reverse_backtracking_enabled,
+                'reverse_backtracking_max_consecutive_cells': (
+                    reverse_backtracking_max_consecutive_cells
+                ),
                 'reverse_position_tolerance_m': reverse_position_tolerance_m,
                 'reverse_heading_tolerance_rad': reverse_heading_tolerance_rad,
                 'rotate_max_angular_z_radps': rotate_max_angular_z_radps,
@@ -23182,12 +23309,12 @@ def generate_launch_description():
     ])
 
 
-# ================== FILE 206: ros2_ws/src/maze_solver/resource/maze_solver ==================
+# ================== FILE 205: ros2_ws/src/maze_solver/resource/maze_solver ==================
 
 
 
 
-# ================== FILE 207: ros2_ws/src/orchestrator_launch/CMakeLists.txt ==================
+# ================== FILE 206: ros2_ws/src/orchestrator_launch/CMakeLists.txt ==================
 
 cmake_minimum_required(VERSION 3.5)
 project(orchestrator_launch)
@@ -23205,7 +23332,7 @@ install(
 ament_package()
 
 
-# ================== FILE 208: ros2_ws/src/orchestrator_launch/package.xml ==================
+# ================== FILE 207: ros2_ws/src/orchestrator_launch/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -23236,7 +23363,7 @@ ament_package()
 </package>
 
 
-# ================== FILE 209: ros2_ws/src/orchestrator_launch/config/mapper_params_online_async.yaml ==================
+# ================== FILE 208: ros2_ws/src/orchestrator_launch/config/mapper_params_online_async.yaml ==================
 
 slam_toolbox:
   ros__parameters:
@@ -23315,7 +23442,7 @@ slam_toolbox:
     use_response_expansion: true
 
 
-# ================== FILE 210: ros2_ws/src/orchestrator_launch/launch/launch_full_slam_stack.launch.py ==================
+# ================== FILE 209: ros2_ws/src/orchestrator_launch/launch/launch_full_slam_stack.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -23362,7 +23489,7 @@ def generate_launch_description():
     ])
 
 
-# ================== FILE 211: ros2_ws/src/orchestrator_launch/launch/slam_toolbox.launch.py ==================
+# ================== FILE 210: ros2_ws/src/orchestrator_launch/launch/slam_toolbox.launch.py ==================
 
 import os
 
@@ -23454,7 +23581,7 @@ def generate_launch_description():
     return ld
 
 
-# ================== FILE 212: ros2_ws/src/peripherals/package.xml ==================
+# ================== FILE 211: ros2_ws/src/peripherals/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -23476,7 +23603,7 @@ def generate_launch_description():
 </package>
 
 
-# ================== FILE 213: ros2_ws/src/peripherals/setup.cfg ==================
+# ================== FILE 212: ros2_ws/src/peripherals/setup.cfg ==================
 
 [develop]
 script_dir=$base/lib/peripherals
@@ -23484,7 +23611,7 @@ script_dir=$base/lib/peripherals
 install_scripts=$base/lib/peripherals
 
 
-# ================== FILE 214: ros2_ws/src/peripherals/setup.py ==================
+# ================== FILE 213: ros2_ws/src/peripherals/setup.py ==================
 
 import os
 from glob import glob
@@ -23522,7 +23649,7 @@ setup(
 )
 
 
-# ================== FILE 215: ros2_ws/src/peripherals/config/apriltag_config.yaml ==================
+# ================== FILE 214: ros2_ws/src/peripherals/config/apriltag_config.yaml ==================
 
 apriltag_detector:
   ros__parameters:
@@ -23549,7 +23676,7 @@ apriltag_detector:
 
 
 
-# ================== FILE 216: ros2_ws/src/peripherals/config/camera_info.yaml ==================
+# ================== FILE 215: ros2_ws/src/peripherals/config/camera_info.yaml ==================
 
 image_width: 640
 image_height: 480
@@ -23573,7 +23700,7 @@ projection_matrix:
   data: [465.8162841796875, 0, 321.2985662909559, 0, 0, 470.4940490722656, 236.298464380614, 0, 0, 0, 1, 0]
 
 
-# ================== FILE 217: ros2_ws/src/peripherals/config/usb_cam_param.yaml ==================
+# ================== FILE 216: ros2_ws/src/peripherals/config/usb_cam_param.yaml ==================
 
 /**:
     ros__parameters:
@@ -23601,7 +23728,7 @@ projection_matrix:
 
 
 
-# ================== FILE 218: ros2_ws/src/peripherals/launch/apriltag.launch.py ==================
+# ================== FILE 217: ros2_ws/src/peripherals/launch/apriltag.launch.py ==================
 
 import os
 from launch import LaunchDescription
@@ -23629,7 +23756,7 @@ def generate_launch_description():
 
 
 
-# ================== FILE 219: ros2_ws/src/peripherals/launch/image_pipeline.launch.py ==================
+# ================== FILE 218: ros2_ws/src/peripherals/launch/image_pipeline.launch.py ==================
 
 import os
 from launch import LaunchDescription
@@ -23682,7 +23809,7 @@ def generate_launch_description():
 
 
 
-# ================== FILE 220: ros2_ws/src/peripherals/launch/imu_filter.launch.py ==================
+# ================== FILE 219: ros2_ws/src/peripherals/launch/imu_filter.launch.py ==================
 
 from launch import LaunchDescription
 from launch_ros.actions import Node
@@ -23749,7 +23876,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 221: ros2_ws/src/peripherals/launch/imu_view.launch.py ==================
+# ================== FILE 220: ros2_ws/src/peripherals/launch/imu_view.launch.py ==================
 
 import os
 from launch_ros.actions import Node
@@ -23830,7 +23957,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 222: ros2_ws/src/peripherals/launch/joystick_control.launch.py ==================
+# ================== FILE 221: ros2_ws/src/peripherals/launch/joystick_control.launch.py ==================
 
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
@@ -23889,7 +24016,7 @@ if __name__ == '__main__':
 
 
 
-# ================== FILE 223: ros2_ws/src/peripherals/launch/teleop_key_control.launch.py ==================
+# ================== FILE 222: ros2_ws/src/peripherals/launch/teleop_key_control.launch.py ==================
 
 import os
 from launch.actions import DeclareLaunchArgument
@@ -23940,7 +24067,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 224: ros2_ws/src/peripherals/launch/usb_cam.launch.py ==================
+# ================== FILE 223: ros2_ws/src/peripherals/launch/usb_cam.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -23975,7 +24102,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 225: ros2_ws/src/peripherals/launch/include/ascamera.launch.py ==================
+# ================== FILE 224: ros2_ws/src/peripherals/launch/include/ascamera.launch.py ==================
 
 from launch import LaunchDescription
 import launch_ros.actions
@@ -24024,12 +24151,12 @@ def generate_launch_description():
 
 
 
-# ================== FILE 226: ros2_ws/src/peripherals/peripherals/__init__.py ==================
+# ================== FILE 225: ros2_ws/src/peripherals/peripherals/__init__.py ==================
 
 
 
 
-# ================== FILE 227: ros2_ws/src/peripherals/peripherals/demo.py ==================
+# ================== FILE 226: ros2_ws/src/peripherals/peripherals/demo.py ==================
 
 #!/usr/bin/env python3
 import rclpy
@@ -24061,7 +24188,7 @@ if __name__ == '__main__':
 
 
 
-# ================== FILE 228: ros2_ws/src/peripherals/peripherals/joystick_control.py ==================
+# ================== FILE 227: ros2_ws/src/peripherals/peripherals/joystick_control.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8
@@ -24338,7 +24465,7 @@ if __name__ == "__main__":
     main()
 
 
-# ================== FILE 229: ros2_ws/src/peripherals/peripherals/teleop_key_control.py ==================
+# ================== FILE 228: ros2_ws/src/peripherals/peripherals/teleop_key_control.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8
@@ -24491,7 +24618,7 @@ if __name__ == "__main__":
     main()
 
 
-# ================== FILE 230: ros2_ws/src/peripherals/peripherals/tf_broadcaster_imu.py ==================
+# ================== FILE 229: ros2_ws/src/peripherals/peripherals/tf_broadcaster_imu.py ==================
 
 #!/usr/bin/env python3
 # encoding: utf-8 
@@ -24568,12 +24695,12 @@ if __name__ == "__main__":
     main()
 
 
-# ================== FILE 231: ros2_ws/src/peripherals/resource/peripherals ==================
+# ================== FILE 230: ros2_ws/src/peripherals/resource/peripherals ==================
 
 
 
 
-# ================== FILE 232: ros2_ws/src/peripherals/rviz/imu_view.rviz ==================
+# ================== FILE 231: ros2_ws/src/peripherals/rviz/imu_view.rviz ==================
 
 Panels:
   - Class: rviz_common/Displays
@@ -24840,7 +24967,7 @@ Window Geometry:
   Y: 46
 
 
-# ================== FILE 233: ros2_ws/src/peripherals/rviz/lidar_view.rviz ==================
+# ================== FILE 232: ros2_ws/src/peripherals/rviz/lidar_view.rviz ==================
 
 Panels:
   - Class: rviz_common/Displays
@@ -25165,7 +25292,7 @@ Window Geometry:
   Y: 151
 
 
-# ================== FILE 234: ros2_ws/src/peripherals/scripts/99-obsensor-libusb.rules ==================
+# ================== FILE 233: ros2_ws/src/peripherals/scripts/99-obsensor-libusb.rules ==================
 
 # UVC Modules
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="2bc5", ATTRS{idProduct}=="0635", MODE:="0666",  OWNER:="root", GROUP:="video", SYMLINK+="Femto"
@@ -25271,19 +25398,19 @@ KERNEL=="video*", ATTRS{idVendor}=="2bc5", ATTRS{idProduct}=="0559", MODE:="0777
 KERNEL=="video*", ATTRS{idVendor}=="2bc5", ATTRS{idProduct}=="0659", MODE:="0777", SYMLINK+="depth_cam"
 
 
-# ================== FILE 235: ros2_ws/src/peripherals/scripts/99-ttyACM0.rules ==================
+# ================== FILE 234: ros2_ws/src/peripherals/scripts/99-ttyACM0.rules ==================
 
 # Ignore ModemManager for ttyACM0 device
 KERNEL=="ttyACM*", SUBSYSTEM=="tty", GROUP="users", MODE="0777", SYMLINK+="rrc"
 ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55d4", ENV{ID_MM_PORT_IGNORE}="1"1"
 
 
-# ================== FILE 236: ros2_ws/src/peripherals/scripts/99-usb-cam.rules ==================
+# ================== FILE 235: ros2_ws/src/peripherals/scripts/99-usb-cam.rules ==================
 
 KERNEL=="video*",KERNELS=="1-2.1:1.0", MODE:="0777", SYMLINK+="depth_cam"
 
 
-# ================== FILE 237: ros2_ws/src/peripherals/scripts/create_udev_rules.sh ==================
+# ================== FILE 236: ros2_ws/src/peripherals/scripts/create_udev_rules.sh ==================
 
 #!/bin/bash
 
@@ -25296,13 +25423,13 @@ sudo service udev restart
 echo "finish "
 
 
-# ================== FILE 238: ros2_ws/src/peripherals/scripts/lidar.rules ==================
+# ================== FILE 237: ros2_ws/src/peripherals/scripts/lidar.rules ==================
 
 SUBSYSTEM=="tty", KERNELS=="1-2.3.4:1.0", SYMLINK+="lidar"
 SUBSYSTEM=="tty", KERNELS=="1-2.1.4:1.0", SYMLINK+="lidar"
 
 
-# ================== FILE 239: ros2_ws/src/peripherals/scripts/xf_mic.rules ==================
+# ================== FILE 238: ros2_ws/src/peripherals/scripts/xf_mic.rules ==================
 
 SUBSYSTEM=="tty", KERNELS=="1-2.3.1.1:1.0", SYMLINK+="ring_mic"
 SUBSYSTEM=="tty", KERNELS=="1-2.1.1.1:1.0", SYMLINK+="ring_mic"
@@ -25310,7 +25437,7 @@ KERNEL=="ttyCH341USB*", MODE:="0666", GROUP:="dialout"
 KERNEL=="ttyUSB*", MODE:="0666", GROUP:="dialout"
 
 
-# ================== FILE 240: ros2_ws/src/peripherals/test/test_copyright.py ==================
+# ================== FILE 239: ros2_ws/src/peripherals/test/test_copyright.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -25337,7 +25464,7 @@ def test_copyright():
     assert rc == 0, 'Found errors'
 
 
-# ================== FILE 241: ros2_ws/src/peripherals/test/test_flake8.py ==================
+# ================== FILE 240: ros2_ws/src/peripherals/test/test_flake8.py ==================
 
 # Copyright 2017 Open Source Robotics Foundation, Inc.
 #
@@ -25366,7 +25493,7 @@ def test_flake8():
         '\n'.join(errors)
 
 
-# ================== FILE 242: ros2_ws/src/peripherals/test/test_pep257.py ==================
+# ================== FILE 241: ros2_ws/src/peripherals/test/test_pep257.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -25393,7 +25520,7 @@ def test_pep257():
     assert rc == 0, 'Found code style errors / warnings'
 
 
-# ================== FILE 243: ros2_ws/src/simulations/mentorpi_description/package.xml ==================
+# ================== FILE 242: ros2_ws/src/simulations/mentorpi_description/package.xml ==================
 
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
@@ -25417,7 +25544,7 @@ def test_pep257():
 </package>
 
 
-# ================== FILE 244: ros2_ws/src/simulations/mentorpi_description/setup.cfg ==================
+# ================== FILE 243: ros2_ws/src/simulations/mentorpi_description/setup.cfg ==================
 
 [develop]
 script_dir=$base/lib/mentorpi_description
@@ -25425,7 +25552,7 @@ script_dir=$base/lib/mentorpi_description
 install_scripts=$base/lib/mentorpi_description
 
 
-# ================== FILE 245: ros2_ws/src/simulations/mentorpi_description/setup.py ==================
+# ================== FILE 244: ros2_ws/src/simulations/mentorpi_description/setup.py ==================
 
 import os
 from glob import glob
@@ -25461,7 +25588,7 @@ setup(
 )
 
 
-# ================== FILE 246: ros2_ws/src/simulations/mentorpi_description/launch/display.launch.py ==================
+# ================== FILE 245: ros2_ws/src/simulations/mentorpi_description/launch/display.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -25542,7 +25669,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 247: ros2_ws/src/simulations/mentorpi_description/launch/robot_description.launch.py ==================
+# ================== FILE 246: ros2_ws/src/simulations/mentorpi_description/launch/robot_description.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -25640,7 +25767,7 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 248: ros2_ws/src/simulations/mentorpi_description/launch/rviz.launch.py ==================
+# ================== FILE 247: ros2_ws/src/simulations/mentorpi_description/launch/rviz.launch.py ==================
 
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -25746,17 +25873,17 @@ if __name__ == '__main__':
     ls.run()
 
 
-# ================== FILE 249: ros2_ws/src/simulations/mentorpi_description/mentorpi_description/__init__.py ==================
+# ================== FILE 248: ros2_ws/src/simulations/mentorpi_description/mentorpi_description/__init__.py ==================
 
 
 
 
-# ================== FILE 250: ros2_ws/src/simulations/mentorpi_description/resource/mentorpi_description ==================
+# ================== FILE 249: ros2_ws/src/simulations/mentorpi_description/resource/mentorpi_description ==================
 
 
 
 
-# ================== FILE 251: ros2_ws/src/simulations/mentorpi_description/rviz/view.rviz ==================
+# ================== FILE 250: ros2_ws/src/simulations/mentorpi_description/rviz/view.rviz ==================
 
 Panels:
   - Class: rviz_common/Displays
@@ -26019,7 +26146,7 @@ Window Geometry:
   Y: 153
 
 
-# ================== FILE 252: ros2_ws/src/simulations/mentorpi_description/test/test_copyright.py ==================
+# ================== FILE 251: ros2_ws/src/simulations/mentorpi_description/test/test_copyright.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -26048,7 +26175,7 @@ def test_copyright():
     assert rc == 0, 'Found errors'
 
 
-# ================== FILE 253: ros2_ws/src/simulations/mentorpi_description/test/test_flake8.py ==================
+# ================== FILE 252: ros2_ws/src/simulations/mentorpi_description/test/test_flake8.py ==================
 
 # Copyright 2017 Open Source Robotics Foundation, Inc.
 #
@@ -26077,7 +26204,7 @@ def test_flake8():
         '\n'.join(errors)
 
 
-# ================== FILE 254: ros2_ws/src/simulations/mentorpi_description/test/test_pep257.py ==================
+# ================== FILE 253: ros2_ws/src/simulations/mentorpi_description/test/test_pep257.py ==================
 
 # Copyright 2015 Open Source Robotics Foundation, Inc.
 #
@@ -26104,7 +26231,7 @@ def test_pep257():
     assert rc == 0, 'Found code style errors / warnings'
 
 
-# ================== FILE 255: ros2_ws/src/simulations/mentorpi_description/urdf/ack.xacro ==================
+# ================== FILE 254: ros2_ws/src/simulations/mentorpi_description/urdf/ack.xacro ==================
 
 <?xml version="1.0" ?>
 <robot name="ack" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -26325,7 +26452,7 @@ def test_pep257():
 
 
 
-# ================== FILE 256: ros2_ws/src/simulations/mentorpi_description/urdf/imu.urdf.xacro ==================
+# ================== FILE 255: ros2_ws/src/simulations/mentorpi_description/urdf/imu.urdf.xacro ==================
 
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="imu" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -26352,7 +26479,7 @@ def test_pep257():
 
 
 
-# ================== FILE 257: ros2_ws/src/simulations/mentorpi_description/urdf/inertial_matrix.xacro ==================
+# ================== FILE 256: ros2_ws/src/simulations/mentorpi_description/urdf/inertial_matrix.xacro ==================
 
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="inertial_matrix" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -26403,7 +26530,7 @@ def test_pep257():
 </robot>
 
 
-# ================== FILE 258: ros2_ws/src/simulations/mentorpi_description/urdf/lidar.urdf.xacro ==================
+# ================== FILE 257: ros2_ws/src/simulations/mentorpi_description/urdf/lidar.urdf.xacro ==================
 
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="lidar_a1" xmlns:xacro="http://ros.org/wiki/xacro" >
@@ -26419,7 +26546,7 @@ def test_pep257():
 </robot>
 
 
-# ================== FILE 259: ros2_ws/src/simulations/mentorpi_description/urdf/materials.xacro ==================
+# ================== FILE 258: ros2_ws/src/simulations/mentorpi_description/urdf/materials.xacro ==================
 
 <?xml version="1.0"?>
 <robot name="material" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -26457,7 +26584,7 @@ def test_pep257():
 </robot>
 
 
-# ================== FILE 260: ros2_ws/src/simulations/mentorpi_description/urdf/mecanum.xacro ==================
+# ================== FILE 259: ros2_ws/src/simulations/mentorpi_description/urdf/mecanum.xacro ==================
 
 <?xml version="1.0" ?>
 <robot name="mecanum" xmlns:xacro="http://ros.org/wiki/xacro">
@@ -26677,7 +26804,7 @@ def test_pep257():
 </robot>
 
 
-# ================== FILE 261: ros2_ws/src/simulations/mentorpi_description/urdf/mentorpi.xacro ==================
+# ================== FILE 260: ros2_ws/src/simulations/mentorpi_description/urdf/mentorpi.xacro ==================
 
 <?xml version="1.0" encoding="utf-8"?>
 <robot name="rosmentor" xmlns:xacro="http://ros.org/wiki/xacro">

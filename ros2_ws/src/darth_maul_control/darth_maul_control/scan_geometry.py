@@ -772,6 +772,9 @@ def choose_lidar_progress(
     max_disagreement_m: float,
     min_progress_m: float,
     allow_single_source: bool,
+    odom_progress_m: float | None = None,
+    odom_arbitration_tolerance_m: float = 0.060,
+    odom_arbitration_min_margin_m: float = 0.010,
 ) -> LidarProgressEstimate:
     def rejection_reason(
         name: str,
@@ -811,8 +814,90 @@ def choose_lidar_progress(
     )
 
     if front_ok and rear_ok:
-        disagreement = abs(float(front_progress_m) - float(rear_progress_m))
+        front_progress = float(front_progress_m)
+        rear_progress = float(rear_progress_m)
+        disagreement = abs(front_progress - rear_progress)
+
         if disagreement > float(max_disagreement_m):
+            odom_available = bool(
+                odom_progress_m is not None
+                and math.isfinite(float(odom_progress_m))
+            )
+            tolerance_ok = bool(
+                math.isfinite(float(odom_arbitration_tolerance_m))
+                and float(odom_arbitration_tolerance_m) > 0.0
+            )
+            margin_ok = bool(
+                math.isfinite(float(odom_arbitration_min_margin_m))
+                and float(odom_arbitration_min_margin_m) >= 0.0
+            )
+
+            if odom_available and tolerance_ok and margin_ok:
+                odom_progress = max(0.0, float(odom_progress_m))
+                tolerance = float(odom_arbitration_tolerance_m)
+                min_margin = float(odom_arbitration_min_margin_m)
+
+                candidates = [
+                    (
+                        'front',
+                        front_progress,
+                        abs(front_progress - odom_progress),
+                    ),
+                    (
+                        'rear',
+                        rear_progress,
+                        abs(rear_progress - odom_progress),
+                    ),
+                ]
+                candidates.sort(key=lambda item: item[2])
+
+                winner_source, winner_progress, winner_error = candidates[0]
+                other_source = candidates[1][0]
+                other_error = candidates[1][2]
+
+                if (
+                    winner_error <= tolerance
+                    and (other_error - winner_error) >= min_margin
+                ):
+                    return LidarProgressEstimate(
+                        valid=True,
+                        progress_m=float(winner_progress),
+                        source=f'{winner_source}_odom_arb',
+                        disagreement_m=float(disagreement),
+                        reason=(
+                            f'front/rear progress disagreement {disagreement:.3f} m '
+                            f'> {float(max_disagreement_m):.3f} m; '
+                            f'using {winner_source} LiDAR by odom arbitration: '
+                            f'front={front_progress:.3f} m, '
+                            f'rear={rear_progress:.3f} m, '
+                            f'odom={odom_progress:.3f} m, '
+                            f'{winner_source}_error={winner_error:.3f} m <= '
+                            f'{tolerance:.3f} m, '
+                            f'{other_source}_error={other_error:.3f} m, '
+                            f'margin={(other_error - winner_error):.3f} m >= '
+                            f'{min_margin:.3f} m'
+                        ),
+                    )
+
+                return LidarProgressEstimate(
+                    valid=False,
+                    progress_m=0.0,
+                    source='front_rear_rejected',
+                    disagreement_m=float(disagreement),
+                    reason=(
+                        f'front/rear progress disagreement {disagreement:.3f} m '
+                        f'> {float(max_disagreement_m):.3f} m; '
+                        f'odom arbitration rejected: '
+                        f'front={front_progress:.3f} m, '
+                        f'rear={rear_progress:.3f} m, '
+                        f'odom={odom_progress:.3f} m, '
+                        f'best={winner_source} error {winner_error:.3f} m, '
+                        f'other={other_source} error {other_error:.3f} m, '
+                        f'tolerance={tolerance:.3f} m, '
+                        f'margin={(other_error - winner_error):.3f} m'
+                    ),
+                )
+
             return LidarProgressEstimate(
                 valid=False,
                 progress_m=0.0,
@@ -820,13 +905,14 @@ def choose_lidar_progress(
                 disagreement_m=float(disagreement),
                 reason=(
                     f'front/rear progress disagreement {disagreement:.3f} m '
-                    f'> {float(max_disagreement_m):.3f} m'
+                    f'> {float(max_disagreement_m):.3f} m; '
+                    'odom arbitration unavailable'
                 ),
             )
 
         return LidarProgressEstimate(
             valid=True,
-            progress_m=float((float(front_progress_m) + float(rear_progress_m)) / 2.0),
+            progress_m=float((front_progress + rear_progress) / 2.0),
             source='front_rear',
             disagreement_m=float(disagreement),
             reason='front and rear progress consistent',
