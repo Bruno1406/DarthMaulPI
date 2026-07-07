@@ -15,7 +15,7 @@ darth_maul_control:
     # Default tolerances
     # Keep distance tight. LiDAR progress can resolve this far better than 45 mm
     # when front/rear progress is valid.
-    default_position_tolerance_m: 0.005
+    default_position_tolerance_m: 0.02
     default_heading_tolerance_rad: 0.060
 
     # Competition aggressive speed limits.
@@ -93,7 +93,7 @@ darth_maul_control:
 
     # Expected distance from robot centerline to one side wall when centered.
     # This is used only for one-wall lateral error diagnostics.
-    grid_alignment_expected_half_width_m: 0.125
+    grid_alignment_expected_half_width_m: 0.14
 
     # A geometrically valid side-wall line is only an adjacent current-cell wall
     # if its fitted offset is close to the expected centered side-wall offset.
