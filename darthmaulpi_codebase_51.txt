@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 260
-Skipped files: 13629
+Skipped files: 13649
 
 # Included File Index
 
@@ -272,7 +272,7 @@ Skipped files: 13629
 - binary, media, generated, or not useful as text: 57
 - not UTF-8 text: 1
 - previous merged output: 1
-- skipped directory: 13570
+- skipped directory: 13590
 
 # File Contents
 
@@ -20529,10 +20529,10 @@ ament_package()
 # ================== FILE 184: ros2_ws/src/maze_grading_node/mazes/1.maze ==================
 
 7
-4
-1
-19
-1
+11
+37
+77
+8
 10
 8
 8
@@ -20558,9 +20558,58 @@ ament_package()
 4
 4
 4
-4
+0
 5
 7
+10
+13
+10
+9
+2
+8
+9
+2
+9
+7
+2
+0
+0
+5
+2
+0
+8
+0
+1
+2
+9
+2
+0
+4
+0
+1
+6
+1
+2
+1
+10
+0
+5
+11
+3
+6
+5
+2
+4
+13
+7
+3
+14
+12
+4
+12
+12
+12
+5
 
 
 # ================== FILE 185: ros2_ws/src/maze_grading_node/src/grade_maze_server.cpp ==================
