@@ -31,7 +31,9 @@ float32 max_angular_z_radps
 # Optional timeout. <= 0 means compute from distance/speed plus configured margin.
 float32 timeout_s
 
-# If true, forward motion requires fresh LiDAR and stops if front is blocked.
+# If true, translation requires fresh LiDAR and stops if the travel direction is blocked.
+# DRIVE_FORWARD and ADVANCE_CELL check front clearance.
+# DRIVE_BACKWARD checks rear clearance.
 bool collision_check_enabled
 
 # Optional known-grid context for map-aware live corridor tracking.

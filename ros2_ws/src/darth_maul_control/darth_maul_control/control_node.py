@@ -237,6 +237,7 @@ class DarthMaulControlNode(Node):
         self._distance_traveled_m = 0.0
         self._heading_error_rad = 0.0
         self._front_clearance_m = float('inf')
+        self._rear_clearance_m = float('inf')
         self._front_range_m = float('nan')
         self._rear_range_m = float('nan')
         self._left_range_m = float('nan')
@@ -410,13 +411,20 @@ class DarthMaulControlNode(Node):
         self.odom_timeout_sec = self._positive_float_param('odom_timeout_sec', 0.50)
         self.scan_timeout_sec = self._positive_float_param('scan_timeout_sec', 0.50)
 
-        self.require_scan_for_forward = self._bool_param(
-            'require_scan_for_forward',
+        self.require_scan_for_collision_check = self._bool_param(
+            'require_scan_for_collision_check',
             True,
         )
-        self.front_sector_deg = self._positive_float_param('front_sector_deg', 35.0)
+        self.collision_sector_deg = self._positive_float_param(
+            'collision_sector_deg',
+            35.0,
+        )
         self.front_stop_distance_m = self._positive_float_param(
             'front_stop_distance_m',
+            0.09,
+        )
+        self.rear_stop_distance_m = self._positive_float_param(
+            'rear_stop_distance_m',
             0.09,
         )
         self.lidar_diagnostics_enabled = self._bool_param(
@@ -746,12 +754,16 @@ class DarthMaulControlNode(Node):
             'grid_cell_settle_abort_heading_error_rad',
             0.220,
         )
-        self.grid_cell_settle_front_guard_enabled = self._bool_param(
-            'grid_cell_settle_front_guard_enabled',
+        self.grid_cell_settle_travel_guard_enabled = self._bool_param(
+            'grid_cell_settle_travel_guard_enabled',
             True,
         )
         self.grid_cell_settle_min_front_distance_m = self._positive_float_param(
             'grid_cell_settle_min_front_distance_m',
+            0.120,
+        )
+        self.grid_cell_settle_min_rear_distance_m = self._positive_float_param(
+            'grid_cell_settle_min_rear_distance_m',
             0.120,
         )
         self.grid_center_expected_front_distance_m = self._positive_float_param(
@@ -893,7 +905,8 @@ class DarthMaulControlNode(Node):
 
     def _scan_callback(self, msg: LaserScan) -> None:
         now = time.monotonic()
-        front_clearance = self._min_range_in_sector(msg, 0.0, self.front_sector_deg)
+        front_clearance = self._min_range_in_sector(msg, 0.0, self.collision_sector_deg)
+        rear_clearance = self._min_range_in_sector(msg, math.pi, self.collision_sector_deg)
         cardinal = cardinal_sector_ranges(
             msg,
             self.lidar_diagnostic_sector_width_deg,
@@ -907,6 +920,7 @@ class DarthMaulControlNode(Node):
 
         with self._state_lock:
             self._front_clearance_m = front_clearance
+            self._rear_clearance_m = rear_clearance
             self._front_range_m = finite_median_or_nan(cardinal['front'])
             self._rear_range_m = finite_median_or_nan(cardinal['rear'])
             self._left_range_m = finite_median_or_nan(cardinal['left'])
@@ -1124,8 +1138,8 @@ class DarthMaulControlNode(Node):
         grid_context = grid_context_from_goal(request)
         self._reset_live_grid_controller('translation start')
 
-        if direction > 0.0 and bool(request.collision_check_enabled):
-            if self.require_scan_for_forward and not self._is_scan_fresh():
+        if bool(request.collision_check_enabled):
+            if self.require_scan_for_collision_check and not self._is_scan_fresh():
                 if not lidar_required_mode:
                     return self._fail_goal(
                         goal_handle,
@@ -1133,12 +1147,16 @@ class DarthMaulControlNode(Node):
                         f'{name} requires fresh LiDAR scan',
                     )
 
-            clearance = self._front_clearance()
-            if clearance < self.front_stop_distance_m:
+            clearance, clearance_name, stop_distance = self._travel_clearance(direction)
+            if not math.isfinite(clearance):
+                clearance = float('inf')
+
+            if clearance < stop_distance:
                 return self._fail_goal(
                     goal_handle,
                     ExecuteMotionPrimitive.Result.OBSTACLE_TOO_CLOSE,
-                    f'{name} blocked before start: front_clearance={clearance:.3f} m',
+                    f'{name} blocked before start: '
+                    f'{clearance_name}={clearance:.3f} m < {stop_distance:.3f} m',
                 )
 
         start_snapshot = self._get_motion_snapshot()
@@ -1198,10 +1216,7 @@ class DarthMaulControlNode(Node):
             )
             lidar_required_start_acquired = bool(
                 start_selection.valid
-                or (
-                    self.translation_odom_fallback_enabled
-                    and direction > 0.0
-                )
+                or self.translation_odom_fallback_enabled
             )
 
         while True:
@@ -1353,20 +1368,21 @@ class DarthMaulControlNode(Node):
             final_position_error = abs(remaining)
             final_heading_error = abs(heading_error)
 
-            if direction > 0.0 and bool(request.collision_check_enabled):
-                if self.require_scan_for_forward and not self._is_scan_fresh():
+            if bool(request.collision_check_enabled):
+                if self.require_scan_for_collision_check and not self._is_scan_fresh():
                     result_code = ExecuteMotionPrimitive.Result.OBSTACLE_TOO_CLOSE
                     result_message = f'{name} stopped: LiDAR scan became stale'
                     break
 
-                clearance = self._front_clearance()
+                clearance, clearance_name, stop_distance = self._travel_clearance(direction)
                 if not math.isfinite(clearance):
                     clearance = float('inf')
-                if clearance < self.front_stop_distance_m:
+
+                if clearance < stop_distance:
                     result_code = ExecuteMotionPrimitive.Result.OBSTACLE_TOO_CLOSE
                     result_message = (
-                        f'{name} stopped: front_clearance={clearance:.3f} m '
-                        f'< {self.front_stop_distance_m:.3f} m'
+                        f'{name} stopped: {clearance_name}={clearance:.3f} m '
+                        f'< {stop_distance:.3f} m'
                     )
                     break
 
@@ -1474,10 +1490,7 @@ class DarthMaulControlNode(Node):
                     )
                     break
 
-                if (
-                    self.grid_cell_settle_enabled
-                    and direction > 0.0
-                ):
+                if self.grid_cell_settle_enabled:
                     settle_result = self._settle_grid_cell_after_translation(
                         goal_handle=goal_handle,
                         context=grid_context,
@@ -1574,12 +1587,8 @@ class DarthMaulControlNode(Node):
 
             cmd = Twist()
             cmd.linear.x = direction * speed_mag
-            if direction > 0.0:
-                cmd.linear.y = live_command.linear_y_mps if live_command.lateral_active else 0.0
-                cmd.angular.z = live_command.angular_z_radps
-            else:
-                cmd.linear.y = 0.0
-                cmd.angular.z = raw_heading_correction
+            cmd.linear.y = live_command.linear_y_mps if live_command.lateral_active else 0.0
+            cmd.angular.z = live_command.angular_z_radps
 
             cmd = self._limiter.clamp(cmd, limits)
             cmd = self._apply_acceleration_limits(cmd)
@@ -1960,7 +1969,27 @@ class DarthMaulControlNode(Node):
         scan = self._fresh_scan_copy()
         if scan is None:
             return float('inf')
-        return self._min_range_in_sector(scan, 0.0, self.front_sector_deg)
+        return self._min_range_in_sector(scan, 0.0, self.collision_sector_deg)
+
+    def _rear_clearance(self) -> float:
+        scan = self._fresh_scan_copy()
+        if scan is None:
+            return float('inf')
+        return self._min_range_in_sector(scan, math.pi, self.collision_sector_deg)
+
+    def _travel_clearance(self, direction: float) -> tuple[float, str, float]:
+        if direction >= 0.0:
+            return (
+                self._front_clearance(),
+                'front_clearance',
+                float(self.front_stop_distance_m),
+            )
+
+        return (
+            self._rear_clearance(),
+            'rear_clearance',
+            float(self.rear_stop_distance_m),
+        )
 
     def _cardinal_range_snapshot(self) -> Optional[LidarRangeSnapshot]:
         if not self.lidar_diagnostics_enabled:
@@ -2610,58 +2639,69 @@ class DarthMaulControlNode(Node):
             else:
                 longitudinal_reason = progress_selection.reason
 
-            front_guard_active = False
-            front_guard_distance_m = float('inf')
-            front_guard_source = 'unavailable'
-            front_guard_reason = 'front guard inactive'
+            travel_guard_active = False
+            travel_guard_distance_m = float('inf')
+            travel_guard_source = 'unavailable'
+            travel_guard_label = 'none'
+            travel_guard_threshold_m = float('inf')
+            travel_guard_reason = 'travel guard inactive'
 
-            stale_forward_error_m = float(commanded_distance) - float(last_progress)
+            stale_travel_error_m = float(commanded_distance) - float(last_progress)
+            settle_command_direction = 0.0
 
-            front_guard_should_check = bool(
-                self.grid_cell_settle_front_guard_enabled
-                and direction > 0.0
-                and (
-                    (
-                        longitudinal_valid
-                        and longitudinal_error_m > 0.0
-                    )
-                    or (
-                        not longitudinal_valid
-                        and stale_forward_error_m
-                        > self.grid_cell_settle_position_tolerance_m
-                    )
-                )
+            if (
+                longitudinal_valid
+                and abs(longitudinal_error_m)
+                > self.grid_cell_settle_position_tolerance_m
+            ):
+                settle_command_direction = sign(longitudinal_error_m)
+            elif (
+                not longitudinal_valid
+                and stale_travel_error_m > self.grid_cell_settle_position_tolerance_m
+            ):
+                settle_command_direction = sign(direction)
+
+            travel_guard_should_check = bool(
+                self.grid_cell_settle_travel_guard_enabled
+                and settle_command_direction != 0.0
             )
 
-            if front_guard_should_check:
-                front_guard_distance_m, front_guard_source = (
-                    self._settle_front_distance(current_ranges)
+            if travel_guard_should_check:
+                (
+                    travel_guard_distance_m,
+                    travel_guard_source,
+                    travel_guard_label,
+                    travel_guard_threshold_m,
+                ) = self._settle_travel_guard_distance(
+                    settle_command_direction,
+                    current_ranges,
                 )
-                front_guard_active = bool(
-                    math.isfinite(front_guard_distance_m)
-                    and front_guard_distance_m
-                    <= self.grid_cell_settle_min_front_distance_m
+
+                travel_guard_active = bool(
+                    math.isfinite(travel_guard_distance_m)
+                    and travel_guard_distance_m <= travel_guard_threshold_m
                 )
-                if front_guard_active:
-                    front_guard_reason = (
-                        f'front guard active: {front_guard_source}='
-                        f'{front_guard_distance_m:.3f} m <= '
-                        f'{self.grid_cell_settle_min_front_distance_m:.3f} m; '
-                        'accepting longitudinal settle without forward creep'
+
+                if travel_guard_active:
+                    travel_guard_reason = (
+                        f'{travel_guard_label} guard active: {travel_guard_source}='
+                        f'{travel_guard_distance_m:.3f} m <= '
+                        f'{travel_guard_threshold_m:.3f} m; '
+                        'accepting longitudinal settle without creeping farther toward the wall'
                     )
                 else:
-                    front_guard_reason = (
-                        f'front guard clear: {front_guard_source}='
-                        f'{front_guard_distance_m:.3f} m > '
-                        f'{self.grid_cell_settle_min_front_distance_m:.3f} m'
+                    travel_guard_reason = (
+                        f'{travel_guard_label} guard clear: {travel_guard_source}='
+                        f'{travel_guard_distance_m:.3f} m > '
+                        f'{travel_guard_threshold_m:.3f} m'
                     )
 
-            if front_guard_active and not longitudinal_valid:
+            if travel_guard_active and not longitudinal_valid:
                 longitudinal_valid = True
                 longitudinal_error_m = 0.0
-                longitudinal_source = f'front_guard/{front_guard_source}'
+                longitudinal_source = f'{travel_guard_label}_guard/{travel_guard_source}'
                 longitudinal_reason = (
-                    f'{front_guard_reason}; original longitudinal unavailable: '
+                    f'{travel_guard_reason}; original longitudinal unavailable: '
                     f'{progress_selection.reason}'
                 )
 
@@ -2670,7 +2710,7 @@ class DarthMaulControlNode(Node):
             else:
                 last_position_error = abs(float(commanded_distance) - last_progress)
 
-            if front_guard_active:
+            if travel_guard_active:
                 last_position_error = min(
                     last_position_error,
                     self.grid_cell_settle_position_tolerance_m,
@@ -2787,7 +2827,7 @@ class DarthMaulControlNode(Node):
             longitudinal_ok = True
             if longitudinal_reference_expected:
                 longitudinal_ok = bool(
-                    front_guard_active
+                    travel_guard_active
                     or (
                         longitudinal_valid
                         and abs(longitudinal_error_m)
@@ -2816,9 +2856,10 @@ class DarthMaulControlNode(Node):
                         f'longitudinal_valid={longitudinal_valid}; '
                         f'longitudinal_error={longitudinal_error_m:.3f} m; '
                         f'longitudinal_source={longitudinal_source}; '
-                        f'front_guard_active={front_guard_active}; '
-                        f'front_distance={front_guard_distance_m:.3f} m; '
-                        f'front_guard_source={front_guard_source}; '
+                        f'travel_guard_active={travel_guard_active}; '
+                        f'travel_guard_label={travel_guard_label}; '
+                        f'travel_guard_distance={travel_guard_distance_m:.3f} m; '
+                        f'travel_guard_source={travel_guard_source}; '
                         f'axial_valid={axial.valid}; axial_error={axial.error_m:.3f} m; '
                         f'axial_source={axial.source}; '
                         f'lateral_valid={centering.valid}; '
@@ -2837,7 +2878,7 @@ class DarthMaulControlNode(Node):
                 )
 
             linear_x = 0.0
-            if longitudinal_valid and not front_guard_active:
+            if longitudinal_valid and not travel_guard_active:
                 linear_x = self._settle_axis_command(
                     longitudinal_error_m,
                     self.grid_cell_settle_position_tolerance_m,
@@ -2846,16 +2887,23 @@ class DarthMaulControlNode(Node):
                     self.min_linear_x_mps,
                 )
 
-            if linear_x > 0.0 and collision_check_enabled:
-                clearance = self._front_clearance()
-                if clearance < self.front_stop_distance_m:
+            if linear_x != 0.0 and collision_check_enabled:
+                clearance, clearance_name, stop_distance = self._travel_clearance(linear_x)
+                if not math.isfinite(clearance):
+                    clearance = float('inf')
+
+                if clearance < stop_distance:
                     linear_x = 0.0
-                    front_guard_active = True
-                    front_guard_distance_m = clearance
-                    front_guard_source = 'front_sector_min'
-                    front_guard_reason = (
-                        f'front settle hold: front_clearance={clearance:.3f} m '
-                        f'< {self.front_stop_distance_m:.3f} m; '
+                    travel_guard_active = True
+                    travel_guard_distance_m = clearance
+                    travel_guard_source = clearance_name
+                    travel_guard_label = (
+                        'front' if clearance_name == 'front_clearance' else 'rear'
+                    )
+                    travel_guard_threshold_m = stop_distance
+                    travel_guard_reason = (
+                        f'{travel_guard_label} settle hold: '
+                        f'{clearance_name}={clearance:.3f} m < {stop_distance:.3f} m; '
                         'not aborting during settle'
                     )
 
@@ -2891,7 +2939,7 @@ class DarthMaulControlNode(Node):
                 (
                     f'cell settle: destination_cell={virtual.cell_idx}; '
                     f'longitudinal={longitudinal_source}: {longitudinal_reason}; '
-                    f'front_guard={front_guard_reason}; '
+                    f'travel_guard={travel_guard_reason}; '
                     f'axial={axial.reason}; lateral={centering.reason}; '
                     f'yaw={yaw_observation.reason}'
                 ),
@@ -2908,8 +2956,9 @@ class DarthMaulControlNode(Node):
                     f'long_valid={longitudinal_valid}, '
                     f'long_error={longitudinal_error_m:.3f} m, '
                     f'long_source={longitudinal_source}, '
-                    f'front_guard={front_guard_active}, '
-                    f'front_dist={front_guard_distance_m:.3f} m, '
+                    f'travel_guard={travel_guard_active}, '
+                    f'travel_guard_label={travel_guard_label}, '
+                    f'travel_guard_dist={travel_guard_distance_m:.3f} m, '
                     f'axial_valid={axial.valid}, axial_error={axial.error_m:.3f} m, '
                     f'axial_source={axial.source}, '
                     f'lat_valid={centering.valid}, '
@@ -3024,6 +3073,43 @@ class DarthMaulControlNode(Node):
             return float(clearance), 'front_sector_min'
 
         return float('inf'), 'unavailable'
+
+    def _settle_rear_distance(
+        self,
+        ranges: Optional[LidarRangeSnapshot],
+    ) -> tuple[float, str]:
+        if ranges is not None and ranges.rear.valid:
+            distance = self._range_value(ranges.rear)
+            if math.isfinite(distance) and distance > 0.0:
+                return distance, 'rear_cardinal_median'
+
+        clearance = self._rear_clearance()
+        if math.isfinite(clearance) and clearance > 0.0:
+            return float(clearance), 'rear_sector_min'
+
+        return float('inf'), 'unavailable'
+
+    def _settle_travel_guard_distance(
+        self,
+        command_direction: float,
+        ranges: Optional[LidarRangeSnapshot],
+    ) -> tuple[float, str, str, float]:
+        if command_direction >= 0.0:
+            distance, source = self._settle_front_distance(ranges)
+            return (
+                distance,
+                source,
+                'front',
+                float(self.grid_cell_settle_min_front_distance_m),
+            )
+
+        distance, source = self._settle_rear_distance(ranges)
+        return (
+            distance,
+            source,
+            'rear',
+            float(self.grid_cell_settle_min_rear_distance_m),
+        )
 
     @staticmethod
     def _range_value(measurement: SectorRange) -> float:
@@ -3215,9 +3301,6 @@ class DarthMaulControlNode(Node):
         if self.translation_progress_source != 'lidar_required':
             return progress_selection
 
-        if direction <= 0.0:
-            return progress_selection
-
         yaw_observation = self._manhattan_yaw_observation()
         yaw_ok = bool(
             yaw_observation.valid
@@ -3258,6 +3341,8 @@ class DarthMaulControlNode(Node):
                 f'confidence={alignment.confidence:.2f}'
             )
 
+        movement = 'forward' if direction >= 0.0 else 'backward'
+
         return replace(
             progress_selection,
             valid=True,
@@ -3265,6 +3350,7 @@ class DarthMaulControlNode(Node):
             source='odom_fallback',
             reason=(
                 'geometry-aware odom fallback: LiDAR progress unavailable or inconsistent; '
+                f'movement={movement}; '
                 f'{map_reason}; '
                 f'side_reference={side_reference}; '
                 f'odom_heading_error={abs(float(heading_error_rad)):.3f} rad; '

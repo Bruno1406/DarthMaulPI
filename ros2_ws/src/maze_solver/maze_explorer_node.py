@@ -380,9 +380,9 @@ class MazeExplorerNode(Node):
         self.declare_parameter('drive_max_linear_x_mps', 0.18)
         self.declare_parameter('reverse_max_linear_x_mps', 0.075)
         self.declare_parameter('reverse_backtracking_enabled', True)
-        self.declare_parameter('reverse_backtracking_max_consecutive_cells', 1)
-        self.declare_parameter('reverse_position_tolerance_m', 0.018)
-        self.declare_parameter('reverse_heading_tolerance_rad', 0.180)
+        self.declare_parameter('reverse_backtracking_max_consecutive_cells', 0)
+        self.declare_parameter('reverse_position_tolerance_m', 0.020)
+        self.declare_parameter('reverse_heading_tolerance_rad', 0.070)
         self.declare_parameter('rotate_max_angular_z_radps', 0.85)
         self.declare_parameter('motion_timeout_s', 0.0)
         self.declare_parameter('direction_priority', 'left_straight_right_back')
@@ -706,6 +706,60 @@ class MazeExplorerNode(Node):
             return [self.heading, RIGHT_OF[self.heading], LEFT_OF[self.heading], OPPOSITE[self.heading]]
         return [LEFT_OF[self.heading], self.heading, RIGHT_OF[self.heading], OPPOSITE[self.heading]]
 
+    def _reverse_backtracking_budget_allows_reverse(self, reverse_budget: int) -> bool:
+        configured_budget = int(self.reverse_backtracking_max_consecutive_cells)
+
+        if configured_budget == 0:
+            return True
+
+        return int(reverse_budget) > 0
+
+    def _rotation_safe_at_cell(self, cell: Cell, heading: int) -> Tuple[bool, str]:
+        left_direction = LEFT_OF[heading]
+        right_direction = RIGHT_OF[heading]
+
+        left_state = self.maze.wall_state(cell, left_direction)
+        right_state = self.maze.wall_state(cell, right_direction)
+
+        if left_state == OPEN or right_state == OPEN:
+            return (
+                True,
+                f'rotation allowed at cell={cell}; '
+                f'heading={DIR_NAME[heading]}; '
+                f'left={STATE_NAME[left_state]}; '
+                f'right={STATE_NAME[right_state]}'
+            )
+
+        return (
+            False,
+            f'rotation forbidden at cell={cell}; '
+            f'heading={DIR_NAME[heading]}; '
+            f'left={STATE_NAME[left_state]}; '
+            f'right={STATE_NAME[right_state]}; '
+            'requires at least one known open side'
+        )
+
+    def _should_drive_backward_for_segment(
+        self,
+        *,
+        from_cell: Cell,
+        from_heading: int,
+        direction: int,
+        reverse_budget: int,
+    ) -> bool:
+        if not self.reverse_backtracking_enabled:
+            return False
+
+        if direction != OPPOSITE[from_heading]:
+            return False
+
+        if not self._reverse_backtracking_budget_allows_reverse(reverse_budget):
+            return False
+
+        rotation_safe, _ = self._rotation_safe_at_cell(from_cell, from_heading)
+
+        return not rotation_safe
+
     def _enqueue_path(self, path: Sequence[Cell]) -> None:
         if len(path) < 2:
             self._fatal(f'Cannot enqueue path with fewer than 2 cells: {path}')
@@ -726,9 +780,11 @@ class MazeExplorerNode(Node):
         for target_cell in path[1:]:
             direction = direction_between(simulated_cell, target_cell)
 
-            allow_reverse = bool(
-                reverse_budget > 0
-                and direction == OPPOSITE[simulated_heading]
+            allow_reverse = self._should_drive_backward_for_segment(
+                from_cell=simulated_cell,
+                from_heading=simulated_heading,
+                direction=direction,
+                reverse_budget=reverse_budget,
             )
 
             simulated_heading, used_reverse = self._enqueue_segment(
@@ -739,21 +795,29 @@ class MazeExplorerNode(Node):
                 allow_reverse=allow_reverse,
             )
 
-            if used_reverse:
+            if used_reverse and reverse_budget > 0:
                 reverse_budget -= 1
-            else:
+            elif not used_reverse:
                 reverse_budget = int(self.reverse_backtracking_max_consecutive_cells)
 
             simulated_cell = target_cell
 
     def _enqueue_step(self, direction: int) -> None:
         target_cell = neighbor(self.current_cell, direction)
+
+        allow_reverse = self._should_drive_backward_for_segment(
+            from_cell=self.current_cell,
+            from_heading=self.heading,
+            direction=direction,
+            reverse_budget=int(self.reverse_backtracking_max_consecutive_cells),
+        )
+
         self._enqueue_segment(
             from_cell=self.current_cell,
             from_heading=self.heading,
             direction=direction,
             target_cell=target_cell,
-            allow_reverse=False,
+            allow_reverse=allow_reverse,
         )
 
     def _enqueue_segment(
@@ -786,7 +850,7 @@ class MazeExplorerNode(Node):
             )
 
             self.get_logger().info(
-                f'Queued reverse segment {from_cell} -> {target_cell} '
+                f'Queued reverse corridor escape {from_cell} -> {target_cell} '
                 f'via {DIR_NAME[direction]} '
                 f'(heading stays {DIR_NAME[from_heading]}, '
                 f'drive_backward={self.cell_length_m:.3f})'
@@ -797,6 +861,19 @@ class MazeExplorerNode(Node):
         turn = turn_between(from_heading, direction)
 
         if abs(turn) > 1.0e-6:
+            rotation_safe, rotation_reason = self._rotation_safe_at_cell(
+                from_cell,
+                from_heading,
+            )
+
+            if not rotation_safe:
+                self._fatal(
+                    f'Refusing unsafe rotation before moving '
+                    f'{from_cell} -> {target_cell} via {DIR_NAME[direction]}: '
+                    f'{rotation_reason}'
+                )
+                return from_heading, False
+
             self.motion_queue.append(MotionStep('rotate', direction, turn, None))
 
         self.motion_queue.append(
@@ -804,9 +881,10 @@ class MazeExplorerNode(Node):
         )
 
         self.get_logger().info(
-            f'Queued segment {from_cell} -> {target_cell} via {DIR_NAME[direction]} '
+            f'Queued forward segment {from_cell} -> {target_cell} '
+            f'via {DIR_NAME[direction]} '
             f'(from_heading={DIR_NAME[from_heading]}, turn={turn:.3f}, '
-            f'drive={self.cell_length_m:.3f})'
+            f'drive_forward={self.cell_length_m:.3f})'
         )
 
         return direction, False
@@ -837,7 +915,7 @@ class MazeExplorerNode(Node):
         elif step.kind == 'drive_backward':
             goal.primitive_type = ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD
             goal.value = float(step.value)
-            goal.collision_check_enabled = False
+            goal.collision_check_enabled = True
             goal.max_linear_x_mps = float(self.reverse_max_linear_x_mps)
             goal.max_linear_y_mps = 0.0
             goal.max_angular_z_radps = 0.0

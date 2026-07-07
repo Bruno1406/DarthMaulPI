@@ -45,10 +45,11 @@ darth_maul_control:
     odom_timeout_sec: 0.50
     scan_timeout_sec: 0.50
 
-    # LiDAR front stop
-    require_scan_for_forward: true
-    front_sector_deg: 35.0
+    # LiDAR travel-direction stop
+    require_scan_for_collision_check: true
+    collision_sector_deg: 35.0
     front_stop_distance_m: 0.09
+    rear_stop_distance_m: 0.09
 
     # LiDAR cardinal-sector diagnostics.
     lidar_diagnostics_enabled: true
@@ -200,9 +201,9 @@ darth_maul_control:
     grid_reacquire_large_yaw_rad: 0.200
     grid_reacquire_speed_scale: 0.65
 
-    # Destination-cell settle/snap after each forward translation.
+    # Destination-cell settle/snap after each translation.
     # This is intentionally short and bounded. It does not split compressed runs;
-    # it only prevents starting the next rotate from a badly off-center cell pose.
+    # it prevents starting the next primitive from a badly off-center cell pose.
     grid_cell_settle_enabled: true
     grid_cell_settle_timeout_sec: 2.5
     grid_cell_settle_max_linear_x_mps: 0.050
@@ -215,12 +216,13 @@ darth_maul_control:
     grid_cell_settle_abort_position_error_m: 0.120
     grid_cell_settle_abort_heading_error_rad: 0.220
 
-    # Soft front-wall guard during final cell settle.
-    # If settle wants to creep forward but the front wall is already this close,
-    # do not abort and do not push farther into the wall. Treat longitudinal
-    # settle as good enough and continue yaw/lateral correction only.
-    grid_cell_settle_front_guard_enabled: true
+    # Soft travel-direction wall guard during final cell settle.
+    # If settle wants to creep toward a nearby front or rear wall, do not abort
+    # and do not push farther into the wall. Treat longitudinal settle as good
+    # enough and continue yaw/lateral correction only.
+    grid_cell_settle_travel_guard_enabled: true
     grid_cell_settle_min_front_distance_m: 0.155
+    grid_cell_settle_min_rear_distance_m: 0.155
 
     # Calibrated front/rear ranges when the robot is centered in one cell.
     # Do not assume this is exactly cell_length_m / 2. Measure it on the real robot
