@@ -11,6 +11,7 @@ from typing import Any, Deque, Dict, List, Optional, Sequence, Tuple
 import rclpy
 from darth_maul_control_interfaces.action import ExecuteMotionPrimitive
 from maze_interface.msg import RosMaze
+from maze_interface.srv import GradeMaze
 from rclpy.action import ActionClient
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan
@@ -370,6 +371,12 @@ class MazeExplorerNode(Node):
         self.declare_parameter('shutdown_on_complete', True)
         self.declare_parameter('output_maze_file', '')
 
+        self.declare_parameter('submit_maze_to_grader', False)
+        self.declare_parameter('grade_service_name', '/grade_maze')
+        self.declare_parameter('grade_maze_nr', 1)
+        self.declare_parameter('grade_service_timeout_s', 10.0)
+        self.declare_parameter('grade_result_required', False)
+
         self.declare_parameter('drive_max_linear_x_mps', 0.18)
         self.declare_parameter('reverse_max_linear_x_mps', 0.075)
         self.declare_parameter('reverse_backtracking_enabled', True)
@@ -397,6 +404,20 @@ class MazeExplorerNode(Node):
         self.max_cells_to_visit = int(self.get_parameter('max_cells_to_visit').value)
         self.shutdown_on_complete = parse_bool(self.get_parameter('shutdown_on_complete').value)
         self.output_maze_file = str(self.get_parameter('output_maze_file').value).strip()
+
+        self.submit_maze_to_grader = parse_bool(
+            self.get_parameter('submit_maze_to_grader').value
+        )
+        self.grade_service_name = str(
+            self.get_parameter('grade_service_name').value
+        ).strip()
+        self.grade_maze_nr = int(self.get_parameter('grade_maze_nr').value)
+        self.grade_service_timeout_s = float(
+            self.get_parameter('grade_service_timeout_s').value
+        )
+        self.grade_result_required = parse_bool(
+            self.get_parameter('grade_result_required').value
+        )
 
         self.drive_max_linear_x_mps = float(self.get_parameter('drive_max_linear_x_mps').value)
         self.reverse_max_linear_x_mps = float(
@@ -445,6 +466,9 @@ class MazeExplorerNode(Node):
         self.scan_sub = self.create_subscription(LaserScan, self.scan_topic, self._scan_callback, 10)
         self.motion_client = ActionClient(self, ExecuteMotionPrimitive, self.motion_action_name)
         self.maze_pub = self.create_publisher(RosMaze, '/discovered_maze', 10)
+        self.grade_client = self.create_client(GradeMaze, self.grade_service_name)
+        self.grade_future = None
+        self.grade_submit_time = None
         self.timer = self.create_timer(0.10, self._tick)
 
         self.get_logger().info(
@@ -483,6 +507,12 @@ class MazeExplorerNode(Node):
             errors.append('max_cells_to_visit must be >= 0')
         if self.stale_scan_timeout_s <= 0.0:
             errors.append('stale_scan_timeout_s must be > 0')
+        if self.submit_maze_to_grader and not self.grade_service_name:
+            errors.append('grade_service_name must not be empty when submit_maze_to_grader=true')
+        if self.grade_service_timeout_s <= 0.0:
+            errors.append('grade_service_timeout_s must be > 0')
+        if self.grade_maze_nr < 0:
+            errors.append('grade_maze_nr must be >= 0')
         if self.drive_max_linear_x_mps <= 0.0:
             errors.append('drive_max_linear_x_mps must be > 0')
         if self.reverse_max_linear_x_mps <= 0.0:
@@ -513,7 +543,31 @@ class MazeExplorerNode(Node):
         self.latest_scan_monotonic = time.monotonic()
 
     def _tick(self) -> None:
-        if self.shutdown_requested or self.completed or self.motion_in_flight:
+        if self.shutdown_requested:
+            return
+
+        if (
+            self.completed
+            and self.grade_future is not None
+            and not self.grade_future.done()
+            and self.grade_submit_time is not None
+        ):
+            elapsed_s = (
+                self.get_clock().now() - self.grade_submit_time
+            ).nanoseconds * 1e-9
+
+            if elapsed_s > float(self.grade_service_timeout_s):
+                self.get_logger().error(
+                    f'Grade service response timed out after {elapsed_s:.1f} s; '
+                    f'service={self.grade_service_name}, maze_nr={self.grade_maze_nr}'
+                )
+                if self.grade_result_required:
+                    self.exit_code = 1
+                if self.shutdown_on_complete:
+                    self.shutdown_requested = True
+                return
+
+        if self.completed or self.motion_in_flight:
             return
 
         if self.motion_queue:
@@ -913,6 +967,56 @@ class MazeExplorerNode(Node):
 
         if self.output_maze_file:
             self._write_maze_file(Path(self.output_maze_file).expanduser(), msg)
+
+        if self.submit_maze_to_grader:
+            if self._submit_maze_to_grader(msg):
+                return
+
+        if self.shutdown_on_complete:
+            self.shutdown_requested = True
+
+    def _submit_maze_to_grader(self, msg: RosMaze) -> bool:
+        self.get_logger().info(
+            f'Submitting discovered maze to grader: '
+            f'service={self.grade_service_name}, maze_nr={self.grade_maze_nr}, '
+            f'n={int(msg.n)}, m={int(msg.m)}, cells={len(msg.l)}'
+        )
+
+        if not self.grade_client.wait_for_service(
+            timeout_sec=float(self.grade_service_timeout_s)
+        ):
+            self.get_logger().error(
+                f'Grade service {self.grade_service_name} not available after '
+                f'{self.grade_service_timeout_s:.1f} s; maze was not submitted.'
+            )
+            if self.grade_result_required:
+                self.exit_code = 1
+            return False
+
+        request = GradeMaze.Request()
+        request.maze_nr = int(self.grade_maze_nr)
+        request.maze = msg
+
+        self.grade_submit_time = self.get_clock().now()
+        self.grade_future = self.grade_client.call_async(request)
+        self.grade_future.add_done_callback(self._grade_response_callback)
+        return True
+
+    def _grade_response_callback(self, future) -> None:
+        self.grade_submit_time = None
+
+        try:
+            result = future.result()
+        except Exception as exc:
+            self.get_logger().error(f'Grade service call failed: {exc}')
+            if self.grade_result_required:
+                self.exit_code = 1
+        else:
+            self.get_logger().info(
+                f'Grade service response: maze_nr={self.grade_maze_nr}, '
+                f'score={int(result.score)}'
+            )
+            print(f'TASK2_GRADE_SCORE={int(result.score)}', flush=True)
 
         if self.shutdown_on_complete:
             self.shutdown_requested = True

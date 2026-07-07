@@ -25,6 +25,12 @@ def generate_launch_description():
     shutdown_on_complete = LaunchConfiguration('shutdown_on_complete')
     direction_priority = LaunchConfiguration('direction_priority')
 
+    submit_maze_to_grader = LaunchConfiguration('submit_maze_to_grader')
+    grade_service_name = LaunchConfiguration('grade_service_name')
+    grade_maze_nr = LaunchConfiguration('grade_maze_nr')
+    grade_service_timeout_s = LaunchConfiguration('grade_service_timeout_s')
+    grade_result_required = LaunchConfiguration('grade_result_required')
+
     camera_face_down = LaunchConfiguration('camera_face_down')
     camera_vertical_servo_id = LaunchConfiguration('camera_vertical_servo_id')
     camera_down_position = LaunchConfiguration('camera_down_position')
@@ -51,6 +57,12 @@ def generate_launch_description():
             'direction_priority',
             default_value='left_straight_right_back',
         ),
+
+        DeclareLaunchArgument('submit_maze_to_grader', default_value='true'),
+        DeclareLaunchArgument('grade_service_name', default_value='/grade_maze'),
+        DeclareLaunchArgument('grade_maze_nr', default_value='1'),
+        DeclareLaunchArgument('grade_service_timeout_s', default_value='10.0'),
+        DeclareLaunchArgument('grade_result_required', default_value='false'),
 
         DeclareLaunchArgument('camera_face_down', default_value='true'),
         DeclareLaunchArgument('camera_vertical_servo_id', default_value='1'),
@@ -98,6 +110,12 @@ def generate_launch_description():
                 'output_maze_file': output_maze_file,
                 'shutdown_on_complete': shutdown_on_complete,
                 'direction_priority': direction_priority,
+
+                'submit_maze_to_grader': submit_maze_to_grader,
+                'grade_service_name': grade_service_name,
+                'grade_maze_nr': grade_maze_nr,
+                'grade_service_timeout_s': grade_service_timeout_s,
+                'grade_result_required': grade_result_required,
             }],
         ),
     ])
