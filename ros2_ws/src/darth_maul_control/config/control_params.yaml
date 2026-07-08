@@ -218,8 +218,9 @@ darth_maul_control:
     grid_cell_settle_compact_transit_lateral_tolerance_m: 0.045
     grid_cell_settle_compact_transit_heading_tolerance_rad: 0.080
     # Compact known-transit settle:
-    # use front/rear LiDAR as the final axial reference when an expected
-    # endpoint wall is visible and says the robot is still meaningfully off-center.
+    # use the nearest mapped front/rear LiDAR wall as the final axial reference,
+    # even when that wall is beyond the destination cell edge, if it says the
+    # robot is still meaningfully off-center.
     grid_cell_settle_compact_transit_lidar_axial_enabled: true
     grid_cell_settle_compact_transit_lidar_axial_min_error_m: 0.020
     grid_cell_settle_compact_transit_lidar_axial_tolerance_m: 0.015

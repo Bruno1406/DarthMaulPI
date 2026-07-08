@@ -95,6 +95,22 @@ class ExpectedWalls:
 
 
 @dataclass(frozen=True)
+class AxialWallReference:
+    valid: bool
+    cell_idx: int
+    front: bool
+    rear: bool
+    front_wall_cell_idx: int
+    rear_wall_cell_idx: int
+    front_open_cells: int
+    rear_open_cells: int
+    front_expected_distance_m: float
+    rear_expected_distance_m: float
+    preferred: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class GridCenteringObservation:
     valid: bool
     lateral_error_m: float
@@ -311,6 +327,186 @@ def expected_walls_for_cell(context: GridRunContext, cell_idx: int) -> ExpectedW
         left=bool(value & left_dir),
         right=bool(value & right_dir),
         reason='valid expected walls',
+    )
+
+
+def _invalid_axial_wall_reference(cell_idx: int, reason: str) -> AxialWallReference:
+    return AxialWallReference(
+        valid=False,
+        cell_idx=int(cell_idx),
+        front=False,
+        rear=False,
+        front_wall_cell_idx=0,
+        rear_wall_cell_idx=0,
+        front_open_cells=0,
+        rear_open_cells=0,
+        front_expected_distance_m=0.0,
+        rear_expected_distance_m=0.0,
+        preferred='none',
+        reason=reason,
+    )
+
+
+def _nearest_wall_in_direction(
+    *,
+    context: GridRunContext,
+    cell_idx: int,
+    direction: int,
+    base_expected_distance_m: float,
+    cell_length_m: float,
+) -> tuple[bool, int, int, float, str]:
+    if (
+        not math.isfinite(float(base_expected_distance_m))
+        or float(base_expected_distance_m) <= 0.0
+    ):
+        return False, 0, 0, 0.0, 'base expected distance invalid'
+
+    cell = int(cell_idx)
+    for open_cells in range(max(0, int(context.n) * int(context.m)) + 1):
+        value = cell_value(context.l, context.n, context.m, cell)
+        if value == MISSING:
+            return False, 0, 0, 0.0, f'cell {cell} missing before axial wall'
+        if bool(value & direction):
+            expected_distance = (
+                float(base_expected_distance_m)
+                + float(open_cells) * float(cell_length_m)
+            )
+            return (
+                True,
+                int(cell),
+                int(open_cells),
+                float(expected_distance),
+                (
+                    f'wall at cell={cell}; open_cells={open_cells}; '
+                    f'expected_distance={expected_distance:.3f} m'
+                ),
+            )
+
+        next_cell = advance_cell(cell, direction, context.n, context.m)
+        if next_cell == 0:
+            return False, 0, 0, 0.0, 'maze boundary reached before axial wall'
+
+        next_value = cell_value(context.l, context.n, context.m, next_cell)
+        if next_value == MISSING:
+            return False, 0, 0, 0.0, f'cell {next_cell} missing before axial wall'
+        if bool(next_value & OPPOSITE[direction]):
+            return (
+                False,
+                0,
+                0,
+                0.0,
+                (
+                    'inconsistent axial wall map: current cell is open but '
+                    f'next cell {next_cell} has the reciprocal wall'
+                ),
+            )
+
+        cell = next_cell
+
+    return False, 0, 0, 0.0, 'axial wall search exceeded maze size'
+
+
+def nearest_axial_wall_reference(
+    *,
+    context: GridRunContext,
+    cell_idx: int,
+    cell_length_m: float,
+    expected_front_distance_m: float,
+    expected_rear_distance_m: float,
+) -> AxialWallReference:
+    if not context.valid:
+        return _invalid_axial_wall_reference(cell_idx, context.reason)
+
+    if cell_idx <= 0 or cell_idx > int(context.n) * int(context.m):
+        return _invalid_axial_wall_reference(
+            cell_idx,
+            f'cell_idx={cell_idx} out of range',
+        )
+
+    if not math.isfinite(float(cell_length_m)) or float(cell_length_m) <= 0.0:
+        return _invalid_axial_wall_reference(
+            cell_idx,
+            f'cell_length_m={cell_length_m!r} invalid',
+        )
+
+    if cell_value(context.l, context.n, context.m, cell_idx) == MISSING:
+        return _invalid_axial_wall_reference(
+            cell_idx,
+            f'cell_idx={cell_idx} missing',
+        )
+
+    robot_heading = (
+        context.robot_heading
+        if context.robot_heading in VALID_HEADINGS
+        else context.heading
+    )
+    if robot_heading not in VALID_HEADINGS:
+        return _invalid_axial_wall_reference(
+            cell_idx,
+            f'robot_heading={robot_heading} invalid',
+        )
+
+    (
+        front,
+        front_wall_cell_idx,
+        front_open_cells,
+        front_expected_distance_m,
+        front_reason,
+    ) = _nearest_wall_in_direction(
+        context=context,
+        cell_idx=cell_idx,
+        direction=robot_heading,
+        base_expected_distance_m=expected_front_distance_m,
+        cell_length_m=cell_length_m,
+    )
+    (
+        rear,
+        rear_wall_cell_idx,
+        rear_open_cells,
+        rear_expected_distance_m,
+        rear_reason,
+    ) = _nearest_wall_in_direction(
+        context=context,
+        cell_idx=cell_idx,
+        direction=OPPOSITE[robot_heading],
+        base_expected_distance_m=expected_rear_distance_m,
+        cell_length_m=cell_length_m,
+    )
+
+    candidates: list[tuple[float, int, str]] = []
+    if front:
+        candidates.append((float(front_expected_distance_m), int(front_open_cells), 'front'))
+    if rear:
+        candidates.append((float(rear_expected_distance_m), int(rear_open_cells), 'rear'))
+
+    if not candidates:
+        return _invalid_axial_wall_reference(
+            cell_idx,
+            (
+                'no mapped axial wall from destination cell; '
+                f'front={front_reason}; rear={rear_reason}'
+            ),
+        )
+
+    candidates.sort(key=lambda item: (item[0], item[1], item[2]))
+    preferred = candidates[0][2]
+
+    return AxialWallReference(
+        valid=True,
+        cell_idx=int(cell_idx),
+        front=bool(front),
+        rear=bool(rear),
+        front_wall_cell_idx=int(front_wall_cell_idx),
+        rear_wall_cell_idx=int(rear_wall_cell_idx),
+        front_open_cells=int(front_open_cells),
+        rear_open_cells=int(rear_open_cells),
+        front_expected_distance_m=float(front_expected_distance_m) if front else 0.0,
+        rear_expected_distance_m=float(rear_expected_distance_m) if rear else 0.0,
+        preferred=preferred,
+        reason=(
+            'nearest mapped axial wall reference; '
+            f'preferred={preferred}; front={front_reason}; rear={rear_reason}'
+        ),
     )
 
 

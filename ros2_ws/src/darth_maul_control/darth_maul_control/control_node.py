@@ -34,6 +34,7 @@ from darth_maul_control.scan_geometry import (
     invalid_grid_alignment,
 )
 from darth_maul_control.grid_context import (
+    AxialWallReference,
     HEADING_COAST,
     LATERAL_COAST,
     UNAVAILABLE,
@@ -49,6 +50,7 @@ from darth_maul_control.grid_context import (
     invalid_centering,
     live_grid_command,
     make_grid_observation,
+    nearest_axial_wall_reference,
     observe_centering_from_expected_side_walls,
 )
 from darth_maul_control.grid_yaw import (
@@ -2545,6 +2547,147 @@ class DarthMaulControlNode(Node):
             max_disagreement_m=self.grid_center_front_rear_agreement_tolerance_m,
         )
 
+    def _compact_transit_axial_cell_centering_estimate(
+        self,
+        *,
+        reference: AxialWallReference,
+        ranges: Optional[LidarRangeSnapshot],
+    ) -> AxialCellCenterEstimate:
+        if ranges is None:
+            return AxialCellCenterEstimate(
+                valid=False,
+                error_m=0.0,
+                source='none',
+                front_usable=False,
+                rear_usable=False,
+                disagreement_m=0.0,
+                reason='no fresh cardinal LiDAR snapshot for compact axial settle',
+            )
+
+        if not reference.valid:
+            return AxialCellCenterEstimate(
+                valid=False,
+                error_m=0.0,
+                source='none',
+                front_usable=False,
+                rear_usable=False,
+                disagreement_m=0.0,
+                reason=f'no compact axial wall reference: {reference.reason}',
+            )
+
+        front_distance = self._range_value(ranges.front)
+        rear_distance = self._range_value(ranges.rear)
+        candidates: list[tuple[float, int, AxialCellCenterEstimate]] = []
+
+        if (
+            reference.front
+            and ranges.front.valid
+            and math.isfinite(front_distance)
+            and math.isfinite(reference.front_expected_distance_m)
+            and reference.front_expected_distance_m > 0.0
+        ):
+            front_error = (
+                float(front_distance)
+                - float(reference.front_expected_distance_m)
+            )
+            candidates.append(
+                (
+                    float(reference.front_expected_distance_m),
+                    0 if reference.preferred == 'front' else 1,
+                    AxialCellCenterEstimate(
+                        valid=True,
+                        error_m=float(front_error),
+                        source='front_nearest_wall',
+                        front_usable=True,
+                        rear_usable=False,
+                        disagreement_m=0.0,
+                        reason=(
+                            'compact transit nearest mapped front wall accepted; '
+                            f'destination_cell={reference.cell_idx}; '
+                            f'wall_cell={reference.front_wall_cell_idx}; '
+                            f'open_cells={reference.front_open_cells}; '
+                            f'front_distance={front_distance:.3f} m; '
+                            f'expected_front_distance='
+                            f'{reference.front_expected_distance_m:.3f} m; '
+                            f'front_error={front_error:.3f} m; '
+                            f'{reference.reason}'
+                        ),
+                    ),
+                )
+            )
+
+        if (
+            reference.rear
+            and ranges.rear.valid
+            and math.isfinite(rear_distance)
+            and math.isfinite(reference.rear_expected_distance_m)
+            and reference.rear_expected_distance_m > 0.0
+        ):
+            rear_error = (
+                float(reference.rear_expected_distance_m)
+                - float(rear_distance)
+            )
+            candidates.append(
+                (
+                    float(reference.rear_expected_distance_m),
+                    0 if reference.preferred == 'rear' else 1,
+                    AxialCellCenterEstimate(
+                        valid=True,
+                        error_m=float(rear_error),
+                        source='rear_nearest_wall',
+                        front_usable=False,
+                        rear_usable=True,
+                        disagreement_m=0.0,
+                        reason=(
+                            'compact transit nearest mapped rear wall accepted; '
+                            f'destination_cell={reference.cell_idx}; '
+                            f'wall_cell={reference.rear_wall_cell_idx}; '
+                            f'open_cells={reference.rear_open_cells}; '
+                            f'rear_distance={rear_distance:.3f} m; '
+                            f'expected_rear_distance='
+                            f'{reference.rear_expected_distance_m:.3f} m; '
+                            f'rear_error={rear_error:.3f} m; '
+                            f'{reference.reason}'
+                        ),
+                    ),
+                )
+            )
+
+        if not candidates:
+            return AxialCellCenterEstimate(
+                valid=False,
+                error_m=0.0,
+                source='none',
+                front_usable=False,
+                rear_usable=False,
+                disagreement_m=0.0,
+                reason=(
+                    'compact axial wall reference not visible: '
+                    f'front_expected={reference.front}; '
+                    f'front_valid={ranges.front.valid}; '
+                    f'front_distance={front_distance:.3f} m; '
+                    f'rear_expected={reference.rear}; '
+                    f'rear_valid={ranges.rear.valid}; '
+                    f'rear_distance={rear_distance:.3f} m; '
+                    f'{reference.reason}'
+                ),
+            )
+
+        candidates.sort(key=lambda item: (item[0], item[1]))
+        chosen = candidates[0][2]
+        if len(candidates) == 1:
+            return chosen
+
+        rejected = candidates[1][2]
+        return replace(
+            chosen,
+            disagreement_m=abs(float(chosen.error_m) - float(rejected.error_m)),
+            reason=(
+                f'{chosen.reason}; chose nearest usable axial wall over '
+                f'{rejected.source}={rejected.error_m:.3f} m'
+            ),
+        )
+
     def _reacquire_single_axial_cell_centering(
         self,
         *,
@@ -2744,6 +2887,7 @@ class DarthMaulControlNode(Node):
 
         destination_cell = 0
         settle_context: Optional[GridRunContext] = None
+        compact_transit_axial_reference: Optional[AxialWallReference] = None
 
         if context.valid:
             destination_cell = advance_cells(
@@ -2786,6 +2930,21 @@ class DarthMaulControlNode(Node):
                 'destination cell settle context',
                 robot_heading=context.robot_heading,
             )
+            if (
+                compact_transit_settle
+                and self.grid_cell_settle_compact_transit_lidar_axial_enabled
+            ):
+                compact_transit_axial_reference = nearest_axial_wall_reference(
+                    context=settle_context,
+                    cell_idx=destination_cell,
+                    cell_length_m=self.cell_length_m,
+                    expected_front_distance_m=(
+                        self.grid_center_expected_front_distance_m
+                    ),
+                    expected_rear_distance_m=(
+                        self.grid_center_expected_rear_distance_m
+                    ),
+                )
 
         # Use the middle of a one-cell settle context so side-wall centering is
         # not weakened by the live-run boundary-zone penalty.
@@ -2939,6 +3098,24 @@ class DarthMaulControlNode(Node):
                         direction=direction,
                     )
                 axial_reference_expected = bool(expected.front or expected.rear)
+                if compact_transit_axial_reference is not None:
+                    compact_axial = (
+                        self._compact_transit_axial_cell_centering_estimate(
+                            reference=compact_transit_axial_reference,
+                            ranges=current_ranges,
+                        )
+                    )
+                    if compact_axial.valid:
+                        axial = compact_axial
+                        axial_reference_expected = True
+                    elif not axial.valid:
+                        axial = replace(
+                            axial,
+                            reason=(
+                                f'{axial.reason}; compact_nearest_wall='
+                                f'{compact_axial.reason}'
+                            ),
+                        )
                 lateral_reference_expected = bool(expected.left or expected.right)
             else:
                 virtual = VirtualCellEstimate(
@@ -3196,9 +3373,9 @@ class DarthMaulControlNode(Node):
                 longitudinal_error_m = float(axial.error_m)
                 longitudinal_source = f'axial/compact_transit_{axial.source}'
                 longitudinal_reason = (
-                    'compact known-transit settle uses endpoint LiDAR axial '
-                    'cell-centering because expected front/rear wall reference '
-                    'is visible and meaningfully off-center; '
+                    'compact known-transit settle uses nearest mapped '
+                    'front/rear LiDAR axial cell-centering because a trusted '
+                    'axial wall reference is visible and meaningfully off-center; '
                     f'run_cells={context.run_cells}; '
                     f'axial_error={axial.error_m:.3f} m; '
                     f'axial_source={axial.source}; '
