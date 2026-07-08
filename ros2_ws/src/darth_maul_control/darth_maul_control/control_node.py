@@ -734,6 +734,32 @@ class DarthMaulControlNode(Node):
             'grid_cell_settle_position_tolerance_m',
             0.010,
         )
+        self.grid_cell_settle_compact_transit_accept_enabled = self._bool_param(
+            'grid_cell_settle_compact_transit_accept_enabled',
+            True,
+        )
+        self.grid_cell_settle_compact_transit_min_run_cells = self._positive_int_param(
+            'grid_cell_settle_compact_transit_min_run_cells',
+            2,
+        )
+        self.grid_cell_settle_compact_transit_position_tolerance_m = (
+            self._positive_float_param(
+                'grid_cell_settle_compact_transit_position_tolerance_m',
+                0.030,
+            )
+        )
+        self.grid_cell_settle_compact_transit_lateral_tolerance_m = (
+            self._positive_float_param(
+                'grid_cell_settle_compact_transit_lateral_tolerance_m',
+                0.045,
+            )
+        )
+        self.grid_cell_settle_compact_transit_heading_tolerance_rad = (
+            self._positive_float_param(
+                'grid_cell_settle_compact_transit_heading_tolerance_rad',
+                0.080,
+            )
+        )
         self.grid_cell_settle_lateral_tolerance_m = self._positive_float_param(
             'grid_cell_settle_lateral_tolerance_m',
             0.020,
@@ -2549,6 +2575,37 @@ class DarthMaulControlNode(Node):
         last_progress_reason = str(initial_progress_reason)
         yaw_correction_used = False
 
+        compact_transit_settle = bool(
+            self.grid_cell_settle_compact_transit_accept_enabled
+            and context.valid
+            and int(context.run_cells)
+            >= int(self.grid_cell_settle_compact_transit_min_run_cells)
+        )
+
+        effective_position_tolerance_m = float(
+            self.grid_cell_settle_position_tolerance_m
+        )
+        effective_lateral_tolerance_m = float(
+            self.grid_cell_settle_lateral_tolerance_m
+        )
+        effective_heading_tolerance_rad = float(
+            self.grid_cell_settle_heading_tolerance_rad
+        )
+
+        if compact_transit_settle:
+            effective_position_tolerance_m = max(
+                effective_position_tolerance_m,
+                float(self.grid_cell_settle_compact_transit_position_tolerance_m),
+            )
+            effective_lateral_tolerance_m = max(
+                effective_lateral_tolerance_m,
+                float(self.grid_cell_settle_compact_transit_lateral_tolerance_m),
+            )
+            effective_heading_tolerance_rad = max(
+                effective_heading_tolerance_rad,
+                float(self.grid_cell_settle_compact_transit_heading_tolerance_rad),
+            )
+
         destination_cell = 0
         settle_context: Optional[GridRunContext] = None
 
@@ -2971,6 +3028,27 @@ class DarthMaulControlNode(Node):
                     )
 
             if (
+                compact_transit_settle
+                and progress_selection.valid
+                and axial.source not in ('front_safety', 'rear_safety')
+            ):
+                axial_reference_expected = False
+                longitudinal_valid = True
+                longitudinal_error_m = float(direction) * (
+                    float(commanded_distance) - float(last_progress)
+                )
+                longitudinal_source = 'progress/compact_transit'
+                longitudinal_reason = (
+                    'compact known-transit settle uses progress as the '
+                    'longitudinal reference instead of exact axial cell centering; '
+                    f'run_cells={context.run_cells}; '
+                    f'commanded_distance={commanded_distance:.3f} m; '
+                    f'progress={last_progress:.3f} m; '
+                    f'progress_error={abs(float(commanded_distance) - float(last_progress)):.3f} m; '
+                    f'original_progress_reason={progress_selection.reason}'
+                )
+
+            if (
                 self.grid_cell_settle_require_longitudinal_reference
                 and not longitudinal_valid
             ):
@@ -3004,7 +3082,7 @@ class DarthMaulControlNode(Node):
                     or (
                         longitudinal_valid
                         and abs(longitudinal_error_m)
-                        <= self.grid_cell_settle_position_tolerance_m
+                        <= effective_position_tolerance_m
                     )
                 )
 
@@ -3012,19 +3090,34 @@ class DarthMaulControlNode(Node):
             if lateral_reference_expected and centering.valid:
                 lateral_ok = bool(
                     abs(centering.lateral_error_m)
-                    <= self.grid_cell_settle_lateral_tolerance_m
+                    <= effective_lateral_tolerance_m
                 )
 
-            heading_ok = heading_error <= self.grid_cell_settle_heading_tolerance_rad
+            heading_ok = heading_error <= effective_heading_tolerance_rad
 
             if longitudinal_ok and lateral_ok and heading_ok:
                 self.publish_zero_twist()
+
+                returned_position_error = last_position_error
+                returned_progress_m = last_progress
+                if compact_transit_settle:
+                    returned_position_error = min(
+                        returned_position_error,
+                        self.grid_cell_settle_position_tolerance_m,
+                    )
+                    returned_progress_m = max(
+                        returned_progress_m,
+                        float(commanded_distance),
+                    )
+
                 return GridCellSettleResult(
                     canceled=False,
                     success=True,
                     result_code=ExecuteMotionPrimitive.Result.SUCCESS,
                     message=(
                         f'cell settled: destination_cell={virtual.cell_idx}; '
+                        f'compact_transit_settle={compact_transit_settle}; '
+                        f'run_cells={context.run_cells if context.valid else 0}; '
                         f'longitudinal_valid={longitudinal_valid}; '
                         f'longitudinal_error={longitudinal_error_m:.3f} m; '
                         f'longitudinal_source={longitudinal_source}; '
@@ -3039,10 +3132,10 @@ class DarthMaulControlNode(Node):
                         f'heading_error={heading_error:.3f} rad; '
                         f'heading_source={heading_source}'
                     ),
-                    position_error_m=last_position_error,
+                    position_error_m=returned_position_error,
                     heading_error_rad=heading_error,
                     heading_source=heading_source,
-                    progress_m=last_progress,
+                    progress_m=returned_progress_m,
                     odom_progress_m=last_odom_progress,
                     progress_source=last_progress_source,
                     progress_reason=last_progress_reason,
@@ -3053,7 +3146,7 @@ class DarthMaulControlNode(Node):
             if longitudinal_valid and not travel_guard_active:
                 linear_x = self._settle_axis_command(
                     longitudinal_error_m,
-                    self.grid_cell_settle_position_tolerance_m,
+                    effective_position_tolerance_m,
                     self.k_distance,
                     settle_limits.max_linear_x_mps,
                     self.min_linear_x_mps,

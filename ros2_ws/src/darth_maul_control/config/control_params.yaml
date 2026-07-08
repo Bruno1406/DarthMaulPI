@@ -210,6 +210,13 @@ darth_maul_control:
     grid_cell_settle_max_linear_y_mps: 0.040
     grid_cell_settle_max_yaw_radps: 0.160
     grid_cell_settle_position_tolerance_m: 0.010
+    # For multi-cell known-transit compaction only.
+    # One-cell exploration moves still use the strict 0.010 m settle tolerance.
+    grid_cell_settle_compact_transit_accept_enabled: true
+    grid_cell_settle_compact_transit_min_run_cells: 2
+    grid_cell_settle_compact_transit_position_tolerance_m: 0.030
+    grid_cell_settle_compact_transit_lateral_tolerance_m: 0.045
+    grid_cell_settle_compact_transit_heading_tolerance_rad: 0.080
     grid_cell_settle_lateral_tolerance_m: 0.020
     grid_cell_settle_heading_tolerance_rad: 0.060
     grid_cell_settle_require_longitudinal_reference: false

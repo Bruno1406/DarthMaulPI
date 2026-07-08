@@ -26,6 +26,8 @@ def generate_launch_description():
     direction_priority = LaunchConfiguration('direction_priority')
     race_planner_enabled = LaunchConfiguration('race_planner_enabled')
     race_compact_known_transit = LaunchConfiguration('race_compact_known_transit')
+    race_compact_max_forward_cells = LaunchConfiguration('race_compact_max_forward_cells')
+    race_compact_max_reverse_cells = LaunchConfiguration('race_compact_max_reverse_cells')
     race_reverse_into_new_cells = LaunchConfiguration('race_reverse_into_new_cells')
     race_cost_drive_forward = LaunchConfiguration('race_cost_drive_forward')
     race_cost_drive_backward = LaunchConfiguration('race_cost_drive_backward')
@@ -69,6 +71,8 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument('race_planner_enabled', default_value='true'),
         DeclareLaunchArgument('race_compact_known_transit', default_value='true'),
+        DeclareLaunchArgument('race_compact_max_forward_cells', default_value='4'),
+        DeclareLaunchArgument('race_compact_max_reverse_cells', default_value='6'),
         DeclareLaunchArgument('race_reverse_into_new_cells', default_value='false'),
         DeclareLaunchArgument('race_cost_drive_forward', default_value='3.4'),
         DeclareLaunchArgument('race_cost_drive_backward', default_value='3.8'),
@@ -132,6 +136,8 @@ def generate_launch_description():
                 'direction_priority': direction_priority,
                 'race_planner_enabled': race_planner_enabled,
                 'race_compact_known_transit': race_compact_known_transit,
+                'race_compact_max_forward_cells': race_compact_max_forward_cells,
+                'race_compact_max_reverse_cells': race_compact_max_reverse_cells,
                 'race_reverse_into_new_cells': race_reverse_into_new_cells,
                 'race_cost_drive_forward': race_cost_drive_forward,
                 'race_cost_drive_backward': race_cost_drive_backward,

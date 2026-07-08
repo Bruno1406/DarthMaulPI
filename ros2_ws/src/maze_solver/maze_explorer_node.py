@@ -397,6 +397,8 @@ class MazeExplorerNode(Node):
 
         self.declare_parameter('race_planner_enabled', True)
         self.declare_parameter('race_compact_known_transit', True)
+        self.declare_parameter('race_compact_max_forward_cells', 4)
+        self.declare_parameter('race_compact_max_reverse_cells', 6)
         self.declare_parameter('race_reverse_into_new_cells', False)
         self.declare_parameter('race_cost_drive_forward', 3.4)
         self.declare_parameter('race_cost_drive_backward', 3.8)
@@ -465,6 +467,12 @@ class MazeExplorerNode(Node):
         )
         self.race_compact_known_transit = parse_bool(
             self.get_parameter('race_compact_known_transit').value
+        )
+        self.race_compact_max_forward_cells = int(
+            self.get_parameter('race_compact_max_forward_cells').value
+        )
+        self.race_compact_max_reverse_cells = int(
+            self.get_parameter('race_compact_max_reverse_cells').value
         )
         self.race_reverse_into_new_cells = parse_bool(
             self.get_parameter('race_reverse_into_new_cells').value
@@ -591,6 +599,11 @@ class MazeExplorerNode(Node):
         for name, value in race_costs.items():
             if not math.isfinite(float(value)) or float(value) < 0.0:
                 errors.append(f'{name} must be finite and >= 0')
+
+        if self.race_compact_max_forward_cells <= 0:
+            errors.append('race_compact_max_forward_cells must be positive')
+        if self.race_compact_max_reverse_cells <= 0:
+            errors.append('race_compact_max_reverse_cells must be positive')
 
         if errors:
             message = '; '.join(errors)
@@ -1336,8 +1349,17 @@ class MazeExplorerNode(Node):
             final_target = target_cell
             final_run_cells = int(run_cells)
 
+            max_run_cells = (
+                int(self.race_compact_max_reverse_cells)
+                if use_reverse
+                else int(self.race_compact_max_forward_cells)
+            )
+
             scan = index + 1
             while scan < len(raw):
+                if final_run_cells >= max_run_cells:
+                    break
+
                 next_direction, next_target, next_reverse, _ = raw[scan]
 
                 if next_direction != direction:
