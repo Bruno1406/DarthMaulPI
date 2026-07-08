@@ -1857,6 +1857,26 @@ class DarthMaulControlNode(Node):
                     final_heading_error = abs(remaining)
 
                 if self.enforce_final_error and final_heading_error > heading_tol * 1.5:
+                    if time.monotonic() - start_time < timeout_s:
+                        self.get_logger().warn(
+                            'ROTATE_RELATIVE post-stop heading drift exceeded final '
+                            f'check: {final_heading_error:.3f} rad > '
+                            f'{heading_tol * 1.5:.3f} rad; correcting again'
+                        )
+                        continue
+
+                    if rotation_timeout_accepts_heading_error(
+                        final_heading_error,
+                        self.rotate_timeout_accept_heading_error_rad,
+                    ):
+                        result_success = True
+                        result_code = ExecuteMotionPrimitive.Result.SUCCESS
+                        result_message = (
+                            'ROTATE_RELATIVE accepted near target after final settle: '
+                            f'heading_error={final_heading_error:.3f} rad'
+                        )
+                        break
+
                     result_code = ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
                     result_message = (
                         f'ROTATE_RELATIVE final heading error too large: '

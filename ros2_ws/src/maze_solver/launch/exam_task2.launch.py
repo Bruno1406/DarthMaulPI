@@ -49,7 +49,7 @@ def generate_launch_description():
         DeclareLaunchArgument('reverse_backtracking_max_consecutive_cells', default_value='0'),
         DeclareLaunchArgument('reverse_position_tolerance_m', default_value='0.020'),
         DeclareLaunchArgument('reverse_heading_tolerance_rad', default_value='0.070'),
-        DeclareLaunchArgument('rotate_max_angular_z_radps', default_value='0.95'),
+        DeclareLaunchArgument('rotate_max_angular_z_radps', default_value='0.85'),
         DeclareLaunchArgument('max_cells_to_visit', default_value='0'),
         DeclareLaunchArgument('output_maze_file', default_value=''),
         DeclareLaunchArgument('shutdown_on_complete', default_value='true'),
@@ -82,7 +82,7 @@ def generate_launch_description():
                 'horizontal_servo_id': camera_horizontal_servo_id,
                 'left_position': camera_left_position,
                 'duration': 0.5,
-                'publish_for_s': 3.0,
+                'publish_for_s': 8.0,
             }],
         ),
 

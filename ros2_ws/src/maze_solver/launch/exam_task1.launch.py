@@ -43,7 +43,7 @@ def generate_launch_description():
                 'horizontal_servo_id': camera_horizontal_servo_id,
                 'left_position': camera_left_position,
                 'duration': 0.5,
-                'publish_for_s': 3.0,
+                'publish_for_s': 8.0,
             }],
         ),
 

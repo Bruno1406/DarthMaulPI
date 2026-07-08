@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 260
-Skipped files: 13830
+Skipped files: 13881
 
 # Included File Index
 
@@ -272,7 +272,7 @@ Skipped files: 13830
 - binary, media, generated, or not useful as text: 57
 - not UTF-8 text: 1
 - previous merged output: 1
-- skipped directory: 13771
+- skipped directory: 13822
 
 # File Contents
 
@@ -3119,14 +3119,14 @@ darth_maul_control:
     default_position_tolerance_m: 0.02
     default_heading_tolerance_rad: 0.060
 
-    # Competition aggressive speed limits.
+    # Competition speed limits tuned for reliable rotation settling.
     default_linear_speed_mps: 0.240
     default_reverse_speed_mps: 0.080
-    default_angular_speed_radps: 0.900
+    default_angular_speed_radps: 0.820
 
     max_linear_x_mps: 0.280
     max_linear_y_mps: 0.060
-    max_angular_z_radps: 1.200
+    max_angular_z_radps: 1.100
 
     # Minimum commands to overcome static friction.
     # These are only used while outside tolerance.
@@ -3135,12 +3135,12 @@ darth_maul_control:
 
     # Capped-P gains
     k_distance: 1.35
-    k_heading: 2.80
+    k_heading: 2.60
 
     # Acceleration limiting
     max_linear_accel_mps2: 1.100
     max_lateral_accel_mps2: 0.220
-    max_angular_accel_radps2: 3.800
+    max_angular_accel_radps2: 3.400
 
     # Sensor freshness
     odom_timeout_sec: 0.50
@@ -5229,6 +5229,26 @@ class DarthMaulControlNode(Node):
                     final_heading_error = abs(remaining)
 
                 if self.enforce_final_error and final_heading_error > heading_tol * 1.5:
+                    if time.monotonic() - start_time < timeout_s:
+                        self.get_logger().warn(
+                            'ROTATE_RELATIVE post-stop heading drift exceeded final '
+                            f'check: {final_heading_error:.3f} rad > '
+                            f'{heading_tol * 1.5:.3f} rad; correcting again'
+                        )
+                        continue
+
+                    if rotation_timeout_accepts_heading_error(
+                        final_heading_error,
+                        self.rotate_timeout_accept_heading_error_rad,
+                    ):
+                        result_success = True
+                        result_code = ExecuteMotionPrimitive.Result.SUCCESS
+                        result_message = (
+                            'ROTATE_RELATIVE accepted near target after final settle: '
+                            f'heading_error={final_heading_error:.3f} rad'
+                        )
+                        break
+
                     result_code = ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
                     result_message = (
                         f'ROTATE_RELATIVE final heading error too large: '
@@ -23807,7 +23827,7 @@ def generate_launch_description():
                 'horizontal_servo_id': camera_horizontal_servo_id,
                 'left_position': camera_left_position,
                 'duration': 0.5,
-                'publish_for_s': 3.0,
+                'publish_for_s': 8.0,
             }],
         ),
 
@@ -23882,7 +23902,7 @@ def generate_launch_description():
         DeclareLaunchArgument('reverse_backtracking_max_consecutive_cells', default_value='0'),
         DeclareLaunchArgument('reverse_position_tolerance_m', default_value='0.020'),
         DeclareLaunchArgument('reverse_heading_tolerance_rad', default_value='0.070'),
-        DeclareLaunchArgument('rotate_max_angular_z_radps', default_value='0.95'),
+        DeclareLaunchArgument('rotate_max_angular_z_radps', default_value='0.85'),
         DeclareLaunchArgument('max_cells_to_visit', default_value='0'),
         DeclareLaunchArgument('output_maze_file', default_value=''),
         DeclareLaunchArgument('shutdown_on_complete', default_value='true'),
@@ -23915,7 +23935,7 @@ def generate_launch_description():
                 'horizontal_servo_id': camera_horizontal_servo_id,
                 'left_position': camera_left_position,
                 'duration': 0.5,
-                'publish_for_s': 3.0,
+                'publish_for_s': 8.0,
             }],
         ),
 
