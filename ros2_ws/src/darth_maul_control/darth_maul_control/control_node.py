@@ -778,6 +778,18 @@ class DarthMaulControlNode(Node):
                 0.015,
             )
         )
+        self.grid_cell_settle_rejected_axial_single_wall_enabled = (
+            self._bool_param(
+                'grid_cell_settle_rejected_axial_single_wall_enabled',
+                True,
+            )
+        )
+        self.grid_cell_settle_rejected_axial_single_wall_max_error_m = (
+            self._positive_float_param(
+                'grid_cell_settle_rejected_axial_single_wall_max_error_m',
+                0.080,
+            )
+        )
         self.grid_cell_settle_lateral_tolerance_m = self._positive_float_param(
             'grid_cell_settle_lateral_tolerance_m',
             0.020,
@@ -2533,6 +2545,112 @@ class DarthMaulControlNode(Node):
             max_disagreement_m=self.grid_center_front_rear_agreement_tolerance_m,
         )
 
+    def _reacquire_single_axial_cell_centering(
+        self,
+        *,
+        expected,
+        ranges: Optional[LidarRangeSnapshot],
+        rejected: AxialCellCenterEstimate,
+        direction: float,
+    ) -> AxialCellCenterEstimate:
+        if (
+            not self.grid_cell_settle_rejected_axial_single_wall_enabled
+            or ranges is None
+            or rejected.source != 'front_rear_rejected'
+        ):
+            return rejected
+
+        max_error_m = min(
+            float(self.grid_cell_settle_abort_position_error_m),
+            float(self.grid_cell_settle_rejected_axial_single_wall_max_error_m),
+        )
+        preferred_source = 'front' if float(direction) >= 0.0 else 'rear'
+        candidates: list[tuple[int, float, float, AxialCellCenterEstimate]] = []
+
+        front_distance = self._range_value(ranges.front)
+        if (
+            bool(expected.front)
+            and ranges.front.valid
+            and math.isfinite(front_distance)
+            and math.isfinite(self.grid_center_expected_front_distance_m)
+            and self.grid_center_expected_front_distance_m > 0.0
+        ):
+            front_error = (
+                float(front_distance)
+                - float(self.grid_center_expected_front_distance_m)
+            )
+            if abs(front_error) <= max_error_m:
+                candidates.append(
+                    (
+                        0 if preferred_source == 'front' else 1,
+                        abs(front_error),
+                        float(front_distance),
+                        AxialCellCenterEstimate(
+                            valid=True,
+                            error_m=float(front_error),
+                            source='front_reacquired',
+                            front_usable=True,
+                            rear_usable=False,
+                            disagreement_m=rejected.disagreement_m,
+                            reason=(
+                                'reacquired expected front wall after front/rear '
+                                'axial disagreement; '
+                                f'front_distance={front_distance:.3f} m; '
+                                f'expected_front_distance='
+                                f'{self.grid_center_expected_front_distance_m:.3f} m; '
+                                f'front_error={front_error:.3f} m; '
+                                f'max_single_wall_error={max_error_m:.3f} m; '
+                                f'original_rejection={rejected.reason}'
+                            ),
+                        ),
+                    )
+                )
+
+        rear_distance = self._range_value(ranges.rear)
+        if (
+            bool(expected.rear)
+            and ranges.rear.valid
+            and math.isfinite(rear_distance)
+            and math.isfinite(self.grid_center_expected_rear_distance_m)
+            and self.grid_center_expected_rear_distance_m > 0.0
+        ):
+            rear_error = (
+                float(self.grid_center_expected_rear_distance_m)
+                - float(rear_distance)
+            )
+            if abs(rear_error) <= max_error_m:
+                candidates.append(
+                    (
+                        0 if preferred_source == 'rear' else 1,
+                        abs(rear_error),
+                        float(rear_distance),
+                        AxialCellCenterEstimate(
+                            valid=True,
+                            error_m=float(rear_error),
+                            source='rear_reacquired',
+                            front_usable=False,
+                            rear_usable=True,
+                            disagreement_m=rejected.disagreement_m,
+                            reason=(
+                                'reacquired expected rear wall after front/rear '
+                                'axial disagreement; '
+                                f'rear_distance={rear_distance:.3f} m; '
+                                f'expected_rear_distance='
+                                f'{self.grid_center_expected_rear_distance_m:.3f} m; '
+                                f'rear_error={rear_error:.3f} m; '
+                                f'max_single_wall_error={max_error_m:.3f} m; '
+                                f'original_rejection={rejected.reason}'
+                            ),
+                        ),
+                    )
+                )
+
+        if not candidates:
+            return rejected
+
+        candidates.sort(key=lambda item: (item[0], item[1], item[2]))
+        return candidates[0][3]
+
     @staticmethod
     def _settle_axis_command(
         error_m: float,
@@ -2813,6 +2931,13 @@ class DarthMaulControlNode(Node):
                     )
 
                 axial = self._axial_cell_centering_estimate(expected, current_ranges)
+                if axial.source == 'front_rear_rejected':
+                    axial = self._reacquire_single_axial_cell_centering(
+                        expected=expected,
+                        ranges=current_ranges,
+                        rejected=axial,
+                        direction=direction,
+                    )
                 axial_reference_expected = bool(expected.front or expected.rear)
                 lateral_reference_expected = bool(expected.left or expected.right)
             else:

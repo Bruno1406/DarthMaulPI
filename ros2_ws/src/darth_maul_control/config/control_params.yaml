@@ -223,6 +223,11 @@ darth_maul_control:
     grid_cell_settle_compact_transit_lidar_axial_enabled: true
     grid_cell_settle_compact_transit_lidar_axial_min_error_m: 0.020
     grid_cell_settle_compact_transit_lidar_axial_tolerance_m: 0.015
+    # If expected front/rear endpoint walls disagree during final settle, allow
+    # the travel-direction endpoint wall to be reacquired as a single-wall axial
+    # reference once it is close enough to the calibrated cell-center range.
+    grid_cell_settle_rejected_axial_single_wall_enabled: true
+    grid_cell_settle_rejected_axial_single_wall_max_error_m: 0.080
     grid_cell_settle_lateral_tolerance_m: 0.020
     grid_cell_settle_heading_tolerance_rad: 0.060
     grid_cell_settle_require_longitudinal_reference: false
