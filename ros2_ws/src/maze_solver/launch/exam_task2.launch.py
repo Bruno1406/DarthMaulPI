@@ -24,6 +24,16 @@ def generate_launch_description():
     output_maze_file = LaunchConfiguration('output_maze_file')
     shutdown_on_complete = LaunchConfiguration('shutdown_on_complete')
     direction_priority = LaunchConfiguration('direction_priority')
+    race_planner_enabled = LaunchConfiguration('race_planner_enabled')
+    race_compact_known_transit = LaunchConfiguration('race_compact_known_transit')
+    race_reverse_into_new_cells = LaunchConfiguration('race_reverse_into_new_cells')
+    race_cost_drive_forward = LaunchConfiguration('race_cost_drive_forward')
+    race_cost_drive_backward = LaunchConfiguration('race_cost_drive_backward')
+    race_cost_turn_90 = LaunchConfiguration('race_cost_turn_90')
+    race_cost_turn_180 = LaunchConfiguration('race_cost_turn_180')
+    race_cost_unvisited_info_bonus = LaunchConfiguration('race_cost_unvisited_info_bonus')
+    race_cost_straight_bonus = LaunchConfiguration('race_cost_straight_bonus')
+    race_lidar_lookahead_bonus = LaunchConfiguration('race_lidar_lookahead_bonus')
 
     submit_maze_to_grader = LaunchConfiguration('submit_maze_to_grader')
     grade_service_name = LaunchConfiguration('grade_service_name')
@@ -57,6 +67,16 @@ def generate_launch_description():
             'direction_priority',
             default_value='left_straight_right_back',
         ),
+        DeclareLaunchArgument('race_planner_enabled', default_value='true'),
+        DeclareLaunchArgument('race_compact_known_transit', default_value='true'),
+        DeclareLaunchArgument('race_reverse_into_new_cells', default_value='false'),
+        DeclareLaunchArgument('race_cost_drive_forward', default_value='3.4'),
+        DeclareLaunchArgument('race_cost_drive_backward', default_value='3.8'),
+        DeclareLaunchArgument('race_cost_turn_90', default_value='3.4'),
+        DeclareLaunchArgument('race_cost_turn_180', default_value='6.8'),
+        DeclareLaunchArgument('race_cost_unvisited_info_bonus', default_value='0.20'),
+        DeclareLaunchArgument('race_cost_straight_bonus', default_value='0.25'),
+        DeclareLaunchArgument('race_lidar_lookahead_bonus', default_value='0.20'),
 
         DeclareLaunchArgument('submit_maze_to_grader', default_value='true'),
         DeclareLaunchArgument('grade_service_name', default_value='/grade_maze'),
@@ -110,6 +130,16 @@ def generate_launch_description():
                 'output_maze_file': output_maze_file,
                 'shutdown_on_complete': shutdown_on_complete,
                 'direction_priority': direction_priority,
+                'race_planner_enabled': race_planner_enabled,
+                'race_compact_known_transit': race_compact_known_transit,
+                'race_reverse_into_new_cells': race_reverse_into_new_cells,
+                'race_cost_drive_forward': race_cost_drive_forward,
+                'race_cost_drive_backward': race_cost_drive_backward,
+                'race_cost_turn_90': race_cost_turn_90,
+                'race_cost_turn_180': race_cost_turn_180,
+                'race_cost_unvisited_info_bonus': race_cost_unvisited_info_bonus,
+                'race_cost_straight_bonus': race_cost_straight_bonus,
+                'race_lidar_lookahead_bonus': race_lidar_lookahead_bonus,
 
                 'submit_maze_to_grader': submit_maze_to_grader,
                 'grade_service_name': grade_service_name,

@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 260
-Skipped files: 13922
+Skipped files: 13940
 
 # Included File Index
 
@@ -272,7 +272,7 @@ Skipped files: 13922
 - binary, media, generated, or not useful as text: 57
 - not UTF-8 text: 1
 - previous merged output: 1
-- skipped directory: 13863
+- skipped directory: 13881
 
 # File Contents
 
@@ -21732,6 +21732,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
+import heapq
 import math
 from pathlib import Path
 from statistics import median
@@ -21781,6 +21782,7 @@ class MotionStep:
     direction: int = 0
     value: float = 0.0
     target_cell: Optional[Cell] = None
+    run_cells: int = 1
 
 
 def parse_bool(value: Any) -> bool:
@@ -21824,6 +21826,12 @@ def turn_between(current: int, target: int) -> float:
 def neighbor(cell: Cell, direction: int) -> Cell:
     dx, dy = DIR_DELTAS[direction]
     return (cell[0] + dx, cell[1] + dy)
+
+
+def advance_cell(cell: Cell, direction: int, cells: int) -> Cell:
+    dx, dy = DIR_DELTAS[direction]
+    count = int(cells)
+    return (cell[0] + dx * count, cell[1] + dy * count)
 
 
 def direction_between(a: Cell, b: Cell) -> int:
@@ -22117,6 +22125,17 @@ class MazeExplorerNode(Node):
         self.declare_parameter('motion_timeout_s', 0.0)
         self.declare_parameter('direction_priority', 'left_straight_right_back')
 
+        self.declare_parameter('race_planner_enabled', True)
+        self.declare_parameter('race_compact_known_transit', True)
+        self.declare_parameter('race_reverse_into_new_cells', False)
+        self.declare_parameter('race_cost_drive_forward', 3.4)
+        self.declare_parameter('race_cost_drive_backward', 3.8)
+        self.declare_parameter('race_cost_turn_90', 3.4)
+        self.declare_parameter('race_cost_turn_180', 6.8)
+        self.declare_parameter('race_cost_unvisited_info_bonus', 0.20)
+        self.declare_parameter('race_cost_straight_bonus', 0.25)
+        self.declare_parameter('race_lidar_lookahead_bonus', 0.20)
+
         self.scan_topic = str(self.get_parameter('scan_topic').value).strip()
         self.motion_action_name = str(self.get_parameter('motion_action_name').value).strip()
         self.cell_length_m = float(self.get_parameter('cell_length_m').value)
@@ -22170,6 +22189,33 @@ class MazeExplorerNode(Node):
         )
         self.motion_timeout_s = float(self.get_parameter('motion_timeout_s').value)
         self.direction_priority = str(self.get_parameter('direction_priority').value).strip()
+
+        self.race_planner_enabled = parse_bool(
+            self.get_parameter('race_planner_enabled').value
+        )
+        self.race_compact_known_transit = parse_bool(
+            self.get_parameter('race_compact_known_transit').value
+        )
+        self.race_reverse_into_new_cells = parse_bool(
+            self.get_parameter('race_reverse_into_new_cells').value
+        )
+        self.race_cost_drive_forward = float(
+            self.get_parameter('race_cost_drive_forward').value
+        )
+        self.race_cost_drive_backward = float(
+            self.get_parameter('race_cost_drive_backward').value
+        )
+        self.race_cost_turn_90 = float(self.get_parameter('race_cost_turn_90').value)
+        self.race_cost_turn_180 = float(self.get_parameter('race_cost_turn_180').value)
+        self.race_cost_unvisited_info_bonus = float(
+            self.get_parameter('race_cost_unvisited_info_bonus').value
+        )
+        self.race_cost_straight_bonus = float(
+            self.get_parameter('race_cost_straight_bonus').value
+        )
+        self.race_lidar_lookahead_bonus = float(
+            self.get_parameter('race_lidar_lookahead_bonus').value
+        )
 
         self._validate_parameters()
 
@@ -22263,6 +22309,18 @@ class MazeExplorerNode(Node):
                 'direction_priority must be one of '
                 + ', '.join(sorted(valid_priorities))
             )
+        race_costs = {
+            'race_cost_drive_forward': self.race_cost_drive_forward,
+            'race_cost_drive_backward': self.race_cost_drive_backward,
+            'race_cost_turn_90': self.race_cost_turn_90,
+            'race_cost_turn_180': self.race_cost_turn_180,
+            'race_cost_unvisited_info_bonus': self.race_cost_unvisited_info_bonus,
+            'race_cost_straight_bonus': self.race_cost_straight_bonus,
+            'race_lidar_lookahead_bonus': self.race_lidar_lookahead_bonus,
+        }
+        for name, value in race_costs.items():
+            if not math.isfinite(float(value)) or float(value) < 0.0:
+                errors.append(f'{name} must be finite and >= 0')
 
         if errors:
             message = '; '.join(errors)
@@ -22335,6 +22393,26 @@ class MazeExplorerNode(Node):
             self._finish_exploration(f'max_cells_to_visit={self.max_cells_to_visit} reached')
             return
 
+        if self.race_planner_enabled:
+            plan = self._race_frontier_plan()
+            if plan is None:
+                self._finish_exploration('no reachable frontier remains')
+                return
+
+            path, reverse_flags, cost, reason = plan
+
+            if len(path) < 2:
+                self._finish_exploration('race frontier path unexpectedly empty')
+                return
+
+            self.get_logger().info(
+                f'Race planner selected path: cost={cost:.2f}, '
+                f'path={path}, reverse_flags={reverse_flags}; {reason}'
+            )
+            self._enqueue_planned_path(path, reverse_flags)
+            return
+
+        # Legacy fallback. Keep this for A/B testing and emergency launch override.
         direction = self._choose_unvisited_open_neighbor(self.current_cell)
         if direction is not None:
             self._enqueue_step(direction)
@@ -22427,6 +22505,300 @@ class MazeExplorerNode(Node):
             )
 
         return None
+
+    def _race_frontier_plan(
+        self,
+    ) -> Optional[Tuple[List[Cell], List[bool], float, str]]:
+        """Return the fastest path to the next unvisited open cell.
+
+        This is Dijkstra over (cell, heading, reverse_streak). It optimizes
+        expected motion time, not just cell count. It still uses only confirmed
+        OPEN edges for correctness.
+        """
+        if not self.maze.has_unvisited_open_neighbor(self.current_cell):
+            # Fast fail only if there is no frontier anywhere reachable.
+            # The Dijkstra below also handles this, but this keeps logs clearer.
+            pass
+
+        live_open_distances = self._live_open_distance_by_direction()
+
+        start_state = (self.current_cell, int(self.heading), 0)
+        best_cost: Dict[Tuple[Cell, int, int], float] = {start_state: 0.0}
+        previous: Dict[
+            Tuple[Cell, int, int],
+            Tuple[Tuple[Cell, int, int], Cell, bool],
+        ] = {}
+
+        heap: List[Tuple[float, int, Cell, int, int]] = []
+        counter = 0
+        heapq.heappush(heap, (0.0, counter, self.current_cell, int(self.heading), 0))
+
+        final_state: Optional[Tuple[Cell, int, int]] = None
+        final_reason = ''
+
+        while heap:
+            cost, _, cell, heading, reverse_streak = heapq.heappop(heap)
+            state = (cell, heading, reverse_streak)
+
+            if cost > best_cost.get(state, float('inf')) + 1.0e-9:
+                continue
+
+            if cell != self.current_cell and not self.maze.is_visited(cell):
+                final_state = state
+                final_reason = (
+                    f'reached unvisited cell={cell}; '
+                    f'heading={DIR_NAME[heading]}; '
+                    f'reverse_streak={reverse_streak}'
+                )
+                break
+
+            for direction, next_cell in self.maze.open_neighbors(cell):
+                for (
+                    next_heading,
+                    used_reverse,
+                    step_cost,
+                    action_reason,
+                ) in self._race_motion_options(
+                    cell=cell,
+                    heading=heading,
+                    reverse_streak=reverse_streak,
+                    direction=direction,
+                    next_cell=next_cell,
+                    live_open_distances=live_open_distances,
+                ):
+                    next_reverse_streak = reverse_streak + 1 if used_reverse else 0
+                    next_state = (next_cell, next_heading, next_reverse_streak)
+                    next_cost = cost + step_cost
+
+                    if next_cost + 1.0e-9 >= best_cost.get(next_state, float('inf')):
+                        continue
+
+                    best_cost[next_state] = next_cost
+                    previous[next_state] = (state, next_cell, used_reverse)
+                    counter += 1
+                    heapq.heappush(
+                        heap,
+                        (
+                            next_cost,
+                            counter,
+                            next_cell,
+                            next_heading,
+                            next_reverse_streak,
+                        ),
+                    )
+
+        if final_state is None:
+            return None
+
+        path_reversed = [final_state[0]]
+        reverse_flags_reversed: List[bool] = []
+
+        cursor = final_state
+        while cursor != start_state:
+            if cursor not in previous:
+                return None
+            prev_state, reached_cell, used_reverse = previous[cursor]
+            reverse_flags_reversed.append(bool(used_reverse))
+            path_reversed.append(prev_state[0])
+            cursor = prev_state
+
+        path = list(reversed(path_reversed))
+        reverse_flags = list(reversed(reverse_flags_reversed))
+
+        if len(reverse_flags) != len(path) - 1:
+            self._fatal(
+                f'Race planner produced invalid path/flags: '
+                f'path={path}, reverse_flags={reverse_flags}'
+            )
+            return None
+
+        return (
+            path,
+            reverse_flags,
+            float(best_cost[final_state]),
+            final_reason,
+        )
+
+    def _race_motion_options(
+        self,
+        *,
+        cell: Cell,
+        heading: int,
+        reverse_streak: int,
+        direction: int,
+        next_cell: Cell,
+        live_open_distances: Dict[int, float],
+    ) -> List[Tuple[int, bool, float, str]]:
+        options: List[Tuple[int, bool, float, str]] = []
+        next_is_visited = self.maze.is_visited(next_cell)
+        turn = turn_between(heading, direction)
+
+        if abs(turn) <= 1.0e-6:
+            cost = self._race_forward_cost(
+                cell=cell,
+                direction=direction,
+                next_cell=next_cell,
+                live_open_distances=live_open_distances,
+                turn_cost=0.0,
+            )
+            options.append(
+                (
+                    direction,
+                    False,
+                    cost,
+                    f'forward straight {cell}->{next_cell} via {DIR_NAME[direction]}',
+                )
+            )
+        else:
+            rotation_safe, rotation_reason = self._rotation_safe_at_cell(cell, heading)
+            if rotation_safe:
+                turn_cost = self._race_turn_cost(turn)
+                cost = self._race_forward_cost(
+                    cell=cell,
+                    direction=direction,
+                    next_cell=next_cell,
+                    live_open_distances=live_open_distances,
+                    turn_cost=turn_cost,
+                )
+                options.append(
+                    (
+                        direction,
+                        False,
+                        cost,
+                        f'rotate then forward {cell}->{next_cell} via '
+                        f'{DIR_NAME[direction]}; turn={turn:.3f}; {rotation_reason}',
+                    )
+                )
+
+        can_reverse = bool(
+            self.reverse_backtracking_enabled
+            and direction == OPPOSITE[heading]
+            and self._race_reverse_budget_allows(reverse_streak)
+        )
+
+        if can_reverse:
+            rotation_safe, _ = self._rotation_safe_at_cell(cell, heading)
+            reverse_into_new_allowed = bool(
+                next_is_visited
+                or self.race_reverse_into_new_cells
+                or not rotation_safe
+            )
+
+            if reverse_into_new_allowed:
+                cost = self._race_backward_cost(
+                    cell=cell,
+                    direction=direction,
+                    next_cell=next_cell,
+                    live_open_distances=live_open_distances,
+                )
+                options.append(
+                    (
+                        heading,
+                        True,
+                        cost,
+                        f'reverse {cell}->{next_cell} via {DIR_NAME[direction]} '
+                        f'while heading stays {DIR_NAME[heading]}',
+                    )
+                )
+
+        return options
+
+    def _race_turn_cost(self, turn_rad: float) -> float:
+        magnitude = abs(normalize_angle(turn_rad))
+        if magnitude <= 1.0e-6:
+            return 0.0
+        if magnitude <= (math.pi / 2.0) + 0.20:
+            return float(self.race_cost_turn_90)
+        return float(self.race_cost_turn_180)
+
+    def _race_forward_cost(
+        self,
+        *,
+        cell: Cell,
+        direction: int,
+        next_cell: Cell,
+        live_open_distances: Dict[int, float],
+        turn_cost: float,
+    ) -> float:
+        cost = float(self.race_cost_drive_forward) + float(turn_cost)
+
+        if direction == self.heading and cell == self.current_cell:
+            cost -= float(self.race_cost_straight_bonus)
+
+        if not self.maze.is_visited(next_cell):
+            cost -= self._race_information_bonus(next_cell)
+
+        cost -= self._race_lidar_lookahead_bonus(
+            cell=cell,
+            direction=direction,
+            live_open_distances=live_open_distances,
+        )
+
+        return max(0.05, float(cost))
+
+    def _race_backward_cost(
+        self,
+        *,
+        cell: Cell,
+        direction: int,
+        next_cell: Cell,
+        live_open_distances: Dict[int, float],
+    ) -> float:
+        cost = float(self.race_cost_drive_backward)
+
+        if not self.maze.is_visited(next_cell):
+            cost -= 0.5 * self._race_information_bonus(next_cell)
+
+        cost -= 0.5 * self._race_lidar_lookahead_bonus(
+            cell=cell,
+            direction=direction,
+            live_open_distances=live_open_distances,
+        )
+
+        return max(0.05, float(cost))
+
+    def _race_information_bonus(self, cell: Cell) -> float:
+        unknown_count = 0
+        for direction in DIRECTIONS:
+            if self.maze.wall_state(cell, direction) == UNKNOWN:
+                unknown_count += 1
+        return float(unknown_count) * float(self.race_cost_unvisited_info_bonus)
+
+    def _race_lidar_lookahead_bonus(
+        self,
+        *,
+        cell: Cell,
+        direction: int,
+        live_open_distances: Dict[int, float],
+    ) -> float:
+        if cell != self.current_cell:
+            return 0.0
+
+        distance = live_open_distances.get(direction)
+        if distance is None or not math.isfinite(distance):
+            return 0.0
+
+        visible_extra_cells = max(
+            0,
+            min(3, int(distance / max(self.cell_length_m, 1.0e-6)) - 1),
+        )
+        return float(visible_extra_cells) * float(self.race_lidar_lookahead_bonus)
+
+    def _live_open_distance_by_direction(self) -> Dict[int, float]:
+        if self.latest_scan is None:
+            return {}
+
+        result: Dict[int, float] = {}
+        for direction, state, distance, _ in self._observe_walls(self.latest_scan):
+            if state == OPEN and math.isfinite(distance):
+                result[int(direction)] = float(distance)
+        return result
+
+    def _race_reverse_budget_allows(self, reverse_streak: int) -> bool:
+        configured_budget = int(self.reverse_backtracking_max_consecutive_cells)
+        if configured_budget == 0:
+            return True
+        return int(reverse_streak) < configured_budget
 
     def _ordered_directions(self) -> List[int]:
         if self.direction_priority == 'straight_left_right_back':
@@ -22543,6 +22915,8 @@ class MazeExplorerNode(Node):
         from_heading: int,
         direction: int,
         reverse_budget: int,
+        target_cell: Optional[Cell] = None,
+        planned_reverse: Optional[bool] = None,
     ) -> bool:
         if not self.reverse_backtracking_enabled:
             return False
@@ -22553,7 +22927,13 @@ class MazeExplorerNode(Node):
         if not self._reverse_backtracking_budget_allows_reverse(reverse_budget):
             return False
 
+        if planned_reverse is not None:
+            return bool(planned_reverse)
+
         rotation_safe, _ = self._rotation_safe_at_cell(from_cell, from_heading)
+
+        if target_cell is not None and self.maze.is_visited(target_cell):
+            return True
 
         return not rotation_safe
 
@@ -22561,6 +22941,8 @@ class MazeExplorerNode(Node):
         if len(path) < 2:
             self._fatal(f'Cannot enqueue path with fewer than 2 cells: {path}')
             return
+
+        reverse_flags: List[bool] = []
 
         simulated_cell = self.current_cell
         simulated_heading = self.heading
@@ -22581,8 +22963,68 @@ class MazeExplorerNode(Node):
                 from_cell=simulated_cell,
                 from_heading=simulated_heading,
                 direction=direction,
+                target_cell=target_cell,
                 reverse_budget=reverse_budget,
             )
+            reverse_flags.append(bool(allow_reverse))
+
+            if allow_reverse:
+                if reverse_budget > 0:
+                    reverse_budget -= 1
+            else:
+                reverse_budget = int(self.reverse_backtracking_max_consecutive_cells)
+                simulated_heading = direction
+
+            simulated_cell = target_cell
+
+        self._enqueue_planned_path(path, reverse_flags)
+
+    def _enqueue_planned_path(
+        self,
+        path: Sequence[Cell],
+        reverse_flags: Sequence[bool],
+    ) -> None:
+        if len(path) < 2:
+            self._fatal(f'Cannot enqueue path with fewer than 2 cells: {path}')
+            return
+
+        if len(reverse_flags) != len(path) - 1:
+            self._fatal(
+                f'Invalid planned path flags: path={path}, '
+                f'reverse_flags={reverse_flags}'
+            )
+            return
+
+        if path[0] != self.current_cell:
+            self._fatal(
+                f'Planned path does not start at current cell: '
+                f'current={self.current_cell}, path={path}'
+            )
+            return
+
+        compacted = self._compact_planned_segments(path, reverse_flags)
+
+        simulated_cell = self.current_cell
+        simulated_heading = self.heading
+        reverse_budget = int(self.reverse_backtracking_max_consecutive_cells)
+
+        for direction, target_cell, use_reverse, run_cells in compacted:
+            allow_reverse = self._should_drive_backward_for_segment(
+                from_cell=simulated_cell,
+                from_heading=simulated_heading,
+                direction=direction,
+                target_cell=target_cell,
+                reverse_budget=reverse_budget,
+                planned_reverse=use_reverse,
+            )
+
+            if bool(use_reverse) and not allow_reverse:
+                self._fatal(
+                    f'Race plan requested reverse but reverse is not allowed: '
+                    f'from={simulated_cell}, heading={DIR_NAME[simulated_heading]}, '
+                    f'target={target_cell}, direction={DIR_NAME[direction]}'
+                )
+                return
 
             simulated_heading, used_reverse = self._enqueue_segment(
                 from_cell=simulated_cell,
@@ -22590,14 +23032,72 @@ class MazeExplorerNode(Node):
                 direction=direction,
                 target_cell=target_cell,
                 allow_reverse=allow_reverse,
+                run_cells=run_cells,
             )
 
             if used_reverse and reverse_budget > 0:
-                reverse_budget -= 1
+                reverse_budget -= int(run_cells)
             elif not used_reverse:
                 reverse_budget = int(self.reverse_backtracking_max_consecutive_cells)
 
             simulated_cell = target_cell
+
+    def _compact_planned_segments(
+        self,
+        path: Sequence[Cell],
+        reverse_flags: Sequence[bool],
+    ) -> List[Tuple[int, Cell, bool, int]]:
+        raw: List[Tuple[int, Cell, bool, int]] = []
+
+        for index, target_cell in enumerate(path[1:]):
+            from_cell = path[index]
+            direction = direction_between(from_cell, target_cell)
+            raw.append((direction, target_cell, bool(reverse_flags[index]), 1))
+
+        if not self.race_compact_known_transit:
+            return raw
+
+        compacted: List[Tuple[int, Cell, bool, int]] = []
+        index = 0
+
+        while index < len(raw):
+            direction, target_cell, use_reverse, run_cells = raw[index]
+            start_cell = path[index]
+            final_target = target_cell
+            final_run_cells = int(run_cells)
+
+            scan = index + 1
+            while scan < len(raw):
+                next_direction, next_target, next_reverse, _ = raw[scan]
+
+                if next_direction != direction:
+                    break
+                if bool(next_reverse) != bool(use_reverse):
+                    break
+
+                # Never compact into a new/unvisited cell. We still want a
+                # separate observation at the first newly explored cell.
+                if not self.maze.is_visited(next_target):
+                    break
+
+                expected_target = advance_cell(
+                    start_cell,
+                    direction,
+                    final_run_cells + 1,
+                )
+                if next_target != expected_target:
+                    break
+
+                final_target = next_target
+                final_run_cells += 1
+                scan += 1
+
+            compacted.append(
+                (direction, final_target, bool(use_reverse), int(final_run_cells))
+            )
+            index = scan
+
+        return compacted
 
     def _enqueue_step(self, direction: int) -> None:
         target_cell = neighbor(self.current_cell, direction)
@@ -22606,6 +23106,7 @@ class MazeExplorerNode(Node):
             from_cell=self.current_cell,
             from_heading=self.heading,
             direction=direction,
+            target_cell=target_cell,
             reverse_budget=int(self.reverse_backtracking_max_consecutive_cells),
         )
 
@@ -22615,6 +23116,7 @@ class MazeExplorerNode(Node):
             direction=direction,
             target_cell=target_cell,
             allow_reverse=allow_reverse,
+            run_cells=1,
         )
 
     def _enqueue_segment(
@@ -22625,12 +23127,15 @@ class MazeExplorerNode(Node):
         direction: int,
         target_cell: Cell,
         allow_reverse: bool,
+        run_cells: int = 1,
     ) -> tuple[int, bool]:
-        expected_target = neighbor(from_cell, direction)
+        run_cells = max(1, int(run_cells))
+        expected_target = advance_cell(from_cell, direction, run_cells)
+
         if target_cell != expected_target:
             self._fatal(
                 f'Invalid segment target: from={from_cell}, '
-                f'direction={DIR_NAME[direction]}, '
+                f'direction={DIR_NAME[direction]}, run_cells={run_cells}, '
                 f'target={target_cell}, expected={expected_target}'
             )
             return from_heading, False
@@ -22641,16 +23146,24 @@ class MazeExplorerNode(Node):
             and direction == OPPOSITE[from_heading]
         )
 
+        distance_m = float(run_cells) * float(self.cell_length_m)
+
         if should_reverse:
             self.motion_queue.append(
-                MotionStep('drive_backward', direction, float(self.cell_length_m), target_cell)
+                MotionStep(
+                    'drive_backward',
+                    direction,
+                    distance_m,
+                    target_cell,
+                    run_cells,
+                )
             )
 
             self.get_logger().info(
-                f'Queued reverse corridor escape {from_cell} -> {target_cell} '
+                f'Queued reverse race segment {from_cell} -> {target_cell} '
                 f'via {DIR_NAME[direction]} '
                 f'(heading stays {DIR_NAME[from_heading]}, '
-                f'drive_backward={self.cell_length_m:.3f})'
+                f'run_cells={run_cells}, drive_backward={distance_m:.3f})'
             )
 
             return from_heading, True
@@ -22671,17 +23184,23 @@ class MazeExplorerNode(Node):
                 )
                 return from_heading, False
 
-            self.motion_queue.append(MotionStep('rotate', direction, turn, None))
+            self.motion_queue.append(MotionStep('rotate', direction, turn, None, 1))
 
         self.motion_queue.append(
-            MotionStep('drive_forward', direction, float(self.cell_length_m), target_cell)
+            MotionStep(
+                'drive_forward',
+                direction,
+                distance_m,
+                target_cell,
+                run_cells,
+            )
         )
 
         self.get_logger().info(
-            f'Queued forward segment {from_cell} -> {target_cell} '
+            f'Queued forward race segment {from_cell} -> {target_cell} '
             f'via {DIR_NAME[direction]} '
             f'(from_heading={DIR_NAME[from_heading]}, turn={turn:.3f}, '
-            f'drive_forward={self.cell_length_m:.3f})'
+            f'run_cells={run_cells}, drive_forward={distance_m:.3f})'
         )
 
         return direction, False
@@ -22695,17 +23214,15 @@ class MazeExplorerNode(Node):
             self._clear_grid_context(goal)
             return
 
-        try:
-            travel_direction = direction_between(self.current_cell, step.target_cell)
-        except ValueError as exc:
-            self._fatal(f'Cannot attach grid context for {step}: {exc}')
-            return
+        run_cells = max(1, int(step.run_cells))
+        expected_target = advance_cell(self.current_cell, step.direction, run_cells)
 
-        if travel_direction != step.direction:
+        if step.target_cell != expected_target:
             self._fatal(
-                f'Motion step direction mismatch for {step}: '
-                f'travel={DIR_NAME[travel_direction]}, '
-                f'step={DIR_NAME.get(step.direction, "none")}'
+                f'Cannot attach grid context for {step}: '
+                f'current={self.current_cell}, '
+                f'direction={DIR_NAME.get(step.direction, "none")}, '
+                f'run_cells={run_cells}, expected_target={expected_target}'
             )
             return
 
@@ -22720,9 +23237,9 @@ class MazeExplorerNode(Node):
         goal.grid_n = int(msg.n)
         goal.grid_m = int(msg.m)
         goal.grid_start_idx = int(msg.end_idx)
-        goal.grid_heading = int(travel_direction)
+        goal.grid_heading = int(step.direction)
         goal.grid_robot_heading = int(self.heading)
-        goal.grid_run_cells = 1
+        goal.grid_run_cells = int(run_cells)
         goal.grid_l = [int(value) for value in msg.l]
 
     @staticmethod
@@ -22855,11 +23372,19 @@ class MazeExplorerNode(Node):
             self._fatal(f'Motion result failed for {step}: {exc}')
             return
 
-        self.get_logger().info(
-            f'Motion result for {step}: success={result.success}, '
-            f'code={result.result_code}, pos_error={result.final_position_error_m:.3f}, '
-            f'heading_error={result.final_heading_error_rad:.3f}, message={result.message}'
-        )
+        if result.success:
+            self.get_logger().info(
+                f'Motion result for {step.kind if step else "none"}: '
+                f'success=True, code={result.result_code}, '
+                f'pos_error={result.final_position_error_m:.3f}, '
+                f'heading_error={result.final_heading_error_rad:.3f}'
+            )
+        else:
+            self.get_logger().error(
+                f'Motion result for {step}: success=False, '
+                f'code={result.result_code}, pos_error={result.final_position_error_m:.3f}, '
+                f'heading_error={result.final_heading_error_rad:.3f}, message={result.message}'
+            )
 
         if not result.success:
             self._fatal('Stopping exploration because motion failed.')
@@ -24054,6 +24579,16 @@ def generate_launch_description():
     output_maze_file = LaunchConfiguration('output_maze_file')
     shutdown_on_complete = LaunchConfiguration('shutdown_on_complete')
     direction_priority = LaunchConfiguration('direction_priority')
+    race_planner_enabled = LaunchConfiguration('race_planner_enabled')
+    race_compact_known_transit = LaunchConfiguration('race_compact_known_transit')
+    race_reverse_into_new_cells = LaunchConfiguration('race_reverse_into_new_cells')
+    race_cost_drive_forward = LaunchConfiguration('race_cost_drive_forward')
+    race_cost_drive_backward = LaunchConfiguration('race_cost_drive_backward')
+    race_cost_turn_90 = LaunchConfiguration('race_cost_turn_90')
+    race_cost_turn_180 = LaunchConfiguration('race_cost_turn_180')
+    race_cost_unvisited_info_bonus = LaunchConfiguration('race_cost_unvisited_info_bonus')
+    race_cost_straight_bonus = LaunchConfiguration('race_cost_straight_bonus')
+    race_lidar_lookahead_bonus = LaunchConfiguration('race_lidar_lookahead_bonus')
 
     submit_maze_to_grader = LaunchConfiguration('submit_maze_to_grader')
     grade_service_name = LaunchConfiguration('grade_service_name')
@@ -24087,6 +24622,16 @@ def generate_launch_description():
             'direction_priority',
             default_value='left_straight_right_back',
         ),
+        DeclareLaunchArgument('race_planner_enabled', default_value='true'),
+        DeclareLaunchArgument('race_compact_known_transit', default_value='true'),
+        DeclareLaunchArgument('race_reverse_into_new_cells', default_value='false'),
+        DeclareLaunchArgument('race_cost_drive_forward', default_value='3.4'),
+        DeclareLaunchArgument('race_cost_drive_backward', default_value='3.8'),
+        DeclareLaunchArgument('race_cost_turn_90', default_value='3.4'),
+        DeclareLaunchArgument('race_cost_turn_180', default_value='6.8'),
+        DeclareLaunchArgument('race_cost_unvisited_info_bonus', default_value='0.20'),
+        DeclareLaunchArgument('race_cost_straight_bonus', default_value='0.25'),
+        DeclareLaunchArgument('race_lidar_lookahead_bonus', default_value='0.20'),
 
         DeclareLaunchArgument('submit_maze_to_grader', default_value='true'),
         DeclareLaunchArgument('grade_service_name', default_value='/grade_maze'),
@@ -24140,6 +24685,16 @@ def generate_launch_description():
                 'output_maze_file': output_maze_file,
                 'shutdown_on_complete': shutdown_on_complete,
                 'direction_priority': direction_priority,
+                'race_planner_enabled': race_planner_enabled,
+                'race_compact_known_transit': race_compact_known_transit,
+                'race_reverse_into_new_cells': race_reverse_into_new_cells,
+                'race_cost_drive_forward': race_cost_drive_forward,
+                'race_cost_drive_backward': race_cost_drive_backward,
+                'race_cost_turn_90': race_cost_turn_90,
+                'race_cost_turn_180': race_cost_turn_180,
+                'race_cost_unvisited_info_bonus': race_cost_unvisited_info_bonus,
+                'race_cost_straight_bonus': race_cost_straight_bonus,
+                'race_lidar_lookahead_bonus': race_lidar_lookahead_bonus,
 
                 'submit_maze_to_grader': submit_maze_to_grader,
                 'grade_service_name': grade_service_name,
