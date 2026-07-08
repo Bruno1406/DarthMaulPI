@@ -52,10 +52,22 @@ bool collision_check_enabled
 #   2 = -x
 #   4 = +y
 #   8 = -y
+#
+# Controller-only grid context. This must not be confused with
+# maze_interface/RosMaze identity.
+#
+# grid_heading is the travel direction used for cell progression. For
+# DRIVE_FORWARD, this normally equals the robot body heading. For
+# DRIVE_BACKWARD, this is opposite the robot body heading.
+#
+# grid_robot_heading is the robot body heading used to interpret
+# LiDAR-relative front/rear/left/right wall expectations. A value of 0 means
+# "same as grid_heading" for old forward-only clients.
 uint8 grid_n
 uint8 grid_m
 int16 grid_start_idx
 uint8 grid_heading
+uint8 grid_robot_heading
 uint8 grid_run_cells
 uint8[] grid_l
 

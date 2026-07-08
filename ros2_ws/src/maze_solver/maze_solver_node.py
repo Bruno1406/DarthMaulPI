@@ -616,6 +616,7 @@ class MazeSolverNode(Node):
             goal.grid_m = int(self.current_maze_m)
             goal.grid_start_idx = int(motion_command.start_idx)
             goal.grid_heading = int(motion_command.heading)
+            goal.grid_robot_heading = int(motion_command.heading)
             goal.grid_run_cells = int(motion_command.run_cells)
             goal.grid_l = list(self.current_maze_l)
         elif command == 'rotate':

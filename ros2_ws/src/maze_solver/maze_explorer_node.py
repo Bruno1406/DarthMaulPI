@@ -454,6 +454,7 @@ class MazeExplorerNode(Node):
 
         self.latest_scan: Optional[LaserScan] = None
         self.latest_scan_monotonic = 0.0
+        self.last_motion_result_monotonic = 0.0
 
         self.motion_queue: Deque[MotionStep] = deque()
         self.motion_in_flight = False
@@ -739,6 +740,72 @@ class MazeExplorerNode(Node):
             'requires at least one known open side'
         )
 
+    def _scan_is_fresh_after_last_motion(self) -> bool:
+        return (
+            self.latest_scan is not None
+            and self.latest_scan_monotonic >= self.last_motion_result_monotonic
+            and time.monotonic() - self.latest_scan_monotonic <= self.stale_scan_timeout_s
+        )
+
+    def _rotation_safe_for_dispatch(self, target_heading: int) -> Tuple[Optional[bool], str]:
+        map_safe, map_reason = self._rotation_safe_at_cell(self.current_cell, self.heading)
+        if not map_safe:
+            return False, map_reason
+
+        if not self._scan_is_fresh_after_last_motion():
+            return None, (
+                'waiting for fresh post-motion scan before rotation; '
+                f'cell={self.current_cell}; heading={DIR_NAME[self.heading]}; '
+                f'target={DIR_NAME[target_heading]}'
+            )
+
+        observations = self._observe_walls(self.latest_scan)
+        state_by_direction = {
+            direction: (state, distance, reason)
+            for direction, state, distance, reason in observations
+        }
+
+        accepted_sides = []
+        rejected_sides = []
+
+        for side_name, side_direction in (
+            ('left', LEFT_OF[self.heading]),
+            ('right', RIGHT_OF[self.heading]),
+        ):
+            map_state = self.maze.wall_state(self.current_cell, side_direction)
+            live_state, distance, reason = state_by_direction.get(
+                side_direction,
+                (UNKNOWN, float('nan'), 'no live observation'),
+            )
+
+            if map_state == OPEN and live_state == OPEN:
+                accepted_sides.append(
+                    f'{side_name}={DIR_NAME[side_direction]} '
+                    f'open live distance={distance:.3f} m'
+                )
+            else:
+                rejected_sides.append(
+                    f'{side_name}={DIR_NAME[side_direction]} '
+                    f'map={STATE_NAME[map_state]} live={STATE_NAME[live_state]} '
+                    f'distance={distance:.3f} m reason={reason}'
+                )
+
+        if accepted_sides:
+            return True, (
+                f'rotation dispatch allowed at cell={self.current_cell}; '
+                f'heading={DIR_NAME[self.heading]}; '
+                f'target={DIR_NAME[target_heading]}; '
+                + '; '.join(accepted_sides)
+            )
+
+        return False, (
+            f'rotation dispatch refused at cell={self.current_cell}; '
+            f'heading={DIR_NAME[self.heading]}; '
+            f'target={DIR_NAME[target_heading]}; '
+            f'map_reason={map_reason}; '
+            + '; '.join(rejected_sides)
+        )
+
     def _should_drive_backward_for_segment(
         self,
         *,
@@ -889,9 +956,78 @@ class MazeExplorerNode(Node):
 
         return direction, False
 
+    def _attach_grid_context_to_drive_goal(
+        self,
+        goal: ExecuteMotionPrimitive.Goal,
+        step: MotionStep,
+    ) -> None:
+        if step.target_cell is None:
+            self._clear_grid_context(goal)
+            return
+
+        try:
+            travel_direction = direction_between(self.current_cell, step.target_cell)
+        except ValueError as exc:
+            self._fatal(f'Cannot attach grid context for {step}: {exc}')
+            return
+
+        if travel_direction != step.direction:
+            self._fatal(
+                f'Motion step direction mismatch for {step}: '
+                f'travel={DIR_NAME[travel_direction]}, '
+                f'step={DIR_NAME.get(step.direction, "none")}'
+            )
+            return
+
+        # Controller-only context, kept separate from final grader identity.
+        msg, _ = self.maze.export_ros_maze(
+            self.start_cell,
+            self.current_cell,
+            self.start_heading,
+            False,
+        )
+
+        goal.grid_n = int(msg.n)
+        goal.grid_m = int(msg.m)
+        goal.grid_start_idx = int(msg.end_idx)
+        goal.grid_heading = int(travel_direction)
+        goal.grid_robot_heading = int(self.heading)
+        goal.grid_run_cells = 1
+        goal.grid_l = [int(value) for value in msg.l]
+
+    @staticmethod
+    def _clear_grid_context(goal: ExecuteMotionPrimitive.Goal) -> None:
+        goal.grid_n = 0
+        goal.grid_m = 0
+        goal.grid_start_idx = 0
+        goal.grid_heading = 0
+        goal.grid_robot_heading = 0
+        goal.grid_run_cells = 0
+        goal.grid_l = []
+
     def _send_next_motion_step(self) -> None:
         if self.motion_in_flight or not self.motion_queue:
             return
+
+        step = self.motion_queue[0]
+
+        if step.kind == 'rotate':
+            safe, reason = self._rotation_safe_for_dispatch(step.direction)
+            if safe is None:
+                self.get_logger().warn(
+                    reason,
+                    throttle_duration_sec=1.0,
+                )
+                return
+
+            if not safe:
+                self.get_logger().warn(
+                    'Discarding queued plan because rotation is not safe now: '
+                    + reason
+                )
+                self.motion_queue.clear()
+                self.active_step = None
+                return
 
         step = self.motion_queue.popleft()
         self.active_step = step
@@ -931,12 +1067,12 @@ class MazeExplorerNode(Node):
             goal.heading_tolerance_rad = 0.0
         goal.timeout_s = float(self.motion_timeout_s)
 
-        goal.grid_n = 0
-        goal.grid_m = 0
-        goal.grid_start_idx = 0
-        goal.grid_heading = 0
-        goal.grid_run_cells = 0
-        goal.grid_l = []
+        if step.kind in ('drive_forward', 'drive_backward'):
+            self._attach_grid_context_to_drive_goal(goal, step)
+            if self.shutdown_requested:
+                return
+        else:
+            self._clear_grid_context(goal)
 
         self.motion_in_flight = True
 
@@ -1008,6 +1144,7 @@ class MazeExplorerNode(Node):
                     return
                 self.current_cell = step.target_cell
 
+        self.last_motion_result_monotonic = time.monotonic()
         self.active_step = None
         self.motion_in_flight = False
 
@@ -1019,6 +1156,100 @@ class MazeExplorerNode(Node):
             self.unknown_as_wall_on_export,
         )
         self.maze_pub.publish(msg)
+
+    def _validate_exported_ros_maze_identity(self, msg: RosMaze) -> Optional[str]:
+        n = int(msg.n)
+        m = int(msg.m)
+        start_idx = int(msg.start_idx)
+        end_idx = int(msg.end_idx)
+        start_orientation = int(msg.start_orientation)
+        values = [int(value) for value in msg.l]
+
+        if n <= 0 or m <= 0:
+            return f'invalid maze dimensions: n={n}, m={m}'
+
+        expected_len = n * m
+        if len(values) != expected_len:
+            return f'invalid L length: len={len(values)}, expected={expected_len}'
+
+        if start_idx < 1 or start_idx > expected_len:
+            return f'invalid start_idx={start_idx}, expected 1..{expected_len}'
+
+        if end_idx < 1 or end_idx > expected_len:
+            return f'invalid end_idx={end_idx}, expected 1..{expected_len}'
+
+        if start_orientation not in DIRECTIONS:
+            return f'invalid start_orientation={start_orientation}'
+
+        for idx, value in enumerate(values, start=1):
+            if value < 0 or value > 15:
+                return f'invalid cell value at I={idx}: {value}, expected 0..15'
+
+        if values[start_idx - 1] == 15:
+            return f'start_idx={start_idx} points to missing cell 15'
+
+        if values[end_idx - 1] == 15:
+            return f'end_idx={end_idx} points to missing cell 15'
+
+        def idx(i: int, j: int) -> int:
+            return j * n + i
+
+        def is_wall(value: int, direction: int) -> bool:
+            return bool(value & direction)
+
+        for j in range(m):
+            for i in range(n):
+                cell_value = values[idx(i, j)]
+                if cell_value == 15:
+                    continue
+
+                if i == 0 and not is_wall(cell_value, NEG_X):
+                    return f'outer -x wall missing at I={idx(i, j) + 1}'
+                if i == n - 1 and not is_wall(cell_value, POS_X):
+                    return f'outer +x wall missing at I={idx(i, j) + 1}'
+                if j == 0 and not is_wall(cell_value, NEG_Y):
+                    return f'outer -y wall missing at I={idx(i, j) + 1}'
+                if j == m - 1 and not is_wall(cell_value, POS_Y):
+                    return f'outer +y wall missing at I={idx(i, j) + 1}'
+
+                if i + 1 < n:
+                    right_value = values[idx(i + 1, j)]
+                    if right_value == 15:
+                        if not is_wall(cell_value, POS_X):
+                            return (
+                                f'cell I={idx(i, j) + 1} borders missing cell '
+                                f'I={idx(i + 1, j) + 1} but lacks +x wall'
+                            )
+                    elif is_wall(cell_value, POS_X) != is_wall(right_value, NEG_X):
+                        return (
+                            f'inconsistent +x/-x wall between '
+                            f'I={idx(i, j) + 1} and I={idx(i + 1, j) + 1}'
+                        )
+
+                if j + 1 < m:
+                    up_value = values[idx(i, j + 1)]
+                    if up_value == 15:
+                        if not is_wall(cell_value, POS_Y):
+                            return (
+                                f'cell I={idx(i, j) + 1} borders missing cell '
+                                f'I={idx(i, j + 1) + 1} but lacks +y wall'
+                            )
+                    elif is_wall(cell_value, POS_Y) != is_wall(up_value, NEG_Y):
+                        return (
+                            f'inconsistent +y/-y wall between '
+                            f'I={idx(i, j) + 1} and I={idx(i, j + 1) + 1}'
+                        )
+
+        if all(values[idx(0, j)] == 15 for j in range(m)):
+            return 'leftmost column is all 15, maze can be trimmed'
+        if all(values[idx(n - 1, j)] == 15 for j in range(m)):
+            return 'rightmost column is all 15, maze can be trimmed'
+        if all(values[idx(i, 0)] == 15 for i in range(n)):
+            return 'bottom row is all 15, maze can be trimmed'
+        if all(values[idx(i, m - 1)] == 15 for i in range(n)):
+            return 'top row is all 15, maze can be trimmed'
+
+        return None
 
     def _finish_exploration(self, reason: str) -> None:
         if self.completed:
@@ -1032,6 +1263,22 @@ class MazeExplorerNode(Node):
             self.unknown_as_wall_on_export,
         )
         self.maze_pub.publish(msg)
+
+        identity_error = self._validate_exported_ros_maze_identity(msg)
+        if identity_error is not None:
+            self.get_logger().error(
+                'Exported maze identity is invalid for README/grader format: '
+                + identity_error
+            )
+            if self.grade_result_required:
+                self.exit_code = 1
+            if self.submit_maze_to_grader:
+                self.get_logger().error(
+                    'Maze was not submitted to grader because identity is invalid.'
+                )
+                if self.shutdown_on_complete:
+                    self.shutdown_requested = True
+                return
 
         self.get_logger().info(
             'Exploration complete: '

@@ -2439,6 +2439,7 @@ class DarthMaulControlNode(Node):
                 1,
                 context.l,
                 'destination cell settle context',
+                robot_heading=context.robot_heading,
             )
 
         # Use the middle of a one-cell settle context so side-wall centering is
@@ -2633,7 +2634,9 @@ class DarthMaulControlNode(Node):
                 longitudinal_reason = axial.reason
             elif progress_selection.valid:
                 longitudinal_valid = True
-                longitudinal_error_m = float(commanded_distance) - float(last_progress)
+                longitudinal_error_m = float(direction) * (
+                    float(commanded_distance) - float(last_progress)
+                )
                 longitudinal_source = f'progress/{progress_selection.source}'
                 longitudinal_reason = progress_selection.reason
             else:

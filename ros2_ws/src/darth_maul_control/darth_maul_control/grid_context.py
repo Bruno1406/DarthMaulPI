@@ -68,6 +68,7 @@ class GridRunContext:
     run_cells: int
     l: tuple[int, ...]
     reason: str = ''
+    robot_heading: int = 0
 
 
 @dataclass(frozen=True)
@@ -184,23 +185,61 @@ def grid_context_from_goal(goal) -> GridRunContext:
     m = int(getattr(goal, 'grid_m', 0))
     start_idx = int(getattr(goal, 'grid_start_idx', 0))
     heading = int(getattr(goal, 'grid_heading', 0))
+    robot_heading = int(getattr(goal, 'grid_robot_heading', 0))
+    if robot_heading == 0:
+        robot_heading = heading
+
     run_cells = int(getattr(goal, 'grid_run_cells', 0))
     raw_l = tuple(int(v) for v in getattr(goal, 'grid_l', []))
 
     if n <= 0 or m <= 0:
-        return GridRunContext(False, n, m, start_idx, heading, run_cells, raw_l, 'grid_n/grid_m absent')
+        return GridRunContext(
+            False, n, m, start_idx, heading, run_cells, raw_l,
+            'grid_n/grid_m absent',
+            robot_heading,
+        )
     if len(raw_l) != n * m:
-        return GridRunContext(False, n, m, start_idx, heading, run_cells, raw_l, 'grid_l length mismatch')
+        return GridRunContext(
+            False, n, m, start_idx, heading, run_cells, raw_l,
+            'grid_l length mismatch',
+            robot_heading,
+        )
     if start_idx < 1 or start_idx > n * m:
-        return GridRunContext(False, n, m, start_idx, heading, run_cells, raw_l, 'grid_start_idx out of range')
+        return GridRunContext(
+            False, n, m, start_idx, heading, run_cells, raw_l,
+            'grid_start_idx out of range',
+            robot_heading,
+        )
     if heading not in VALID_HEADINGS:
-        return GridRunContext(False, n, m, start_idx, heading, run_cells, raw_l, 'grid_heading invalid')
+        return GridRunContext(
+            False, n, m, start_idx, heading, run_cells, raw_l,
+            'grid_heading invalid',
+            robot_heading,
+        )
+    if robot_heading not in VALID_HEADINGS:
+        return GridRunContext(
+            False, n, m, start_idx, heading, run_cells, raw_l,
+            'grid_robot_heading invalid',
+            robot_heading,
+        )
     if run_cells <= 0:
-        return GridRunContext(False, n, m, start_idx, heading, run_cells, raw_l, 'grid_run_cells absent')
+        return GridRunContext(
+            False, n, m, start_idx, heading, run_cells, raw_l,
+            'grid_run_cells absent',
+            robot_heading,
+        )
     if cell_value(raw_l, n, m, start_idx) == MISSING:
-        return GridRunContext(False, n, m, start_idx, heading, run_cells, raw_l, 'start cell missing')
+        return GridRunContext(
+            False, n, m, start_idx, heading, run_cells, raw_l,
+            'start cell missing',
+            robot_heading,
+        )
 
-    return GridRunContext(True, n, m, start_idx, heading, run_cells, raw_l, 'valid grid context')
+    return GridRunContext(
+        True, n, m, start_idx, heading, run_cells, raw_l,
+        'valid grid context',
+        robot_heading,
+    )
 
 
 def virtual_cell_for_progress(
@@ -253,11 +292,15 @@ def expected_walls_for_cell(context: GridRunContext, cell_idx: int) -> ExpectedW
     if value == MISSING:
         return ExpectedWalls(False, cell_idx, value, False, False, False, False, 'virtual cell missing')
 
-    heading = context.heading
-    front_dir = heading
-    rear_dir = OPPOSITE[heading]
-    left_dir = LEFT_OF[heading]
-    right_dir = RIGHT_OF[heading]
+    robot_heading = (
+        context.robot_heading
+        if context.robot_heading in VALID_HEADINGS
+        else context.heading
+    )
+    front_dir = robot_heading
+    rear_dir = OPPOSITE[robot_heading]
+    left_dir = LEFT_OF[robot_heading]
+    right_dir = RIGHT_OF[robot_heading]
 
     return ExpectedWalls(
         True,
