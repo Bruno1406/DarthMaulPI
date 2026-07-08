@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 260
-Skipped files: 13993
+Skipped files: 14018
 
 # Included File Index
 
@@ -272,7 +272,7 @@ Skipped files: 13993
 - binary, media, generated, or not useful as text: 57
 - not UTF-8 text: 1
 - previous merged output: 1
-- skipped directory: 13934
+- skipped directory: 13959
 
 # File Contents
 
@@ -3318,6 +3318,12 @@ darth_maul_control:
     grid_cell_settle_compact_transit_position_tolerance_m: 0.030
     grid_cell_settle_compact_transit_lateral_tolerance_m: 0.045
     grid_cell_settle_compact_transit_heading_tolerance_rad: 0.080
+    # Compact known-transit settle:
+    # use front/rear LiDAR as the final axial reference when an expected
+    # endpoint wall is visible and says the robot is still meaningfully off-center.
+    grid_cell_settle_compact_transit_lidar_axial_enabled: true
+    grid_cell_settle_compact_transit_lidar_axial_min_error_m: 0.020
+    grid_cell_settle_compact_transit_lidar_axial_tolerance_m: 0.015
     grid_cell_settle_lateral_tolerance_m: 0.020
     grid_cell_settle_heading_tolerance_rad: 0.060
     grid_cell_settle_require_longitudinal_reference: false
@@ -4137,6 +4143,24 @@ class DarthMaulControlNode(Node):
             self._positive_float_param(
                 'grid_cell_settle_compact_transit_heading_tolerance_rad',
                 0.080,
+            )
+        )
+        self.grid_cell_settle_compact_transit_lidar_axial_enabled = (
+            self._bool_param(
+                'grid_cell_settle_compact_transit_lidar_axial_enabled',
+                True,
+            )
+        )
+        self.grid_cell_settle_compact_transit_lidar_axial_min_error_m = (
+            self._positive_float_param(
+                'grid_cell_settle_compact_transit_lidar_axial_min_error_m',
+                0.020,
+            )
+        )
+        self.grid_cell_settle_compact_transit_lidar_axial_tolerance_m = (
+            self._positive_float_param(
+                'grid_cell_settle_compact_transit_lidar_axial_tolerance_m',
+                0.015,
             )
         )
         self.grid_cell_settle_lateral_tolerance_m = self._positive_float_param(
@@ -6209,6 +6233,31 @@ class DarthMaulControlNode(Node):
                 axial = safety_axial
                 axial_reference_expected = True
 
+            compact_transit_use_lidar_axial_reference = bool(
+                compact_transit_settle
+                and self.grid_cell_settle_compact_transit_lidar_axial_enabled
+                and axial.valid
+                and axial.source not in ('front_safety', 'rear_safety')
+                and abs(float(axial.error_m))
+                >= float(self.grid_cell_settle_compact_transit_lidar_axial_min_error_m)
+            )
+
+            compact_transit_use_progress_reference = bool(
+                compact_transit_settle
+                and progress_selection.valid
+                and not compact_transit_use_lidar_axial_reference
+                and axial.source not in ('front_safety', 'rear_safety')
+            )
+
+            longitudinal_tolerance_m = float(effective_position_tolerance_m)
+            if compact_transit_use_lidar_axial_reference:
+                longitudinal_tolerance_m = min(
+                    longitudinal_tolerance_m,
+                    float(
+                        self.grid_cell_settle_compact_transit_lidar_axial_tolerance_m
+                    ),
+                )
+
             yaw_observation = self._manhattan_yaw_observation()
             odom_heading_error = normalize_angle(start.yaw - snapshot.pose.yaw)
             yaw_valid = bool(
@@ -6263,12 +6312,12 @@ class DarthMaulControlNode(Node):
             if (
                 longitudinal_valid
                 and abs(longitudinal_error_m)
-                > self.grid_cell_settle_position_tolerance_m
+                > longitudinal_tolerance_m
             ):
                 settle_command_direction = sign(longitudinal_error_m)
             elif (
                 not longitudinal_valid
-                and stale_travel_error_m > self.grid_cell_settle_position_tolerance_m
+                and stale_travel_error_m > longitudinal_tolerance_m
             ):
                 settle_command_direction = sign(direction)
 
@@ -6316,17 +6365,6 @@ class DarthMaulControlNode(Node):
                     f'{progress_selection.reason}'
                 )
 
-            if longitudinal_valid:
-                last_position_error = abs(longitudinal_error_m)
-            else:
-                last_position_error = abs(float(commanded_distance) - last_progress)
-
-            if travel_guard_active:
-                last_position_error = min(
-                    last_position_error,
-                    self.grid_cell_settle_position_tolerance_m,
-                )
-
             if heading_error > self.grid_cell_settle_abort_heading_error_rad:
                 self.publish_zero_twist()
                 return GridCellSettleResult(
@@ -6348,7 +6386,11 @@ class DarthMaulControlNode(Node):
                     yaw_correction_used=yaw_correction_used,
                 )
 
-            if progress_selection.valid and progress_error > self.grid_cell_settle_abort_position_error_m:
+            if (
+                progress_selection.valid
+                and progress_error > self.grid_cell_settle_abort_position_error_m
+                and not compact_transit_use_lidar_axial_reference
+            ):
                 self.publish_zero_twist()
                 return GridCellSettleResult(
                     canceled=False,
@@ -6370,15 +6412,10 @@ class DarthMaulControlNode(Node):
                     yaw_correction_used=yaw_correction_used,
                 )
 
-            compact_transit_use_progress_reference = bool(
-                compact_transit_settle
-                and progress_selection.valid
-                and axial.source not in ('front_safety', 'rear_safety')
-            )
-
             if (
                 axial.valid
                 and not compact_transit_use_progress_reference
+                and not compact_transit_use_lidar_axial_reference
                 and axial.source not in ('front_safety', 'rear_safety')
                 and abs(axial.error_m) > self.grid_cell_settle_abort_position_error_m
             ):
@@ -6413,7 +6450,25 @@ class DarthMaulControlNode(Node):
                         f'ignoring axial settle instead of aborting: {axial.reason}'
                     )
 
-            if compact_transit_use_progress_reference:
+            if compact_transit_use_lidar_axial_reference:
+                axial_reference_expected = True
+                longitudinal_valid = True
+                longitudinal_error_m = float(axial.error_m)
+                longitudinal_source = f'axial/compact_transit_{axial.source}'
+                longitudinal_reason = (
+                    'compact known-transit settle uses endpoint LiDAR axial '
+                    'cell-centering because expected front/rear wall reference '
+                    'is visible and meaningfully off-center; '
+                    f'run_cells={context.run_cells}; '
+                    f'axial_error={axial.error_m:.3f} m; '
+                    f'axial_source={axial.source}; '
+                    f'axial_reason={axial.reason}; '
+                    f'commanded_distance={commanded_distance:.3f} m; '
+                    f'progress={last_progress:.3f} m; '
+                    f'progress_source={progress_selection.source}; '
+                    f'progress_reason={progress_selection.reason}'
+                )
+            elif compact_transit_use_progress_reference:
                 axial_reference_expected = False
                 longitudinal_valid = True
                 longitudinal_error_m = float(direction) * (
@@ -6422,12 +6477,24 @@ class DarthMaulControlNode(Node):
                 longitudinal_source = 'progress/compact_transit'
                 longitudinal_reason = (
                     'compact known-transit settle uses progress as the '
-                    'longitudinal reference instead of exact axial cell centering; '
+                    'longitudinal reference because no strong endpoint LiDAR '
+                    'axial correction is available; '
                     f'run_cells={context.run_cells}; '
                     f'commanded_distance={commanded_distance:.3f} m; '
                     f'progress={last_progress:.3f} m; '
                     f'progress_error={abs(float(commanded_distance) - float(last_progress)):.3f} m; '
                     f'original_progress_reason={progress_selection.reason}'
+                )
+
+            if longitudinal_valid:
+                last_position_error = abs(longitudinal_error_m)
+            else:
+                last_position_error = abs(float(commanded_distance) - last_progress)
+
+            if travel_guard_active:
+                last_position_error = min(
+                    last_position_error,
+                    self.grid_cell_settle_position_tolerance_m,
                 )
 
             if (
@@ -6464,7 +6531,7 @@ class DarthMaulControlNode(Node):
                     or (
                         longitudinal_valid
                         and abs(longitudinal_error_m)
-                        <= effective_position_tolerance_m
+                        <= longitudinal_tolerance_m
                     )
                 )
 
@@ -6482,7 +6549,10 @@ class DarthMaulControlNode(Node):
 
                 returned_position_error = last_position_error
                 returned_progress_m = last_progress
-                if compact_transit_settle:
+                if (
+                    compact_transit_settle
+                    and not compact_transit_use_lidar_axial_reference
+                ):
                     returned_position_error = min(
                         returned_position_error,
                         self.grid_cell_settle_position_tolerance_m,
@@ -6528,7 +6598,7 @@ class DarthMaulControlNode(Node):
             if longitudinal_valid and not travel_guard_active:
                 linear_x = self._settle_axis_command(
                     longitudinal_error_m,
-                    effective_position_tolerance_m,
+                    longitudinal_tolerance_m,
                     self.k_distance,
                     settle_limits.max_linear_x_mps,
                     self.min_linear_x_mps,
@@ -23567,12 +23637,21 @@ class MazeExplorerNode(Node):
             return
 
         if result.success:
-            self.get_logger().info(
-                f'Motion result for {step.kind if step else "none"}: '
-                f'success=True, code={result.result_code}, '
-                f'pos_error={result.final_position_error_m:.3f}, '
-                f'heading_error={result.final_heading_error_rad:.3f}'
-            )
+            if step is not None and step.kind in ('drive_forward', 'drive_backward') and step.run_cells > 1:
+                self.get_logger().info(
+                    f'Motion result for {step}: success=True, '
+                    f'code={result.result_code}, '
+                    f'pos_error={result.final_position_error_m:.3f}, '
+                    f'heading_error={result.final_heading_error_rad:.3f}, '
+                    f'message={result.message}'
+                )
+            else:
+                self.get_logger().info(
+                    f'Motion result for {step.kind if step else "none"}: '
+                    f'success=True, code={result.result_code}, '
+                    f'pos_error={result.final_position_error_m:.3f}, '
+                    f'heading_error={result.final_heading_error_rad:.3f}'
+                )
         else:
             self.get_logger().error(
                 f'Motion result for {step}: success=False, '

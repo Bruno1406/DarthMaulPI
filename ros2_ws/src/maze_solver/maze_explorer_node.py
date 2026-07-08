@@ -1734,12 +1734,21 @@ class MazeExplorerNode(Node):
             return
 
         if result.success:
-            self.get_logger().info(
-                f'Motion result for {step.kind if step else "none"}: '
-                f'success=True, code={result.result_code}, '
-                f'pos_error={result.final_position_error_m:.3f}, '
-                f'heading_error={result.final_heading_error_rad:.3f}'
-            )
+            if step is not None and step.kind in ('drive_forward', 'drive_backward') and step.run_cells > 1:
+                self.get_logger().info(
+                    f'Motion result for {step}: success=True, '
+                    f'code={result.result_code}, '
+                    f'pos_error={result.final_position_error_m:.3f}, '
+                    f'heading_error={result.final_heading_error_rad:.3f}, '
+                    f'message={result.message}'
+                )
+            else:
+                self.get_logger().info(
+                    f'Motion result for {step.kind if step else "none"}: '
+                    f'success=True, code={result.result_code}, '
+                    f'pos_error={result.final_position_error_m:.3f}, '
+                    f'heading_error={result.final_heading_error_rad:.3f}'
+                )
         else:
             self.get_logger().error(
                 f'Motion result for {step}: success=False, '
