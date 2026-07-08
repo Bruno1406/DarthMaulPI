@@ -2677,6 +2677,18 @@ class DarthMaulControlNode(Node):
                 odom_progress_m=odom_progress,
                 diagnostics=diagnostics,
             )
+
+            alignment = self._grid_alignment_snapshot()
+            progress_selection = self._maybe_use_geometry_aware_odom_progress(
+                progress_selection=progress_selection,
+                grid_context=context,
+                alignment=alignment,
+                odom_progress_m=odom_progress,
+                heading_error_rad=normalize_angle(start.yaw - snapshot.pose.yaw),
+                direction=direction,
+                target_distance_m=commanded_distance,
+            )
+
             if progress_selection.valid:
                 last_progress = max(0.0, progress_selection.progress_m)
                 last_progress_source = progress_selection.source
@@ -2687,7 +2699,6 @@ class DarthMaulControlNode(Node):
                 last_progress_source = progress_selection.source
                 last_progress_reason = progress_selection.reason
 
-            alignment = self._grid_alignment_snapshot()
             if settle_context is not None:
                 virtual, expected, centering = observe_centering_from_expected_side_walls(
                     context=settle_context,
@@ -2949,21 +2960,15 @@ class DarthMaulControlNode(Node):
                 )
 
             if axial.source == 'front_rear_rejected':
-                self.publish_zero_twist()
-                return GridCellSettleResult(
-                    canceled=False,
-                    success=False,
-                    result_code=ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE,
-                    message=f'front/rear cell-center references disagree; {axial.reason}',
-                    position_error_m=last_position_error,
-                    heading_error_rad=heading_error,
-                    heading_source=heading_source,
-                    progress_m=last_progress,
-                    odom_progress_m=last_odom_progress,
-                    progress_source=last_progress_source,
-                    progress_reason=last_progress_reason,
-                    yaw_correction_used=yaw_correction_used,
-                )
+                axial_reference_expected = False
+                if not progress_selection.valid:
+                    longitudinal_valid = False
+                    longitudinal_error_m = 0.0
+                    longitudinal_source = 'none'
+                    longitudinal_reason = (
+                        'front/rear cell-center references disagree; '
+                        f'ignoring axial settle instead of aborting: {axial.reason}'
+                    )
 
             if (
                 self.grid_cell_settle_require_longitudinal_reference
