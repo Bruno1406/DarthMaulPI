@@ -2859,10 +2859,9 @@ class DarthMaulControlNode(Node):
                 )
 
             lateral_ok = True
-            if lateral_reference_expected:
+            if lateral_reference_expected and centering.valid:
                 lateral_ok = bool(
-                    centering.valid
-                    and abs(centering.lateral_error_m)
+                    abs(centering.lateral_error_m)
                     <= self.grid_cell_settle_lateral_tolerance_m
                 )
 
