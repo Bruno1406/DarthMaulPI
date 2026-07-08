@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 260
-Skipped files: 13968
+Skipped files: 13993
 
 # Included File Index
 
@@ -272,7 +272,7 @@ Skipped files: 13968
 - binary, media, generated, or not useful as text: 57
 - not UTF-8 text: 1
 - previous merged output: 1
-- skipped directory: 13909
+- skipped directory: 13934
 
 # File Contents
 
@@ -6370,8 +6370,15 @@ class DarthMaulControlNode(Node):
                     yaw_correction_used=yaw_correction_used,
                 )
 
+            compact_transit_use_progress_reference = bool(
+                compact_transit_settle
+                and progress_selection.valid
+                and axial.source not in ('front_safety', 'rear_safety')
+            )
+
             if (
                 axial.valid
+                and not compact_transit_use_progress_reference
                 and axial.source not in ('front_safety', 'rear_safety')
                 and abs(axial.error_m) > self.grid_cell_settle_abort_position_error_m
             ):
@@ -6406,11 +6413,7 @@ class DarthMaulControlNode(Node):
                         f'ignoring axial settle instead of aborting: {axial.reason}'
                     )
 
-            if (
-                compact_transit_settle
-                and progress_selection.valid
-                and axial.source not in ('front_safety', 'rear_safety')
-            ):
+            if compact_transit_use_progress_reference:
                 axial_reference_expected = False
                 longitudinal_valid = True
                 longitudinal_error_m = float(direction) * (
@@ -22227,8 +22230,7 @@ class MazeExplorerNode(Node):
 
         self.declare_parameter('race_planner_enabled', True)
         self.declare_parameter('race_compact_known_transit', True)
-        self.declare_parameter('race_compact_max_forward_cells', 4)
-        self.declare_parameter('race_compact_max_reverse_cells', 6)
+        self.declare_parameter('race_turn_reverse_at_safe_junction', True)
         self.declare_parameter('race_reverse_into_new_cells', False)
         self.declare_parameter('race_cost_drive_forward', 3.4)
         self.declare_parameter('race_cost_drive_backward', 3.8)
@@ -22298,11 +22300,8 @@ class MazeExplorerNode(Node):
         self.race_compact_known_transit = parse_bool(
             self.get_parameter('race_compact_known_transit').value
         )
-        self.race_compact_max_forward_cells = int(
-            self.get_parameter('race_compact_max_forward_cells').value
-        )
-        self.race_compact_max_reverse_cells = int(
-            self.get_parameter('race_compact_max_reverse_cells').value
+        self.race_turn_reverse_at_safe_junction = parse_bool(
+            self.get_parameter('race_turn_reverse_at_safe_junction').value
         )
         self.race_reverse_into_new_cells = parse_bool(
             self.get_parameter('race_reverse_into_new_cells').value
@@ -22429,11 +22428,6 @@ class MazeExplorerNode(Node):
         for name, value in race_costs.items():
             if not math.isfinite(float(value)) or float(value) < 0.0:
                 errors.append(f'{name} must be finite and >= 0')
-
-        if self.race_compact_max_forward_cells <= 0:
-            errors.append('race_compact_max_forward_cells must be positive')
-        if self.race_compact_max_reverse_cells <= 0:
-            errors.append('race_compact_max_reverse_cells must be positive')
 
         if errors:
             message = '; '.join(errors)
@@ -23115,7 +23109,11 @@ class MazeExplorerNode(Node):
             )
             return
 
-        compacted = self._compact_planned_segments(path, reverse_flags)
+        adjusted_reverse_flags = self._turn_reverse_runs_at_safe_junctions(
+            path,
+            reverse_flags,
+        )
+        compacted = self._compact_planned_segments(path, adjusted_reverse_flags)
 
         simulated_cell = self.current_cell
         simulated_heading = self.heading
@@ -23155,6 +23153,89 @@ class MazeExplorerNode(Node):
 
             simulated_cell = target_cell
 
+    def _turn_reverse_runs_at_safe_junctions(
+        self,
+        path: Sequence[Cell],
+        reverse_flags: Sequence[bool],
+    ) -> List[bool]:
+        """Convert long reverse transit into reverse-until-junction, then forward.
+
+        If a planned path says to keep reversing along a corridor, we keep reversing
+        only while rotation is unsafe. At the first cell in that reverse run where
+        rotation is safe, the remaining same-direction run is changed to forward.
+        This causes _enqueue_segment() to insert a 180-degree rotation at that
+        safe junction, then forward compact through the rest of the known corridor.
+
+        This is geometry-based:
+        - narrow corridor -> keep reversing
+        - safe side opening/junction -> rotate there and continue forward
+        """
+        adjusted = [bool(value) for value in reverse_flags]
+
+        if not self.race_turn_reverse_at_safe_junction:
+            return adjusted
+
+        if len(path) < 2 or len(adjusted) != len(path) - 1:
+            return adjusted
+
+        index = 0
+        simulated_heading = int(self.heading)
+
+        while index < len(adjusted):
+            direction = direction_between(path[index], path[index + 1])
+            use_reverse = bool(adjusted[index])
+
+            if not use_reverse:
+                simulated_heading = direction
+                index += 1
+                continue
+
+            run_start = index
+            run_direction = direction
+            scan = index
+
+            while scan < len(adjusted):
+                current_direction = direction_between(path[scan], path[scan + 1])
+                if not adjusted[scan]:
+                    break
+                if current_direction != run_direction:
+                    break
+                scan += 1
+
+            run_end_exclusive = scan
+
+            turn_index: Optional[int] = None
+            for candidate_index in range(run_start, run_end_exclusive):
+                candidate_cell = path[candidate_index]
+
+                rotation_safe, rotation_reason = self._rotation_safe_at_cell(
+                    candidate_cell,
+                    simulated_heading,
+                )
+
+                if not rotation_safe:
+                    continue
+
+                turn_index = candidate_index
+                self.get_logger().info(
+                    f'Race reverse-to-forward conversion at safe junction: '
+                    f'cell={candidate_cell}, heading={DIR_NAME[simulated_heading]}, '
+                    f'run_direction={DIR_NAME[run_direction]}, '
+                    f'reverse_run_segments={run_end_exclusive - run_start}, '
+                    f'convert_from_segment={turn_index}; {rotation_reason}'
+                )
+                break
+
+            if turn_index is not None:
+                for flag_index in range(turn_index, run_end_exclusive):
+                    adjusted[flag_index] = False
+
+                simulated_heading = run_direction
+
+            index = run_end_exclusive
+
+        return adjusted
+
     def _compact_planned_segments(
         self,
         path: Sequence[Cell],
@@ -23179,17 +23260,8 @@ class MazeExplorerNode(Node):
             final_target = target_cell
             final_run_cells = int(run_cells)
 
-            max_run_cells = (
-                int(self.race_compact_max_reverse_cells)
-                if use_reverse
-                else int(self.race_compact_max_forward_cells)
-            )
-
             scan = index + 1
             while scan < len(raw):
-                if final_run_cells >= max_run_cells:
-                    break
-
                 next_direction, next_target, next_reverse, _ = raw[scan]
 
                 if next_direction != direction:
@@ -24703,8 +24775,9 @@ def generate_launch_description():
     direction_priority = LaunchConfiguration('direction_priority')
     race_planner_enabled = LaunchConfiguration('race_planner_enabled')
     race_compact_known_transit = LaunchConfiguration('race_compact_known_transit')
-    race_compact_max_forward_cells = LaunchConfiguration('race_compact_max_forward_cells')
-    race_compact_max_reverse_cells = LaunchConfiguration('race_compact_max_reverse_cells')
+    race_turn_reverse_at_safe_junction = LaunchConfiguration(
+        'race_turn_reverse_at_safe_junction'
+    )
     race_reverse_into_new_cells = LaunchConfiguration('race_reverse_into_new_cells')
     race_cost_drive_forward = LaunchConfiguration('race_cost_drive_forward')
     race_cost_drive_backward = LaunchConfiguration('race_cost_drive_backward')
@@ -24733,7 +24806,7 @@ def generate_launch_description():
         DeclareLaunchArgument('wall_threshold_m', default_value='0.18'),
         DeclareLaunchArgument('open_threshold_m', default_value='0.30'),
         DeclareLaunchArgument('drive_max_linear_x_mps', default_value='0.22'),
-        DeclareLaunchArgument('reverse_max_linear_x_mps', default_value='0.070'),
+        DeclareLaunchArgument('reverse_max_linear_x_mps', default_value='0.085'),
         DeclareLaunchArgument('reverse_backtracking_enabled', default_value='true'),
         DeclareLaunchArgument('reverse_backtracking_max_consecutive_cells', default_value='0'),
         DeclareLaunchArgument('reverse_position_tolerance_m', default_value='0.020'),
@@ -24748,11 +24821,10 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument('race_planner_enabled', default_value='true'),
         DeclareLaunchArgument('race_compact_known_transit', default_value='true'),
-        DeclareLaunchArgument('race_compact_max_forward_cells', default_value='4'),
-        DeclareLaunchArgument('race_compact_max_reverse_cells', default_value='6'),
+        DeclareLaunchArgument('race_turn_reverse_at_safe_junction', default_value='true'),
         DeclareLaunchArgument('race_reverse_into_new_cells', default_value='false'),
         DeclareLaunchArgument('race_cost_drive_forward', default_value='3.4'),
-        DeclareLaunchArgument('race_cost_drive_backward', default_value='3.8'),
+        DeclareLaunchArgument('race_cost_drive_backward', default_value='5.2'),
         DeclareLaunchArgument('race_cost_turn_90', default_value='3.4'),
         DeclareLaunchArgument('race_cost_turn_180', default_value='6.8'),
         DeclareLaunchArgument('race_cost_unvisited_info_bonus', default_value='0.20'),
@@ -24813,8 +24885,9 @@ def generate_launch_description():
                 'direction_priority': direction_priority,
                 'race_planner_enabled': race_planner_enabled,
                 'race_compact_known_transit': race_compact_known_transit,
-                'race_compact_max_forward_cells': race_compact_max_forward_cells,
-                'race_compact_max_reverse_cells': race_compact_max_reverse_cells,
+                'race_turn_reverse_at_safe_junction': (
+                    race_turn_reverse_at_safe_junction
+                ),
                 'race_reverse_into_new_cells': race_reverse_into_new_cells,
                 'race_cost_drive_forward': race_cost_drive_forward,
                 'race_cost_drive_backward': race_cost_drive_backward,

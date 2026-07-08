@@ -2991,8 +2991,15 @@ class DarthMaulControlNode(Node):
                     yaw_correction_used=yaw_correction_used,
                 )
 
+            compact_transit_use_progress_reference = bool(
+                compact_transit_settle
+                and progress_selection.valid
+                and axial.source not in ('front_safety', 'rear_safety')
+            )
+
             if (
                 axial.valid
+                and not compact_transit_use_progress_reference
                 and axial.source not in ('front_safety', 'rear_safety')
                 and abs(axial.error_m) > self.grid_cell_settle_abort_position_error_m
             ):
@@ -3027,11 +3034,7 @@ class DarthMaulControlNode(Node):
                         f'ignoring axial settle instead of aborting: {axial.reason}'
                     )
 
-            if (
-                compact_transit_settle
-                and progress_selection.valid
-                and axial.source not in ('front_safety', 'rear_safety')
-            ):
+            if compact_transit_use_progress_reference:
                 axial_reference_expected = False
                 longitudinal_valid = True
                 longitudinal_error_m = float(direction) * (

@@ -397,8 +397,7 @@ class MazeExplorerNode(Node):
 
         self.declare_parameter('race_planner_enabled', True)
         self.declare_parameter('race_compact_known_transit', True)
-        self.declare_parameter('race_compact_max_forward_cells', 4)
-        self.declare_parameter('race_compact_max_reverse_cells', 6)
+        self.declare_parameter('race_turn_reverse_at_safe_junction', True)
         self.declare_parameter('race_reverse_into_new_cells', False)
         self.declare_parameter('race_cost_drive_forward', 3.4)
         self.declare_parameter('race_cost_drive_backward', 3.8)
@@ -468,11 +467,8 @@ class MazeExplorerNode(Node):
         self.race_compact_known_transit = parse_bool(
             self.get_parameter('race_compact_known_transit').value
         )
-        self.race_compact_max_forward_cells = int(
-            self.get_parameter('race_compact_max_forward_cells').value
-        )
-        self.race_compact_max_reverse_cells = int(
-            self.get_parameter('race_compact_max_reverse_cells').value
+        self.race_turn_reverse_at_safe_junction = parse_bool(
+            self.get_parameter('race_turn_reverse_at_safe_junction').value
         )
         self.race_reverse_into_new_cells = parse_bool(
             self.get_parameter('race_reverse_into_new_cells').value
@@ -599,11 +595,6 @@ class MazeExplorerNode(Node):
         for name, value in race_costs.items():
             if not math.isfinite(float(value)) or float(value) < 0.0:
                 errors.append(f'{name} must be finite and >= 0')
-
-        if self.race_compact_max_forward_cells <= 0:
-            errors.append('race_compact_max_forward_cells must be positive')
-        if self.race_compact_max_reverse_cells <= 0:
-            errors.append('race_compact_max_reverse_cells must be positive')
 
         if errors:
             message = '; '.join(errors)
@@ -1285,7 +1276,11 @@ class MazeExplorerNode(Node):
             )
             return
 
-        compacted = self._compact_planned_segments(path, reverse_flags)
+        adjusted_reverse_flags = self._turn_reverse_runs_at_safe_junctions(
+            path,
+            reverse_flags,
+        )
+        compacted = self._compact_planned_segments(path, adjusted_reverse_flags)
 
         simulated_cell = self.current_cell
         simulated_heading = self.heading
@@ -1325,6 +1320,89 @@ class MazeExplorerNode(Node):
 
             simulated_cell = target_cell
 
+    def _turn_reverse_runs_at_safe_junctions(
+        self,
+        path: Sequence[Cell],
+        reverse_flags: Sequence[bool],
+    ) -> List[bool]:
+        """Convert long reverse transit into reverse-until-junction, then forward.
+
+        If a planned path says to keep reversing along a corridor, we keep reversing
+        only while rotation is unsafe. At the first cell in that reverse run where
+        rotation is safe, the remaining same-direction run is changed to forward.
+        This causes _enqueue_segment() to insert a 180-degree rotation at that
+        safe junction, then forward compact through the rest of the known corridor.
+
+        This is geometry-based:
+        - narrow corridor -> keep reversing
+        - safe side opening/junction -> rotate there and continue forward
+        """
+        adjusted = [bool(value) for value in reverse_flags]
+
+        if not self.race_turn_reverse_at_safe_junction:
+            return adjusted
+
+        if len(path) < 2 or len(adjusted) != len(path) - 1:
+            return adjusted
+
+        index = 0
+        simulated_heading = int(self.heading)
+
+        while index < len(adjusted):
+            direction = direction_between(path[index], path[index + 1])
+            use_reverse = bool(adjusted[index])
+
+            if not use_reverse:
+                simulated_heading = direction
+                index += 1
+                continue
+
+            run_start = index
+            run_direction = direction
+            scan = index
+
+            while scan < len(adjusted):
+                current_direction = direction_between(path[scan], path[scan + 1])
+                if not adjusted[scan]:
+                    break
+                if current_direction != run_direction:
+                    break
+                scan += 1
+
+            run_end_exclusive = scan
+
+            turn_index: Optional[int] = None
+            for candidate_index in range(run_start, run_end_exclusive):
+                candidate_cell = path[candidate_index]
+
+                rotation_safe, rotation_reason = self._rotation_safe_at_cell(
+                    candidate_cell,
+                    simulated_heading,
+                )
+
+                if not rotation_safe:
+                    continue
+
+                turn_index = candidate_index
+                self.get_logger().info(
+                    f'Race reverse-to-forward conversion at safe junction: '
+                    f'cell={candidate_cell}, heading={DIR_NAME[simulated_heading]}, '
+                    f'run_direction={DIR_NAME[run_direction]}, '
+                    f'reverse_run_segments={run_end_exclusive - run_start}, '
+                    f'convert_from_segment={turn_index}; {rotation_reason}'
+                )
+                break
+
+            if turn_index is not None:
+                for flag_index in range(turn_index, run_end_exclusive):
+                    adjusted[flag_index] = False
+
+                simulated_heading = run_direction
+
+            index = run_end_exclusive
+
+        return adjusted
+
     def _compact_planned_segments(
         self,
         path: Sequence[Cell],
@@ -1349,17 +1427,8 @@ class MazeExplorerNode(Node):
             final_target = target_cell
             final_run_cells = int(run_cells)
 
-            max_run_cells = (
-                int(self.race_compact_max_reverse_cells)
-                if use_reverse
-                else int(self.race_compact_max_forward_cells)
-            )
-
             scan = index + 1
             while scan < len(raw):
-                if final_run_cells >= max_run_cells:
-                    break
-
                 next_direction, next_target, next_reverse, _ = raw[scan]
 
                 if next_direction != direction:
