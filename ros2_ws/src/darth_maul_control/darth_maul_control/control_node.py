@@ -1290,6 +1290,7 @@ class DarthMaulControlNode(Node):
                 odom_progress_m=odom_progress,
                 heading_error_rad=heading_error,
                 direction=direction,
+                target_distance_m=target_distance,
             )
 
             if not progress_selection.valid:
@@ -1379,12 +1380,30 @@ class DarthMaulControlNode(Node):
                     clearance = float('inf')
 
                 if clearance < stop_distance:
-                    result_code = ExecuteMotionPrimitive.Result.OBSTACLE_TOO_CLOSE
-                    result_message = (
-                        f'{name} stopped: {clearance_name}={clearance:.3f} m '
-                        f'< {stop_distance:.3f} m'
-                    )
-                    break
+                    if (
+                        self.grid_cell_settle_enabled
+                        and remaining <= self.grid_cell_settle_abort_position_error_m
+                    ):
+                        self.publish_zero_twist()
+                        final_control_progress = target_distance
+                        final_progress_source_used = (
+                            f'{progress_selection.source}_travel_guard_snap'
+                        )
+                        final_control_progress_reason = (
+                            f'{name} near target but {clearance_name}={clearance:.3f} m '
+                            f'< {stop_distance:.3f} m; entering cell settle instead of '
+                            'aborting so settle can move away from the wall'
+                        )
+                        control_progress = target_distance
+                        remaining = 0.0
+                        final_position_error = 0.0
+                    else:
+                        result_code = ExecuteMotionPrimitive.Result.OBSTACLE_TOO_CLOSE
+                        result_message = (
+                            f'{name} stopped: {clearance_name}={clearance:.3f} m '
+                            f'< {stop_distance:.3f} m'
+                        )
+                        break
 
             if remaining <= position_tol:
                 self._publish_zero_for_duration()
@@ -1423,6 +1442,7 @@ class DarthMaulControlNode(Node):
                         odom_progress_m=odom_progress,
                         heading_error_rad=final_heading_error_signed,
                         direction=direction,
+                        target_distance_m=target_distance,
                     )
 
                     if not final_selection.valid:
@@ -1662,7 +1682,7 @@ class DarthMaulControlNode(Node):
                 diagnostics=translation_diagnostics,
             )
 
-            if final_selection.valid:
+            if final_selection.valid and final_progress_source_used != 'odom_fallback':
                 final_control_progress = max(0.0, final_selection.progress_m)
                 final_progress_source_used = final_selection.source
                 final_control_progress_reason = final_selection.reason
@@ -2326,6 +2346,118 @@ class DarthMaulControlNode(Node):
             ),
         )
 
+    def _safety_axial_cell_centering_estimate(
+        self,
+        ranges: Optional[LidarRangeSnapshot],
+    ) -> AxialCellCenterEstimate:
+        if ranges is None:
+            return AxialCellCenterEstimate(
+                valid=False,
+                error_m=0.0,
+                source='none',
+                front_usable=False,
+                rear_usable=False,
+                disagreement_m=0.0,
+                reason='no fresh cardinal LiDAR snapshot for safety axial settle',
+            )
+
+        front_distance = self._range_value(ranges.front)
+        rear_distance = self._range_value(ranges.rear)
+        tolerance = float(self.grid_cell_settle_position_tolerance_m)
+
+        candidates: list[AxialCellCenterEstimate] = []
+
+        if (
+            ranges.front.valid
+            and math.isfinite(front_distance)
+            and front_distance > 0.0
+        ):
+            front_error = (
+                float(front_distance)
+                - float(self.grid_center_expected_front_distance_m)
+            )
+            if front_error < -tolerance:
+                candidates.append(
+                    AxialCellCenterEstimate(
+                        valid=True,
+                        error_m=float(front_error),
+                        source='front_safety',
+                        front_usable=True,
+                        rear_usable=False,
+                        disagreement_m=0.0,
+                        reason=(
+                            'front wall is physically too close for cell center; '
+                            f'front_distance={front_distance:.3f} m; '
+                            f'expected_front_distance='
+                            f'{self.grid_center_expected_front_distance_m:.3f} m; '
+                            f'front_error={front_error:.3f} m; '
+                            'commanding reverse settle'
+                        ),
+                    )
+                )
+
+        if (
+            ranges.rear.valid
+            and math.isfinite(rear_distance)
+            and rear_distance > 0.0
+        ):
+            rear_error = (
+                float(self.grid_center_expected_rear_distance_m)
+                - float(rear_distance)
+            )
+            if rear_error > tolerance:
+                candidates.append(
+                    AxialCellCenterEstimate(
+                        valid=True,
+                        error_m=float(rear_error),
+                        source='rear_safety',
+                        front_usable=False,
+                        rear_usable=True,
+                        disagreement_m=0.0,
+                        reason=(
+                            'rear wall is physically too close for cell center; '
+                            f'rear_distance={rear_distance:.3f} m; '
+                            f'expected_rear_distance='
+                            f'{self.grid_center_expected_rear_distance_m:.3f} m; '
+                            f'rear_error={rear_error:.3f} m; '
+                            'commanding forward settle'
+                        ),
+                    )
+                )
+
+        if not candidates:
+            return AxialCellCenterEstimate(
+                valid=False,
+                error_m=0.0,
+                source='none',
+                front_usable=False,
+                rear_usable=False,
+                disagreement_m=0.0,
+                reason=(
+                    'no safety axial correction needed: '
+                    f'front_valid={ranges.front.valid}; '
+                    f'front_distance={front_distance:.3f} m; '
+                    f'rear_valid={ranges.rear.valid}; '
+                    f'rear_distance={rear_distance:.3f} m'
+                ),
+            )
+
+        candidates.sort(key=lambda estimate: abs(estimate.error_m), reverse=True)
+        chosen = candidates[0]
+        if len(candidates) == 1:
+            return chosen
+
+        rejected = candidates[1]
+        return replace(
+            chosen,
+            disagreement_m=abs(float(chosen.error_m) - float(rejected.error_m)),
+            reason=(
+                f'{chosen.reason}; both front and rear safety references were close; '
+                f'chose larger correction {chosen.source}={chosen.error_m:.3f} m '
+                f'over {rejected.source}={rejected.error_m:.3f} m'
+            ),
+        )
+
     def _axial_cell_centering_estimate(
         self,
         expected,
@@ -2621,6 +2753,15 @@ class DarthMaulControlNode(Node):
                 axial = self._mapless_axial_cell_centering_estimate(current_ranges)
                 axial_reference_expected = axial.valid
                 lateral_reference_expected = centering.valid
+
+            safety_axial = self._safety_axial_cell_centering_estimate(current_ranges)
+            if safety_axial.valid and (
+                not axial.valid
+                or abs(safety_axial.error_m) > abs(axial.error_m)
+            ):
+                axial = safety_axial
+                axial_reference_expected = True
+
             yaw_observation = self._manhattan_yaw_observation()
             odom_heading_error = normalize_angle(start.yaw - snapshot.pose.yaw)
             yaw_valid = bool(
@@ -2782,7 +2923,11 @@ class DarthMaulControlNode(Node):
                     yaw_correction_used=yaw_correction_used,
                 )
 
-            if axial.valid and abs(axial.error_m) > self.grid_cell_settle_abort_position_error_m:
+            if (
+                axial.valid
+                and axial.source not in ('front_safety', 'rear_safety')
+                and abs(axial.error_m) > self.grid_cell_settle_abort_position_error_m
+            ):
                 self.publish_zero_twist()
                 return GridCellSettleResult(
                     canceled=False,
@@ -3313,14 +3458,28 @@ class DarthMaulControlNode(Node):
         odom_progress_m: float,
         heading_error_rad: float,
         direction: float,
+        target_distance_m: float,
     ):
-        if progress_selection.valid:
-            return progress_selection
-
         if not self.translation_odom_fallback_enabled:
             return progress_selection
 
         if self.translation_progress_source != 'lidar_required':
+            return progress_selection
+
+        odom_progress = max(0.0, float(odom_progress_m))
+        target_distance = max(0.0, float(target_distance_m))
+        selected_progress = max(0.0, float(progress_selection.progress_m))
+        lidar_lag_m = max(0.0, odom_progress - selected_progress)
+        fallback_lag_threshold_m = max(0.080, 0.35 * target_distance)
+
+        lidar_behind_odom = bool(
+            progress_selection.valid
+            and progress_selection.source == 'lidar'
+            and odom_progress >= max(0.080, 0.50 * target_distance)
+            and lidar_lag_m >= fallback_lag_threshold_m
+        )
+
+        if progress_selection.valid and not lidar_behind_odom:
             return progress_selection
 
         yaw_observation = self._manhattan_yaw_observation()
@@ -3343,7 +3502,7 @@ class DarthMaulControlNode(Node):
             observation = self._live_grid_observation(
                 grid_context,
                 alignment,
-                max(0.0, float(odom_progress_m)),
+                min(odom_progress, target_distance) if target_distance > 0.0 else odom_progress,
             )
             if observation.context_valid and observation.expected.valid:
                 map_reason = (
@@ -3364,14 +3523,28 @@ class DarthMaulControlNode(Node):
             )
 
         movement = 'forward' if direction >= 0.0 else 'backward'
+        fallback_progress = odom_progress
+        if target_distance > 0.0:
+            fallback_progress = min(fallback_progress, target_distance)
+
+        if lidar_behind_odom:
+            lidar_reason = (
+                'LiDAR progress lagged odom during a likely wall-grazing/slip event: '
+                f'lidar_progress={selected_progress:.3f} m; '
+                f'odom_progress={odom_progress:.3f} m; '
+                f'lag={lidar_lag_m:.3f} m >= {fallback_lag_threshold_m:.3f} m; '
+                f'original_reason={progress_selection.reason}'
+            )
+        else:
+            lidar_reason = f'LiDAR rejected: {progress_selection.reason}'
 
         return replace(
             progress_selection,
             valid=True,
-            progress_m=max(0.0, float(odom_progress_m)),
+            progress_m=fallback_progress,
             source='odom_fallback',
             reason=(
-                'geometry-aware odom fallback: LiDAR progress unavailable or inconsistent; '
+                'geometry-aware odom fallback: '
                 f'movement={movement}; '
                 f'{map_reason}; '
                 f'side_reference={side_reference}; '
@@ -3379,7 +3552,7 @@ class DarthMaulControlNode(Node):
                 f'manhattan_yaw_valid={yaw_observation.valid}; '
                 f'manhattan_yaw_error={yaw_observation.yaw_error_rad:.3f} rad; '
                 f'manhattan_yaw_confidence={yaw_observation.confidence:.2f}; '
-                f'LiDAR rejected: {progress_selection.reason}'
+                f'{lidar_reason}'
             ),
         )
 

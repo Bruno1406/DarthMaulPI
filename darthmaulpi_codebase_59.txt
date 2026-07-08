@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 260
-Skipped files: 13881
+Skipped files: 13892
 
 # Included File Index
 
@@ -272,7 +272,7 @@ Skipped files: 13881
 - binary, media, generated, or not useful as text: 57
 - not UTF-8 text: 1
 - previous merged output: 1
-- skipped directory: 13822
+- skipped directory: 13833
 
 # File Contents
 
@@ -6231,10 +6231,9 @@ class DarthMaulControlNode(Node):
                 )
 
             lateral_ok = True
-            if lateral_reference_expected:
+            if lateral_reference_expected and centering.valid:
                 lateral_ok = bool(
-                    centering.valid
-                    and abs(centering.lateral_error_m)
+                    abs(centering.lateral_error_m)
                     <= self.grid_cell_settle_lateral_tolerance_m
                 )
 

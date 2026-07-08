@@ -63,8 +63,8 @@ darth_maul_control:
     # while yaw remains sane, then keep correcting from LiDAR geometry whenever
     # side, front, rear, or Manhattan wall references reappear.
     translation_progress_source: lidar_required
-    translation_odom_fallback_enabled: false
-    translation_odom_fallback_max_heading_error_rad: 0.090
+    translation_odom_fallback_enabled: true
+    translation_odom_fallback_max_heading_error_rad: 0.140
 
     # If required LiDAR progress becomes invalid after temporal recovery is exhausted,
     # hold zero velocity briefly, then fail instead of completing from odom.
