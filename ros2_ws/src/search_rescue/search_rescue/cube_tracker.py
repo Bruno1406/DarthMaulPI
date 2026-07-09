@@ -54,3 +54,6 @@ class CubeTracker:
             colors.append(cube.get_color_id())
 
         return n,xs,ys,colors
+    
+    def get_cube_count(self):
+        return len(self.cubes)

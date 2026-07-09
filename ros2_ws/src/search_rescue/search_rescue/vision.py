@@ -20,7 +20,7 @@ def detect_color(image):
         2: ((30, 50, 70), (48, 180, 210)),     # yellow
         3: ((65, 150, 40), (85, 255, 140)),    # green
         4: ((2, 120, 50), (14, 255, 230)),     # orange
-        6: ((158, 140, 50), (176, 255, 230)),  # pink
+        6: ((158, 140, 50), (170, 255, 230)),  # pink
         7: ((8, 50, 60), (24, 210, 180)),      # brown
     }
 
@@ -46,7 +46,7 @@ def detect_color(image):
     lower_red_1 = np.array((0, 220, 90))
     upper_red_1 = np.array((1, 255, 180))
 
-    lower_red_2 = np.array((174, 140, 50))
+    lower_red_2 = np.array((171, 140, 50))
     upper_red_2 = np.array((179, 255, 230))   
 
     red_mask_1 = cv2.inRange(hsv, lower_red_1, upper_red_1)
