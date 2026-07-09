@@ -1,0 +1,22 @@
+{
+  "name": "ROS 2 Jazzy Dev",
+  "dockerComposeFile": ["../docker-compose.yml"],
+  "service": "ros2_jazzy_dev",
+  "workspaceFolder": "/root/workspace",
+  
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "ms-iot.vscode-ros",
+        "ms-python.python",
+        "ms-vscode.cpptools",
+        "twxs.cmake"
+      ]
+    }
+  },
+  
+  "remoteUser": "root"
+}
