@@ -1,0 +1,33 @@
+{
+    "ROS2.distro": "jazzy",
+    "python.autoComplete.extraPaths": [
+        "/home/yuweinan/workspace/ros2_ws/install/search_rescue/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/sdk/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/ros_robot_controller_msgs/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/ros_robot_controller/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/peripherals/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/mentorpi_description/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/maze_solver/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/maze_interface/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/darth_maul_control/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/darth_maul_control_interfaces/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/controller/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/calibration/lib/python3.12/site-packages",
+        "/opt/ros/jazzy/lib/python3.12/site-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/yuweinan/workspace/ros2_ws/install/search_rescue/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/sdk/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/ros_robot_controller_msgs/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/ros_robot_controller/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/peripherals/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/mentorpi_description/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/maze_solver/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/maze_interface/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/darth_maul_control/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/darth_maul_control_interfaces/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/controller/lib/python3.12/site-packages",
+        "/home/yuweinan/workspace/ros2_ws/install/calibration/lib/python3.12/site-packages",
+        "/opt/ros/jazzy/lib/python3.12/site-packages"
+    ]
+}

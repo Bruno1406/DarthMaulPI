@@ -525,6 +525,7 @@ class SearchRescueNode(Node):
         self.camera_info_subscriber = self.create_subscription(CameraInfo,"/ascamera/camera_publisher/rgb0/camera_info", self.callback_camera_info, 10)
         self.grade_future = None
         self.grade_submit_time = None
+        self.has_submitted = False
         self.timer = self.create_timer(0.10, self._tick)
 
         self.get_logger().info(
@@ -600,6 +601,17 @@ class SearchRescueNode(Node):
             return
  
         xr_cm, yr_cm = relative_position
+
+
+        # Correct measured distance from camera to tag/front face.
+        xr_cm = 1.18 * xr_cm - 3.19
+
+        # Convert front-face distance to cube-center distance.
+        xr_cm = xr_cm + 1.5
+
+        # Only record cubes in a useful distance range.
+        if xr_cm < 8 or xr_cm > 35:
+            return
 
         
         #TODO: Convert robot-relative cube position to global map coordinates.
@@ -721,32 +733,37 @@ class SearchRescueNode(Node):
 
         return forward_cm, left_cm
     
-    # def maybe_submit_cubes(self, is_new_cube):
-    #     if not is_new_cube:
-    #        return
+    def on_exploration_finished(self):
+        self.get_logger().info("exploration finished")
+        self.submit_cubes_once()   
 
-    #     n, _, _, _ = self.tracker.export_for_service()
+    def submit_cubes_once(self):
+        if self.has_submitted:
+            return
+        n, xs, ys, colors = self.tracker.export_for_service()
+        if n == 0:
+            self.get_logger().info("no cubes to submit")
+            return
 
-    #     if n > self.submitted_count and n <= 4:
-    #         self.submit_cubes()
-    #         self.submitted_count = n
-    
-    # def submit_cubes(self):
-    #     n,xs,ys,colors = self.tracker.export_for_service()
+        request = GradeCubes.Request()
+        request.n = n
+        request.x = xs
+        request.y = ys
+        request.color = colors
 
-    #     request = GradeCubes.Request()
-    #     request.n = n
-    #     request.x = xs
-    #     request.y = ys
-    #     request.color = colors
+        self.has_submitted = True
 
-    #     future = self.client.call_async(request)
-    #     future.add_done_callback(self.handle_grade_response)
-    #     self.get_logger().info("submitted cubes")
+        future = self.client.call_async(request)
+        future.add_done_callback(self.handle_grade_response)
 
-    # def handle_grade_response(self, future):
-    #     response = future.result()
-    #     self.get_logger().info(f"score: {response.score}")  
+        self.get_logger().info(
+            f"submitted cubes once: n={n}, x={xs}, y={ys}, color={colors}"
+        ) 
+
+    def handle_grade_response(self, future):
+        response = future.result()
+        self.get_logger().info(f"score: {response.score}")   
+
     
     # -------------------------------------------------------------------------
     # Explorer node 
@@ -827,7 +844,7 @@ class SearchRescueNode(Node):
 
         if self.tracker.get_cube_count() >= 4 and not self.completed:
             self.get_logger().info("Found 4 cubes! Halting exploration and submitting to grader.")
-            # self.submit_cubes()
+            self.submit_cubes_once()
             self.completed = True
             self.shutdown_requested = True
             return
