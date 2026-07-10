@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 280
-Skipped files: 5416
+Skipped files: 5462
 
 # Included File Index
 
@@ -292,7 +292,7 @@ Skipped files: 5416
 - binary, media, generated, or not useful as text: 59
 - not UTF-8 text: 2
 - previous merged output: 1
-- skipped directory: 5354
+- skipped directory: 5400
 
 # File Contents
 
@@ -2014,9 +2014,9 @@ def test_pep257():
 |       |       |                       |   |
 +   +   +   +   +   +   +   +   +   +   +   +
 |       |       |   |                   |   |
-+   +   +---+   +---+---+   +   +---+---+   +
-|               |       |       |           |
-+   +   +   +   +   +---+   +   +   +   +   +
++   +   +---+   +---+---+---+---+---+---+   +
+|               |               |           |
++   +   +   +   +   +   +   +   +   +   +   +
 |               |                       |   |
 +   +   +   +   +---+   +   +   +   +   +   +
 |       |                           |   |   |
@@ -3655,7 +3655,12 @@ darth_maul_control:
 
     # Rotation remains odom/IMU primary. The next straight segment corrects
     # accumulated yaw/lateral error live when legal wall geometry reappears.
+    # Rotate has a soft timeout and recovery extension. Do not accept a bad
+    # 0.28 rad heading error, but also do not fail just because the first
+    # computed timeout was too short.
     rotate_timeout_accept_heading_error_rad: 0.090
+    rotate_timeout_margin_sec: 8.0
+    rotate_timeout_recovery_extra_sec: 6.0
     rotate_pre_clearance_settle_enabled: true
     rotate_pre_clearance_front_min_m: 0.155
     rotate_pre_clearance_rear_min_m: 0.155
@@ -4590,6 +4595,14 @@ class DarthMaulControlNode(Node):
         self.rotate_timeout_accept_heading_error_rad = self._nonnegative_float_param(
             'rotate_timeout_accept_heading_error_rad',
             0.090,
+        )
+        self.rotate_timeout_margin_sec = self._nonnegative_float_param(
+            'rotate_timeout_margin_sec',
+            8.0,
+        )
+        self.rotate_timeout_recovery_extra_sec = self._nonnegative_float_param(
+            'rotate_timeout_recovery_extra_sec',
+            6.0,
         )
         self.rotate_pre_clearance_settle_enabled = self._bool_param(
             'rotate_pre_clearance_settle_enabled',
@@ -5934,13 +5947,25 @@ class DarthMaulControlNode(Node):
         result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
         result_message = 'unknown rotation result'
         final_heading_error = abs(target_angle)
+        soft_timeout_warned = False
+        hard_timeout_s = timeout_s + float(self.rotate_timeout_recovery_extra_sec)
 
         while True:
             if self._cancel_or_stop_requested(goal_handle):
                 return self._cancel_result(goal_handle)
 
             elapsed = time.monotonic() - start_time
-            if elapsed > timeout_s:
+
+            if elapsed > timeout_s and not soft_timeout_warned:
+                soft_timeout_warned = True
+                self.get_logger().warning(
+                    'ROTATE_RELATIVE exceeded soft timeout; continuing recovery: '
+                    f'elapsed={elapsed:.1f}s; soft_timeout={timeout_s:.1f}s; '
+                    f'hard_timeout={hard_timeout_s:.1f}s; '
+                    f'current_heading_error={final_heading_error:.3f} rad'
+                )
+
+            if elapsed > hard_timeout_s:
                 timeout_heading_error_valid = False
                 snapshot = self._get_motion_snapshot()
                 if snapshot is not None:
@@ -5973,13 +5998,16 @@ class DarthMaulControlNode(Node):
                     result_success = True
                     result_code = ExecuteMotionPrimitive.Result.SUCCESS
                     result_message = (
-                        'ROTATE_RELATIVE accepted near target after timeout: '
+                        'ROTATE_RELATIVE accepted near target after recovery timeout: '
                         f'heading_error={final_heading_error:.3f} rad; '
                         f'post_rotate_grid_settle={post_rotate_grid_settle_reason}'
                     )
                 else:
                     result_code = ExecuteMotionPrimitive.Result.TIMEOUT
-                    result_message = f'ROTATE_RELATIVE timed out after {elapsed:.1f}s'
+                    result_message = (
+                        f'ROTATE_RELATIVE hard timeout after {elapsed:.1f}s; '
+                        f'heading_error={final_heading_error:.3f} rad'
+                    )
                 break
 
             snapshot = self._get_motion_snapshot()
@@ -6006,7 +6034,7 @@ class DarthMaulControlNode(Node):
                     final_heading_error = abs(remaining)
 
                 if self.enforce_final_error and final_heading_error > heading_tol * 1.5:
-                    if time.monotonic() - start_time < timeout_s:
+                    if time.monotonic() - start_time < hard_timeout_s:
                         self.get_logger().warn(
                             'ROTATE_RELATIVE post-stop heading drift exceeded final '
                             f'check: {final_heading_error:.3f} rad > '
@@ -8230,8 +8258,8 @@ class DarthMaulControlNode(Node):
         return self._goal_timeout(requested, fallback)
 
     def _rotation_timeout(self, requested: float, angle: float, speed: float) -> float:
-        fallback = abs(angle) / max(abs(speed), 1e-3) + self.timeout_margin_sec
-        fallback = max(fallback, 3.0)
+        fallback = abs(angle) / max(abs(speed), 1e-3) + self.rotate_timeout_margin_sec
+        fallback = max(fallback, 4.0)
         return self._goal_timeout(requested, fallback)
 
     def _ros_time_seconds(self) -> float:
@@ -22212,47 +22240,47 @@ ament_package()
 0
 5
 7
-10
-13
+15
+15
 10
 9
 2
 8
 9
+15
+15
 2
-9
-7
-2
+0
 0
 0
 5
+15
+15
 2
-0
-8
 0
 1
 2
 9
-2
-0
-4
+15
+15
+6
 0
 1
 6
 1
-2
-1
+15
+15
 10
 0
 5
-11
+15
 3
-6
-5
+15
+15
 2
 4
 13
-7
+15
 3
 14
 12
@@ -22827,47 +22855,47 @@ ament_package()
 0
 5
 7
-10
-13
+15
+15
 10
 9
 2
 8
 9
+15
+15
 2
-9
-7
-2
+0
 0
 0
 5
+15
+15
 2
-0
-8
 0
 1
 2
 9
-2
-0
-4
+15
+15
+6
 0
 1
 6
 1
-2
-1
+15
+15
 10
 0
 5
-11
+15
 3
-6
-5
+15
+15
 2
 4
 13
-7
+15
 3
 14
 12
@@ -25946,8 +25974,8 @@ setup(
 # ================== FILE 207: ros2_ws/src/maze_solver/launch/exam_task1.launch.py ==================
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
-from launch.conditions import IfCondition
+from launch.actions import DeclareLaunchArgument, TimerAction
+from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -25964,6 +25992,8 @@ def generate_launch_description():
     camera_down_position = LaunchConfiguration('camera_down_position')
     camera_horizontal_servo_id = LaunchConfiguration('camera_horizontal_servo_id')
     camera_left_position = LaunchConfiguration('camera_left_position')
+    camera_publish_for_s = LaunchConfiguration('camera_publish_for_s')
+    camera_startup_delay_s = LaunchConfiguration('camera_startup_delay_s')
 
     return LaunchDescription([
         DeclareLaunchArgument('maze_nr', default_value='1'),
@@ -25977,6 +26007,8 @@ def generate_launch_description():
         DeclareLaunchArgument('camera_down_position', default_value='2000'),
         DeclareLaunchArgument('camera_horizontal_servo_id', default_value='2'),
         DeclareLaunchArgument('camera_left_position', default_value='2000'),
+        DeclareLaunchArgument('camera_publish_for_s', default_value='1.5'),
+        DeclareLaunchArgument('camera_startup_delay_s', default_value='1.8'),
 
         Node(
             package='maze_solver',
@@ -25990,8 +26022,30 @@ def generate_launch_description():
                 'horizontal_servo_id': camera_horizontal_servo_id,
                 'left_position': camera_left_position,
                 'duration': 0.5,
-                'publish_for_s': 8.0,
+                'publish_for_s': camera_publish_for_s,
             }],
+        ),
+
+        TimerAction(
+            period=camera_startup_delay_s,
+            condition=IfCondition(camera_face_down),
+            actions=[
+                Node(
+                    package='maze_solver',
+                    executable='maze_solver_node',
+                    name='maze_solver_node',
+                    output='screen',
+                    parameters=[{
+                        'maze_nr': maze_nr,
+                        'cell_length_m': cell_length_m,
+                        'max_commands_to_execute': max_commands_to_execute,
+                        'execute_motions': execute_motions,
+                        'maze_service_name': '/get_ros_maze',
+                        'maze_service_timeout_s': maze_service_timeout_s,
+                        'shutdown_on_fatal_error': shutdown_on_fatal_error,
+                    }],
+                ),
+            ],
         ),
 
         Node(
@@ -25999,6 +26053,7 @@ def generate_launch_description():
             executable='maze_solver_node',
             name='maze_solver_node',
             output='screen',
+            condition=UnlessCondition(camera_face_down),
             parameters=[{
                 'maze_nr': maze_nr,
                 'cell_length_m': cell_length_m,
@@ -26015,8 +26070,8 @@ def generate_launch_description():
 # ================== FILE 208: ros2_ws/src/maze_solver/launch/exam_task2.launch.py ==================
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
-from launch.conditions import IfCondition
+from launch.actions import DeclareLaunchArgument, TimerAction
+from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -26065,6 +26120,45 @@ def generate_launch_description():
     camera_down_position = LaunchConfiguration('camera_down_position')
     camera_horizontal_servo_id = LaunchConfiguration('camera_horizontal_servo_id')
     camera_left_position = LaunchConfiguration('camera_left_position')
+    camera_publish_for_s = LaunchConfiguration('camera_publish_for_s')
+    camera_startup_delay_s = LaunchConfiguration('camera_startup_delay_s')
+
+    maze_explorer_parameters = {
+        'scan_topic': scan_topic,
+        'cell_length_m': cell_length_m,
+        'start_heading': start_heading,
+        'wall_threshold_m': wall_threshold_m,
+        'open_threshold_m': open_threshold_m,
+        'drive_max_linear_x_mps': drive_max_linear_x_mps,
+        'reverse_max_linear_x_mps': reverse_max_linear_x_mps,
+        'reverse_backtracking_enabled': reverse_backtracking_enabled,
+        'reverse_backtracking_max_consecutive_cells': (
+            reverse_backtracking_max_consecutive_cells
+        ),
+        'reverse_position_tolerance_m': reverse_position_tolerance_m,
+        'reverse_heading_tolerance_rad': reverse_heading_tolerance_rad,
+        'rotate_max_angular_z_radps': rotate_max_angular_z_radps,
+        'max_cells_to_visit': max_cells_to_visit,
+        'output_maze_file': output_maze_file,
+        'shutdown_on_complete': shutdown_on_complete,
+        'direction_priority': direction_priority,
+        'race_planner_enabled': race_planner_enabled,
+        'race_compact_known_transit': race_compact_known_transit,
+        'race_turn_reverse_at_safe_junction': race_turn_reverse_at_safe_junction,
+        'race_reverse_into_new_cells': race_reverse_into_new_cells,
+        'race_cost_drive_forward': race_cost_drive_forward,
+        'race_cost_drive_backward': race_cost_drive_backward,
+        'race_cost_turn_90': race_cost_turn_90,
+        'race_cost_turn_180': race_cost_turn_180,
+        'race_cost_unvisited_info_bonus': race_cost_unvisited_info_bonus,
+        'race_cost_straight_bonus': race_cost_straight_bonus,
+        'race_lidar_lookahead_bonus': race_lidar_lookahead_bonus,
+        'submit_maze_to_grader': submit_maze_to_grader,
+        'grade_service_name': grade_service_name,
+        'grade_maze_nr': grade_maze_nr,
+        'grade_service_timeout_s': grade_service_timeout_s,
+        'grade_result_required': grade_result_required,
+    }
 
     return LaunchDescription([
         DeclareLaunchArgument('scan_topic', default_value='/ldlidar_node/scan'),
@@ -26109,6 +26203,8 @@ def generate_launch_description():
         DeclareLaunchArgument('camera_down_position', default_value='2000'),
         DeclareLaunchArgument('camera_horizontal_servo_id', default_value='2'),
         DeclareLaunchArgument('camera_left_position', default_value='2000'),
+        DeclareLaunchArgument('camera_publish_for_s', default_value='1.5'),
+        DeclareLaunchArgument('camera_startup_delay_s', default_value='1.8'),
 
         Node(
             package='maze_solver',
@@ -26122,8 +26218,22 @@ def generate_launch_description():
                 'horizontal_servo_id': camera_horizontal_servo_id,
                 'left_position': camera_left_position,
                 'duration': 0.5,
-                'publish_for_s': 8.0,
+                'publish_for_s': camera_publish_for_s,
             }],
+        ),
+
+        TimerAction(
+            period=camera_startup_delay_s,
+            condition=IfCondition(camera_face_down),
+            actions=[
+                Node(
+                    package='maze_solver',
+                    executable='maze_explorer_node',
+                    name='maze_explorer_node',
+                    output='screen',
+                    parameters=[maze_explorer_parameters],
+                ),
+            ],
         ),
 
         Node(
@@ -26131,45 +26241,8 @@ def generate_launch_description():
             executable='maze_explorer_node',
             name='maze_explorer_node',
             output='screen',
-            parameters=[{
-                'scan_topic': scan_topic,
-                'cell_length_m': cell_length_m,
-                'start_heading': start_heading,
-                'wall_threshold_m': wall_threshold_m,
-                'open_threshold_m': open_threshold_m,
-                'drive_max_linear_x_mps': drive_max_linear_x_mps,
-                'reverse_max_linear_x_mps': reverse_max_linear_x_mps,
-                'reverse_backtracking_enabled': reverse_backtracking_enabled,
-                'reverse_backtracking_max_consecutive_cells': (
-                    reverse_backtracking_max_consecutive_cells
-                ),
-                'reverse_position_tolerance_m': reverse_position_tolerance_m,
-                'reverse_heading_tolerance_rad': reverse_heading_tolerance_rad,
-                'rotate_max_angular_z_radps': rotate_max_angular_z_radps,
-                'max_cells_to_visit': max_cells_to_visit,
-                'output_maze_file': output_maze_file,
-                'shutdown_on_complete': shutdown_on_complete,
-                'direction_priority': direction_priority,
-                'race_planner_enabled': race_planner_enabled,
-                'race_compact_known_transit': race_compact_known_transit,
-                'race_turn_reverse_at_safe_junction': (
-                    race_turn_reverse_at_safe_junction
-                ),
-                'race_reverse_into_new_cells': race_reverse_into_new_cells,
-                'race_cost_drive_forward': race_cost_drive_forward,
-                'race_cost_drive_backward': race_cost_drive_backward,
-                'race_cost_turn_90': race_cost_turn_90,
-                'race_cost_turn_180': race_cost_turn_180,
-                'race_cost_unvisited_info_bonus': race_cost_unvisited_info_bonus,
-                'race_cost_straight_bonus': race_cost_straight_bonus,
-                'race_lidar_lookahead_bonus': race_lidar_lookahead_bonus,
-
-                'submit_maze_to_grader': submit_maze_to_grader,
-                'grade_service_name': grade_service_name,
-                'grade_maze_nr': grade_maze_nr,
-                'grade_service_timeout_s': grade_service_timeout_s,
-                'grade_result_required': grade_result_required,
-            }],
+            condition=UnlessCondition(camera_face_down),
+            parameters=[maze_explorer_parameters],
         ),
     ])
 
