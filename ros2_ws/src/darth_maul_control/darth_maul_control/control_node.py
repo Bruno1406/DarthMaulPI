@@ -893,6 +893,14 @@ class DarthMaulControlNode(Node):
             'rotate_timeout_accept_heading_error_rad',
             0.090,
         )
+        self.rotate_timeout_margin_sec = self._nonnegative_float_param(
+            'rotate_timeout_margin_sec',
+            8.0,
+        )
+        self.rotate_timeout_recovery_extra_sec = self._nonnegative_float_param(
+            'rotate_timeout_recovery_extra_sec',
+            6.0,
+        )
         self.rotate_pre_clearance_settle_enabled = self._bool_param(
             'rotate_pre_clearance_settle_enabled',
             True,
@@ -2236,13 +2244,25 @@ class DarthMaulControlNode(Node):
         result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
         result_message = 'unknown rotation result'
         final_heading_error = abs(target_angle)
+        soft_timeout_warned = False
+        hard_timeout_s = timeout_s + float(self.rotate_timeout_recovery_extra_sec)
 
         while True:
             if self._cancel_or_stop_requested(goal_handle):
                 return self._cancel_result(goal_handle)
 
             elapsed = time.monotonic() - start_time
-            if elapsed > timeout_s:
+
+            if elapsed > timeout_s and not soft_timeout_warned:
+                soft_timeout_warned = True
+                self.get_logger().warning(
+                    'ROTATE_RELATIVE exceeded soft timeout; continuing recovery: '
+                    f'elapsed={elapsed:.1f}s; soft_timeout={timeout_s:.1f}s; '
+                    f'hard_timeout={hard_timeout_s:.1f}s; '
+                    f'current_heading_error={final_heading_error:.3f} rad'
+                )
+
+            if elapsed > hard_timeout_s:
                 timeout_heading_error_valid = False
                 snapshot = self._get_motion_snapshot()
                 if snapshot is not None:
@@ -2275,13 +2295,16 @@ class DarthMaulControlNode(Node):
                     result_success = True
                     result_code = ExecuteMotionPrimitive.Result.SUCCESS
                     result_message = (
-                        'ROTATE_RELATIVE accepted near target after timeout: '
+                        'ROTATE_RELATIVE accepted near target after recovery timeout: '
                         f'heading_error={final_heading_error:.3f} rad; '
                         f'post_rotate_grid_settle={post_rotate_grid_settle_reason}'
                     )
                 else:
                     result_code = ExecuteMotionPrimitive.Result.TIMEOUT
-                    result_message = f'ROTATE_RELATIVE timed out after {elapsed:.1f}s'
+                    result_message = (
+                        f'ROTATE_RELATIVE hard timeout after {elapsed:.1f}s; '
+                        f'heading_error={final_heading_error:.3f} rad'
+                    )
                 break
 
             snapshot = self._get_motion_snapshot()
@@ -2308,7 +2331,7 @@ class DarthMaulControlNode(Node):
                     final_heading_error = abs(remaining)
 
                 if self.enforce_final_error and final_heading_error > heading_tol * 1.5:
-                    if time.monotonic() - start_time < timeout_s:
+                    if time.monotonic() - start_time < hard_timeout_s:
                         self.get_logger().warn(
                             'ROTATE_RELATIVE post-stop heading drift exceeded final '
                             f'check: {final_heading_error:.3f} rad > '
@@ -4532,8 +4555,8 @@ class DarthMaulControlNode(Node):
         return self._goal_timeout(requested, fallback)
 
     def _rotation_timeout(self, requested: float, angle: float, speed: float) -> float:
-        fallback = abs(angle) / max(abs(speed), 1e-3) + self.timeout_margin_sec
-        fallback = max(fallback, 3.0)
+        fallback = abs(angle) / max(abs(speed), 1e-3) + self.rotate_timeout_margin_sec
+        fallback = max(fallback, 4.0)
         return self._goal_timeout(requested, fallback)
 
     def _ros_time_seconds(self) -> float:

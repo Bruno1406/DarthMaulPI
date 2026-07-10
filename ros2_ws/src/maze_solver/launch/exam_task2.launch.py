@@ -1,6 +1,6 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
-from launch.conditions import IfCondition
+from launch.actions import DeclareLaunchArgument, TimerAction
+from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -49,6 +49,45 @@ def generate_launch_description():
     camera_down_position = LaunchConfiguration('camera_down_position')
     camera_horizontal_servo_id = LaunchConfiguration('camera_horizontal_servo_id')
     camera_left_position = LaunchConfiguration('camera_left_position')
+    camera_publish_for_s = LaunchConfiguration('camera_publish_for_s')
+    camera_startup_delay_s = LaunchConfiguration('camera_startup_delay_s')
+
+    maze_explorer_parameters = {
+        'scan_topic': scan_topic,
+        'cell_length_m': cell_length_m,
+        'start_heading': start_heading,
+        'wall_threshold_m': wall_threshold_m,
+        'open_threshold_m': open_threshold_m,
+        'drive_max_linear_x_mps': drive_max_linear_x_mps,
+        'reverse_max_linear_x_mps': reverse_max_linear_x_mps,
+        'reverse_backtracking_enabled': reverse_backtracking_enabled,
+        'reverse_backtracking_max_consecutive_cells': (
+            reverse_backtracking_max_consecutive_cells
+        ),
+        'reverse_position_tolerance_m': reverse_position_tolerance_m,
+        'reverse_heading_tolerance_rad': reverse_heading_tolerance_rad,
+        'rotate_max_angular_z_radps': rotate_max_angular_z_radps,
+        'max_cells_to_visit': max_cells_to_visit,
+        'output_maze_file': output_maze_file,
+        'shutdown_on_complete': shutdown_on_complete,
+        'direction_priority': direction_priority,
+        'race_planner_enabled': race_planner_enabled,
+        'race_compact_known_transit': race_compact_known_transit,
+        'race_turn_reverse_at_safe_junction': race_turn_reverse_at_safe_junction,
+        'race_reverse_into_new_cells': race_reverse_into_new_cells,
+        'race_cost_drive_forward': race_cost_drive_forward,
+        'race_cost_drive_backward': race_cost_drive_backward,
+        'race_cost_turn_90': race_cost_turn_90,
+        'race_cost_turn_180': race_cost_turn_180,
+        'race_cost_unvisited_info_bonus': race_cost_unvisited_info_bonus,
+        'race_cost_straight_bonus': race_cost_straight_bonus,
+        'race_lidar_lookahead_bonus': race_lidar_lookahead_bonus,
+        'submit_maze_to_grader': submit_maze_to_grader,
+        'grade_service_name': grade_service_name,
+        'grade_maze_nr': grade_maze_nr,
+        'grade_service_timeout_s': grade_service_timeout_s,
+        'grade_result_required': grade_result_required,
+    }
 
     return LaunchDescription([
         DeclareLaunchArgument('scan_topic', default_value='/ldlidar_node/scan'),
@@ -93,6 +132,8 @@ def generate_launch_description():
         DeclareLaunchArgument('camera_down_position', default_value='2000'),
         DeclareLaunchArgument('camera_horizontal_servo_id', default_value='2'),
         DeclareLaunchArgument('camera_left_position', default_value='2000'),
+        DeclareLaunchArgument('camera_publish_for_s', default_value='1.5'),
+        DeclareLaunchArgument('camera_startup_delay_s', default_value='1.8'),
 
         Node(
             package='maze_solver',
@@ -106,8 +147,22 @@ def generate_launch_description():
                 'horizontal_servo_id': camera_horizontal_servo_id,
                 'left_position': camera_left_position,
                 'duration': 0.5,
-                'publish_for_s': 8.0,
+                'publish_for_s': camera_publish_for_s,
             }],
+        ),
+
+        TimerAction(
+            period=camera_startup_delay_s,
+            condition=IfCondition(camera_face_down),
+            actions=[
+                Node(
+                    package='maze_solver',
+                    executable='maze_explorer_node',
+                    name='maze_explorer_node',
+                    output='screen',
+                    parameters=[maze_explorer_parameters],
+                ),
+            ],
         ),
 
         Node(
@@ -115,44 +170,7 @@ def generate_launch_description():
             executable='maze_explorer_node',
             name='maze_explorer_node',
             output='screen',
-            parameters=[{
-                'scan_topic': scan_topic,
-                'cell_length_m': cell_length_m,
-                'start_heading': start_heading,
-                'wall_threshold_m': wall_threshold_m,
-                'open_threshold_m': open_threshold_m,
-                'drive_max_linear_x_mps': drive_max_linear_x_mps,
-                'reverse_max_linear_x_mps': reverse_max_linear_x_mps,
-                'reverse_backtracking_enabled': reverse_backtracking_enabled,
-                'reverse_backtracking_max_consecutive_cells': (
-                    reverse_backtracking_max_consecutive_cells
-                ),
-                'reverse_position_tolerance_m': reverse_position_tolerance_m,
-                'reverse_heading_tolerance_rad': reverse_heading_tolerance_rad,
-                'rotate_max_angular_z_radps': rotate_max_angular_z_radps,
-                'max_cells_to_visit': max_cells_to_visit,
-                'output_maze_file': output_maze_file,
-                'shutdown_on_complete': shutdown_on_complete,
-                'direction_priority': direction_priority,
-                'race_planner_enabled': race_planner_enabled,
-                'race_compact_known_transit': race_compact_known_transit,
-                'race_turn_reverse_at_safe_junction': (
-                    race_turn_reverse_at_safe_junction
-                ),
-                'race_reverse_into_new_cells': race_reverse_into_new_cells,
-                'race_cost_drive_forward': race_cost_drive_forward,
-                'race_cost_drive_backward': race_cost_drive_backward,
-                'race_cost_turn_90': race_cost_turn_90,
-                'race_cost_turn_180': race_cost_turn_180,
-                'race_cost_unvisited_info_bonus': race_cost_unvisited_info_bonus,
-                'race_cost_straight_bonus': race_cost_straight_bonus,
-                'race_lidar_lookahead_bonus': race_lidar_lookahead_bonus,
-
-                'submit_maze_to_grader': submit_maze_to_grader,
-                'grade_service_name': grade_service_name,
-                'grade_maze_nr': grade_maze_nr,
-                'grade_service_timeout_s': grade_service_timeout_s,
-                'grade_result_required': grade_result_required,
-            }],
+            condition=UnlessCondition(camera_face_down),
+            parameters=[maze_explorer_parameters],
         ),
     ])

@@ -271,7 +271,12 @@ darth_maul_control:
 
     # Rotation remains odom/IMU primary. The next straight segment corrects
     # accumulated yaw/lateral error live when legal wall geometry reappears.
+    # Rotate has a soft timeout and recovery extension. Do not accept a bad
+    # 0.28 rad heading error, but also do not fail just because the first
+    # computed timeout was too short.
     rotate_timeout_accept_heading_error_rad: 0.090
+    rotate_timeout_margin_sec: 8.0
+    rotate_timeout_recovery_extra_sec: 6.0
     rotate_pre_clearance_settle_enabled: true
     rotate_pre_clearance_front_min_m: 0.155
     rotate_pre_clearance_rear_min_m: 0.155
