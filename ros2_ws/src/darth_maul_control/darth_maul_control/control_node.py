@@ -721,6 +721,10 @@ class DarthMaulControlNode(Node):
             'grid_cell_settle_max_linear_x_mps',
             0.035,
         )
+        self.grid_cell_settle_min_linear_x_mps = self._nonnegative_float_param(
+            'grid_cell_settle_min_linear_x_mps',
+            0.010,
+        )
         self.grid_cell_settle_max_linear_y_mps = self._nonnegative_float_param(
             'grid_cell_settle_max_linear_y_mps',
             0.030,
@@ -732,6 +736,14 @@ class DarthMaulControlNode(Node):
         self.grid_cell_settle_position_tolerance_m = self._positive_float_param(
             'grid_cell_settle_position_tolerance_m',
             0.010,
+        )
+        self.grid_cell_settle_latch_immediate_axial_once_seen = self._bool_param(
+            'grid_cell_settle_latch_immediate_axial_once_seen',
+            True,
+        )
+        self.grid_cell_settle_disable_progress_after_axial_seen = self._bool_param(
+            'grid_cell_settle_disable_progress_after_axial_seen',
+            True,
         )
         self.grid_cell_settle_compact_transit_accept_enabled = self._bool_param(
             'grid_cell_settle_compact_transit_accept_enabled',
@@ -3358,6 +3370,8 @@ class DarthMaulControlNode(Node):
         destination_cell = 0
         settle_context: Optional[GridRunContext] = None
         projected_axial_reference: Optional[AxialWallReference] = None
+        immediate_axial_seen = False
+        axial_seen = False
 
         if context.valid:
             destination_cell = advance_cells(
@@ -3601,8 +3615,26 @@ class DarthMaulControlNode(Node):
                 axial_reference_expected = axial.valid
                 lateral_reference_expected = centering.valid
 
+            immediate_axial_sources = (
+                'front',
+                'rear',
+                'front_rear',
+                'front_reacquired',
+                'rear_reacquired',
+                'front_safety',
+                'rear_safety',
+            )
+
+            if axial.valid and axial.source in immediate_axial_sources:
+                immediate_axial_seen = True
+                axial_seen = True
+
             if (
                 projected_axial_reference is not None
+                and not (
+                    self.grid_cell_settle_latch_immediate_axial_once_seen
+                    and immediate_axial_seen
+                )
                 and (
                     not axial.valid
                     or axial.source in ('none', 'front_rear_rejected')
@@ -3634,6 +3666,16 @@ class DarthMaulControlNode(Node):
                 axial = safety_axial
                 axial_reference_expected = True
 
+            if axial.valid:
+                axial_seen = True
+                if axial.source in immediate_axial_sources:
+                    immediate_axial_seen = True
+
+            progress_reference_allowed = not (
+                self.grid_cell_settle_disable_progress_after_axial_seen
+                and axial_seen
+            )
+
             compact_transit_use_immediate_axial_reference = bool(
                 compact_transit_settle
                 and axial.valid
@@ -3654,6 +3696,7 @@ class DarthMaulControlNode(Node):
             compact_transit_use_progress_reference = bool(
                 compact_transit_settle
                 and progress_selection.valid
+                and progress_reference_allowed
                 and not compact_transit_use_immediate_axial_reference
                 and axial.source not in ('front_safety', 'rear_safety')
             )
@@ -3705,7 +3748,7 @@ class DarthMaulControlNode(Node):
                 longitudinal_error_m = float(axial.error_m)
                 longitudinal_source = f'axial/{axial.source}'
                 longitudinal_reason = axial.reason
-            elif progress_selection.valid:
+            elif progress_selection.valid and progress_reference_allowed:
                 longitudinal_valid = True
                 longitudinal_error_m = float(direction) * (
                     float(commanded_distance) - float(last_progress)
@@ -3714,6 +3757,12 @@ class DarthMaulControlNode(Node):
                 longitudinal_reason = progress_selection.reason
             else:
                 longitudinal_reason = progress_selection.reason
+                if progress_selection.valid and not progress_reference_allowed:
+                    longitudinal_reason = (
+                        'progress settle ignored because axial LiDAR was already '
+                        f'used in this settle pass; progress_source={progress_selection.source}; '
+                        f'progress_reason={progress_selection.reason}'
+                    )
 
             travel_guard_active = False
             travel_guard_distance_m = float('inf')
@@ -3884,7 +3933,8 @@ class DarthMaulControlNode(Node):
                 )
 
             longitudinal_reference_expected = bool(
-                axial_reference_expected or progress_selection.valid
+                axial_reference_expected
+                or (progress_selection.valid and progress_reference_allowed)
             )
 
             longitudinal_ok = True
@@ -3966,7 +4016,7 @@ class DarthMaulControlNode(Node):
                     longitudinal_tolerance_m,
                     self.k_distance,
                     settle_limits.max_linear_x_mps,
-                    self.min_linear_x_mps,
+                    self.grid_cell_settle_min_linear_x_mps,
                 )
 
             if linear_x != 0.0 and collision_check_enabled:

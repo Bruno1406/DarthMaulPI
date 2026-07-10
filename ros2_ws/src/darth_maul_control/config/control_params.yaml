@@ -205,12 +205,19 @@ darth_maul_control:
     # it prevents starting the next primitive from a badly off-center cell pose.
     grid_cell_settle_enabled: true
     grid_cell_settle_timeout_sec: 2.5
-    grid_cell_settle_max_linear_x_mps: 0.050
+    # Longitudinal cell settle should be small and non-chunky.
+    # The global min_linear_x_mps=0.025 is too large for final centering.
+    grid_cell_settle_max_linear_x_mps: 0.040
+    grid_cell_settle_min_linear_x_mps: 0.010
     grid_cell_settle_max_linear_y_mps: 0.040
     grid_cell_settle_max_yaw_radps: 0.160
-    grid_cell_settle_position_tolerance_m: 0.010
+    grid_cell_settle_position_tolerance_m: 0.015
+    # Once immediate front/rear axial LiDAR was used in a settle pass, do not
+    # switch to progress or projected far-wall settle in the same pass.
+    grid_cell_settle_latch_immediate_axial_once_seen: true
+    grid_cell_settle_disable_progress_after_axial_seen: true
     # For multi-cell known-transit compaction only.
-    # One-cell exploration moves still use the strict 0.010 m settle tolerance.
+    # One-cell exploration moves still use the strict settle tolerance above.
     grid_cell_settle_compact_transit_accept_enabled: true
     grid_cell_settle_compact_transit_min_run_cells: 2
     # Multi-cell runs must still settle. Longitudinal is slightly relaxed only
