@@ -1072,6 +1072,13 @@ def choose_translation_progress(
     mode: str,
     max_lidar_ahead_of_odom_m: float,
 ) -> TranslationProgressSelection:
+    """Choose translation progress with one rule: LiDAR is truth.
+
+    Odom may be used upstream inside choose_lidar_progress() only to arbitrate
+    between disagreeing front/rear LiDAR candidates. Once a LiDAR candidate has
+    been selected, do not reject it because odom disagrees. Wheel odom can slip;
+    front/rear LiDAR geometry is the physical distance signal.
+    """
     odom_progress = max(0.0, float(odom_progress_m))
 
     if mode == 'odom_only':
@@ -1084,32 +1091,6 @@ def choose_translation_progress(
 
     if lidar_estimate.valid:
         lidar_progress = max(0.0, float(lidar_estimate.progress_m))
-        if lidar_progress > odom_progress + float(max_lidar_ahead_of_odom_m):
-            reason = (
-                f'LiDAR progress {lidar_progress:.3f} m is ahead of odom '
-                f'{odom_progress:.3f} m by more than '
-                f'{float(max_lidar_ahead_of_odom_m):.3f} m'
-            )
-
-            if mode == 'lidar_required':
-                return TranslationProgressSelection(
-                    valid=False,
-                    progress_m=0.0,
-                    source='lidar_required_unavailable',
-                    reason=(
-                        'LiDAR progress required but rejected: '
-                        f'{reason}; odom progress {odom_progress:.3f} m ignored'
-                    ),
-                )
-
-            return TranslationProgressSelection(
-                valid=True,
-                progress_m=odom_progress,
-                source='odom',
-                reason='LiDAR rejected by odom sanity bound; falling back to odom: '
-                + reason,
-            )
-
         return TranslationProgressSelection(
             valid=True,
             progress_m=lidar_progress,
@@ -1124,8 +1105,8 @@ def choose_translation_progress(
             source='lidar_required_unavailable',
             reason=(
                 'LiDAR progress required but unavailable/inconsistent: '
-                f'{lidar_estimate.reason}; '
-                f'odom progress {odom_progress:.3f} m ignored'
+                f'{lidar_estimate.reason}; odom progress {odom_progress:.3f} m '
+                'not used as distance truth'
             ),
         )
 
@@ -1133,6 +1114,8 @@ def choose_translation_progress(
         valid=True,
         progress_m=odom_progress,
         source='odom',
-        reason='LiDAR progress unavailable or inconsistent; falling back to odom: '
-        + lidar_estimate.reason,
+        reason=(
+            'LiDAR progress unavailable and mode allows odom fallback: '
+            f'{lidar_estimate.reason}'
+        ),
     )

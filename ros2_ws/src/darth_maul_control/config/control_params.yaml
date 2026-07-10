@@ -57,39 +57,37 @@ darth_maul_control:
     lidar_diagnostic_min_samples: 3
 
     # Straight translation distance authority.
-    # LiDAR remains the preferred progress source whenever front/rear range
-    # progress is physically meaningful and internally consistent. If LiDAR
-    # becomes unavailable or contradictory, use odom only as a bounded fallback
-    # while yaw remains sane, then keep correcting from LiDAR geometry whenever
-    # side, front, rear, or Manhattan wall references reappear.
     translation_progress_source: lidar_required
-    translation_odom_fallback_enabled: true
+
+    # Odom is not distance truth. It may only be used inside LiDAR arbitration
+    # to choose between disagreeing front/rear LiDAR candidates.
+    translation_odom_fallback_enabled: false
     translation_odom_fallback_max_heading_error_rad: 0.140
     translation_odom_fallback_clamp_to_target: false
 
-    # If required LiDAR progress becomes invalid after temporal recovery is exhausted,
-    # hold zero velocity briefly, then fail instead of completing from odom.
-    translation_lidar_required_invalid_max_consecutive_samples: 4
+    # LiDAR-required mode must not hard-fail after a few bad frames.
+    # Invalid LiDAR enters slow recovery crawl until LiDAR progress returns,
+    # collision guard triggers, cancel occurs, or the global action timeout expires.
+    translation_lidar_required_invalid_max_consecutive_samples: 0
+    translation_lidar_recovery_enabled: true
+    translation_lidar_recovery_linear_x_mps: 0.045
 
-    # Maximum allowed disagreement between front and rear LiDAR progress.
-    # If both are valid and disagree more than this, reject LiDAR progress.
-    lidar_progress_max_disagreement_m: 0.100
+    # 3.5 cm was too tight. Front/rear beams can disagree during long corridors,
+    # wall gaps, corners, and after turns. If they disagree, use odom only as
+    # referee to choose the plausible LiDAR side, not as progress truth.
+    lidar_progress_max_disagreement_m: 0.080
 
-    # Reject negative LiDAR progress below this threshold.
-    lidar_progress_min_m: -0.010
+    # Reject only meaningful negative progress.
+    lidar_progress_min_m: -0.020
 
-    # Allow one valid source, front-only or rear-only, when the other side is invalid.
-    # Needed for long corridors where only one cardinal reference is visible.
     lidar_progress_allow_single_source: true
 
-    # Reject LiDAR progress if it is implausibly ahead of odom.
-    # Odom is not trusted as truth, but it is still useful as a sanity bound.
-    lidar_progress_max_ahead_of_odom_m: 0.075
+    # Do not reject LiDAR because odom says it is ahead. Odom is not truth.
+    # This value is left large only to preserve the old function signature.
+    lidar_progress_max_ahead_of_odom_m: 9.0
 
-    # When front/rear LiDAR progress both exist but disagree, odom is used only
-    # to choose the plausible LiDAR side. Odom is not used as final progress.
-    lidar_progress_odom_arbitration_tolerance_m: 0.060
-    lidar_progress_odom_arbitration_min_margin_m: 0.010
+    lidar_progress_odom_arbitration_tolerance_m: 0.100
+    lidar_progress_odom_arbitration_min_margin_m: 0.005
 
     # Diagnostic warning threshold for odom/LiDAR disagreement.
     lidar_odom_warning_threshold_m: 0.030
@@ -215,12 +213,17 @@ darth_maul_control:
     # One-cell exploration moves still use the strict 0.010 m settle tolerance.
     grid_cell_settle_compact_transit_accept_enabled: true
     grid_cell_settle_compact_transit_min_run_cells: 2
-    grid_cell_settle_compact_transit_position_tolerance_m: 0.030
+    # Multi-cell runs must still settle. Longitudinal is slightly relaxed only
+    # when no endpoint axial wall exists. Lateral remains strict.
+    grid_cell_settle_compact_transit_position_tolerance_m: 0.020
     grid_cell_settle_compact_transit_lateral_tolerance_m: 0.020
-    grid_cell_settle_compact_transit_heading_tolerance_rad: 0.080
+    grid_cell_settle_compact_transit_heading_tolerance_rad: 0.070
     grid_cell_settle_compact_transit_lidar_progress_strict: true
     grid_cell_settle_compact_transit_mask_returned_progress_error: false
-    grid_cell_settle_attempt_after_final_progress_invalid: true
+
+    # Purged: no odom final-settle recovery. Recovery should use last trusted
+    # LiDAR progress, endpoint axial LiDAR, travel guard, lateral, and yaw.
+    grid_cell_settle_attempt_after_final_progress_invalid: false
     grid_cell_settle_final_invalid_max_odom_error_m: 0.200
     # If expected front/rear endpoint walls disagree during final settle, allow
     # the travel-direction endpoint wall to be reacquired as a single-wall axial

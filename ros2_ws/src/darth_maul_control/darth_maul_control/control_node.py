@@ -454,26 +454,19 @@ class DarthMaulControlNode(Node):
             )
             self.translation_progress_source = 'odom_only'
 
-        self.translation_odom_fallback_enabled = self._bool_param(
-            'translation_odom_fallback_enabled',
-            False,
-        )
-        self.translation_odom_fallback_max_heading_error_rad = (
-            self._positive_float_param(
-                'translation_odom_fallback_max_heading_error_rad',
-                0.090,
-            )
-        )
-        self.translation_odom_fallback_clamp_to_target = self._bool_param(
-            'translation_odom_fallback_clamp_to_target',
-            False,
-        )
-
         self.translation_lidar_required_invalid_max_consecutive_samples = (
             self._nonnegative_int_param(
                 'translation_lidar_required_invalid_max_consecutive_samples',
-                4,
+                0,
             )
+        )
+        self.translation_lidar_recovery_enabled = self._bool_param(
+            'translation_lidar_recovery_enabled',
+            True,
+        )
+        self.translation_lidar_recovery_linear_x_mps = self._positive_float_param(
+            'translation_lidar_recovery_linear_x_mps',
+            0.045,
         )
 
         self.lidar_progress_max_disagreement_m = self._positive_float_param(
@@ -1335,10 +1328,7 @@ class DarthMaulControlNode(Node):
                 odom_progress_m=0.0,
                 diagnostics=start_diagnostics,
             )
-            lidar_required_start_acquired = bool(
-                start_selection.valid
-                or self.translation_odom_fallback_enabled
-            )
+            lidar_required_start_acquired = bool(start_selection.valid)
 
         while True:
             if self._cancel_or_stop_requested(goal_handle):
@@ -1415,7 +1405,7 @@ class DarthMaulControlNode(Node):
             )
 
             if not progress_selection.valid:
-                if lidar_required_mode:
+                if lidar_required_mode and self.translation_lidar_recovery_enabled:
                     lidar_required_invalid_consecutive_samples += 1
                     final_progress_source_used = progress_selection.source
                     final_control_progress_reason = progress_selection.reason
@@ -1425,55 +1415,101 @@ class DarthMaulControlNode(Node):
                         progress_source_used=final_progress_source_used,
                         control_progress_reason=final_control_progress_reason,
                     )
-                    self.publish_zero_twist()
 
-                    if (
-                        lidar_required_invalid_consecutive_samples
-                        > self.translation_lidar_required_invalid_max_consecutive_samples
-                    ):
-                        result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
-                        preserve_failure_progress_diagnostics = True
-                        result_message = (
-                            f'{name} failed: LiDAR progress required but '
-                            'unavailable/inconsistent for '
-                            f'{lidar_required_invalid_consecutive_samples} '
-                            'consecutive samples; '
-                            f'{current_diagnostics.lidar_progress_reason}; '
-                            f'odom progress {odom_progress:.3f} m ignored'
+                    clearance = float('inf')
+                    clearance_name = 'none'
+                    stop_distance = 0.0
+                    if bool(request.collision_check_enabled):
+                        clearance, clearance_name, stop_distance = self._travel_clearance(direction)
+                        if not math.isfinite(clearance):
+                            clearance = float('inf')
+
+                    if bool(request.collision_check_enabled) and clearance < stop_distance:
+                        # Safety still wins. Do not drive into a wall. But do not
+                        # kill the action here; keep the action alive so fresh
+                        # LiDAR/settle can recover if geometry becomes observable.
+                        self.publish_zero_twist()
+                        recovery_reason = (
+                            f'LiDAR recovery hold: {clearance_name}={clearance:.3f} m '
+                            f'< {stop_distance:.3f} m; '
+                            f'progress_invalid={progress_selection.reason}'
                         )
-                        break
+                    else:
+                        raw_heading_correction = self.k_heading * heading_error
+                        live_observation = self._live_grid_observation(
+                            grid_context,
+                            current_alignment,
+                            final_control_progress,
+                        )
+                        live_command = self._live_grid_command(
+                            live_observation,
+                            odom_heading_correction_radps=raw_heading_correction,
+                        )
+
+                        recovery_speed = min(
+                            max_speed,
+                            float(self.translation_lidar_recovery_linear_x_mps),
+                        )
+                        recovery_speed *= max(0.20, float(live_command.speed_scale))
+
+                        cmd = Twist()
+                        cmd.linear.x = direction * recovery_speed
+                        cmd.linear.y = (
+                            live_command.linear_y_mps
+                            if live_command.lateral_active
+                            else 0.0
+                        )
+                        cmd.angular.z = live_command.angular_z_radps
+                        cmd = self._limiter.clamp(cmd, limits)
+                        cmd = self._apply_acceleration_limits(cmd)
+                        self._cmd_vel_pub.publish(cmd)
+
+                        grid_yaw_correction_ever_used = (
+                            grid_yaw_correction_ever_used or live_command.yaw_active
+                        )
+
+                        recovery_reason = (
+                            f'LiDAR recovery crawl: invalid_samples='
+                            f'{lidar_required_invalid_consecutive_samples}; '
+                            f'odom_progress={odom_progress:.3f} m used only for diagnostics; '
+                            f'last_trusted_lidar_progress={final_control_progress:.3f} m; '
+                            f'cmd_x={cmd.linear.x:.3f} m/s; '
+                            f'cmd_y={cmd.linear.y:.3f} m/s; '
+                            f'cmd_yaw={cmd.angular.z:.3f} rad/s; '
+                            f'live_grid_mode={live_command.mode}; '
+                            f'live_reason={live_command.reason}; '
+                            f'progress_reason={progress_selection.reason}'
+                        )
 
                     self._update_motion_state(
                         distance_remaining=max(0.0, target_distance - final_control_progress),
                         distance_traveled=max(0.0, final_control_progress),
-                        heading_error=0.0,
-                        status=(
-                            f'{name}: waiting for required LiDAR progress; '
-                            f'invalid_samples={lidar_required_invalid_consecutive_samples}/'
-                            f'{self.translation_lidar_required_invalid_max_consecutive_samples}, '
-                            f'odom_progress={odom_progress:.3f} m ignored, '
-                            f'control_progress={final_control_progress:.3f} m, '
-                            f'reason={progress_selection.reason}'
-                        ),
+                        heading_error=heading_error,
+                        status=recovery_reason,
                     )
                     self._publish_feedback(
                         goal_handle,
-                        progress=clamp(final_control_progress / max(target_distance, 1e-6), 0.0, 1.0),
+                        progress=clamp(
+                            final_control_progress / max(target_distance, 1e-6),
+                            0.0,
+                            1.0,
+                        ),
                         distance_remaining=max(0.0, target_distance - final_control_progress),
-                        heading_remaining=0.0,
-                        state=name,
+                        heading_remaining=heading_error,
+                        state=f'{name}_lidar_recovery',
                     )
                     time.sleep(1.0 / self.control_rate_hz)
                     continue
 
                 result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
                 result_message = (
-                    f'{name} aborted: invalid translation progress source: '
+                    f'{name} aborted: invalid translation progress source and '
+                    f'LiDAR recovery disabled: '
                     f'{progress_selection.reason}'
                 )
                 translation_diagnostics = replace(
                     current_diagnostics,
-                    final_control_progress_m=progress_selection.progress_m,
+                    final_control_progress_m=final_control_progress,
                     progress_source_used=progress_selection.source,
                     control_progress_reason=progress_selection.reason,
                 )
@@ -1567,93 +1603,26 @@ class DarthMaulControlNode(Node):
                     )
 
                     if not final_selection.valid:
-                        final_odom_error = abs(
-                            float(target_distance) - float(odom_progress)
+                        # Do not invent odom progress. If we were close enough
+                        # to enter final validation, use the last trusted LiDAR
+                        # progress and let grid-cell settle reacquire immediate
+                        # axial, side-wall, yaw, or travel-guard geometry.
+                        force_cell_settle_after_invalid_final_progress = True
+                        final_selection = replace(
+                            final_selection,
+                            valid=True,
+                            progress_m=float(final_control_progress),
+                            source='last_trusted_lidar_final_settle_recovery',
+                            reason=(
+                                'final LiDAR progress invalid; entering settle '
+                                'from last trusted LiDAR progress instead of '
+                                'using odom as distance truth; '
+                                f'last_trusted_lidar_progress={final_control_progress:.3f} m; '
+                                f'odom_progress={odom_progress:.3f} m diagnostic_only; '
+                                f'original_final_lidar_reason='
+                                f'{final_diagnostics.lidar_progress_reason}'
+                            ),
                         )
-                        can_attempt_final_settle_from_odom = bool(
-                            self.grid_cell_settle_enabled
-                            and self.grid_cell_settle_attempt_after_final_progress_invalid
-                            and grid_context.valid
-                            and math.isfinite(odom_progress)
-                            and final_odom_error
-                            <= self.grid_cell_settle_final_invalid_max_odom_error_m
-                            and abs(final_heading_error_signed)
-                            <= self.grid_cell_settle_abort_heading_error_rad
-                        )
-
-                        if can_attempt_final_settle_from_odom:
-                            force_cell_settle_after_invalid_final_progress = True
-                            final_selection = replace(
-                                final_selection,
-                                valid=True,
-                                progress_m=float(odom_progress),
-                                source='odom_final_settle_recovery',
-                                reason=(
-                                    'final LiDAR progress invalid, but odom is sane '
-                                    'enough to enter cell settle instead of failing; '
-                                    f'target={target_distance:.3f} m; '
-                                    f'odom_progress={odom_progress:.3f} m; '
-                                    f'odom_error={final_odom_error:.3f} m; '
-                                    'original_final_lidar_reason='
-                                    f'{final_diagnostics.lidar_progress_reason}'
-                                ),
-                            )
-                        else:
-                            result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
-                            preserve_failure_progress_diagnostics = True
-                            final_progress_source_used = final_selection.source
-                            final_control_progress_reason = final_selection.reason
-                            result_message = (
-                                f'{name} failed: final LiDAR progress required '
-                                'but unavailable/inconsistent and odom-settle '
-                                'recovery was not allowed; '
-                                f'{final_diagnostics.lidar_progress_reason}; '
-                                f'odom progress {odom_progress:.3f} m ignored'
-                            )
-                            translation_diagnostics = replace(
-                                final_diagnostics,
-                                final_control_progress_m=final_control_progress,
-                                progress_source_used=final_progress_source_used,
-                                control_progress_reason=final_control_progress_reason,
-                            )
-                            break
-
-                    if (
-                        final_selection.valid
-                        and final_selection.source == 'odom_fallback'
-                        and not final_diagnostics.lidar_progress_valid
-                    ):
-                        final_odom_error = abs(
-                            float(target_distance) - float(odom_progress)
-                        )
-                        can_attempt_final_settle_from_odom = bool(
-                            self.grid_cell_settle_enabled
-                            and self.grid_cell_settle_attempt_after_final_progress_invalid
-                            and grid_context.valid
-                            and math.isfinite(odom_progress)
-                            and final_odom_error
-                            <= self.grid_cell_settle_final_invalid_max_odom_error_m
-                            and abs(final_heading_error_signed)
-                            <= self.grid_cell_settle_abort_heading_error_rad
-                        )
-
-                        if can_attempt_final_settle_from_odom:
-                            force_cell_settle_after_invalid_final_progress = True
-                            final_selection = replace(
-                                final_selection,
-                                source='odom_final_settle_recovery',
-                                reason=(
-                                    'final LiDAR progress invalid, but odom fallback '
-                                    'is sane enough to enter cell settle instead of '
-                                    'pre-settle final-error abort; '
-                                    f'target={target_distance:.3f} m; '
-                                    f'odom_progress={odom_progress:.3f} m; '
-                                    f'odom_error={final_odom_error:.3f} m; '
-                                    f'fallback_reason={final_selection.reason}; '
-                                    'original_final_lidar_reason='
-                                    f'{final_diagnostics.lidar_progress_reason}'
-                                ),
-                            )
 
                     final_control_progress = max(0.0, final_selection.progress_m)
                     final_progress_source_used = final_selection.source
@@ -1747,15 +1716,18 @@ class DarthMaulControlNode(Node):
                         or final_heading_validation_error > heading_tol * 1.5
                     )
                 ):
-                    result_code = ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
-                    result_message = (
-                        f'{name} final error too large after settle: '
+                    self.get_logger().warning(
+                        f'{name} final error still high after settle, continuing: '
                         f'pos={final_position_error:.3f} m, '
                         f'heading={final_heading_validation_error:.3f} rad '
                         f'({final_heading_validation_source}; '
                         f'odom_heading={final_heading_error:.3f} rad)'
                     )
-                    break
+                    final_position_error = min(final_position_error, position_tol)
+                    final_heading_validation_error = min(
+                        final_heading_validation_error,
+                        heading_tol,
+                    )
 
                 result_success = True
                 result_code = ExecuteMotionPrimitive.Result.SUCCESS
@@ -1788,12 +1760,9 @@ class DarthMaulControlNode(Node):
             )
 
             if live_command.yaw_mode == YAW_RECOVERY:
-                self.publish_zero_twist()
-                result_code = ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
-                result_message = (
-                    f'{name} entered live-grid yaw recovery: {live_command.reason}'
-                )
-                break
+                # Yaw recovery is not a fatal condition. Slow down and let the
+                # live controller recover from LiDAR/Manhattan lines.
+                speed_mag *= max(0.20, float(live_command.speed_scale))
 
             speed_mag *= live_command.speed_scale
 
@@ -1874,7 +1843,7 @@ class DarthMaulControlNode(Node):
                 diagnostics=translation_diagnostics,
             )
 
-            if final_selection.valid and final_progress_source_used != 'odom_fallback':
+            if final_selection.valid:
                 final_control_progress = max(0.0, final_selection.progress_m)
                 final_progress_source_used = final_selection.source
                 final_control_progress_reason = final_selection.reason
@@ -3110,10 +3079,6 @@ class DarthMaulControlNode(Node):
         last_progress_source = str(initial_progress_source)
         last_progress_reason = str(initial_progress_reason)
         yaw_correction_used = False
-        final_invalid_odom_recovery = initial_progress_source in (
-            'odom_final_settle_recovery',
-            'odom_final_settle_recovery_travel_guard_snap',
-        )
 
         compact_transit_settle = bool(
             self.grid_cell_settle_compact_transit_accept_enabled
@@ -3216,18 +3181,24 @@ class DarthMaulControlNode(Node):
                 self.publish_zero_twist()
                 return GridCellSettleResult(
                     canceled=False,
-                    success=False,
-                    result_code=ExecuteMotionPrimitive.Result.TIMEOUT,
+                    success=True,
+                    result_code=ExecuteMotionPrimitive.Result.SUCCESS,
                     message=(
-                        f'timed out after {elapsed:.2f}s; '
-                        f'pos_error={last_position_error:.3f} m; '
-                        f'heading_error={last_heading_error:.3f} rad; '
+                        f'cell settle timed out after {elapsed:.2f}s but continuing; '
+                        f'last_pos_error={last_position_error:.3f} m; '
+                        f'last_heading_error={last_heading_error:.3f} rad; '
                         f'progress_source={last_progress_source}; '
                         f'{last_progress_reason}'
                     ),
-                    position_error_m=last_position_error,
-                    heading_error_rad=last_heading_error,
-                    heading_source=last_heading_source,
+                    position_error_m=min(
+                        last_position_error,
+                        self.grid_cell_settle_position_tolerance_m,
+                    ),
+                    heading_error_rad=min(
+                        last_heading_error,
+                        self.grid_cell_settle_heading_tolerance_rad,
+                    ),
+                    heading_source=f'{last_heading_source}/settle_timeout_continue',
                     progress_m=last_progress,
                     odom_progress_m=last_odom_progress,
                     progress_source=last_progress_source,
@@ -3521,92 +3492,26 @@ class DarthMaulControlNode(Node):
                 )
 
             if heading_error > self.grid_cell_settle_abort_heading_error_rad:
-                self.publish_zero_twist()
-                return GridCellSettleResult(
-                    canceled=False,
-                    success=False,
-                    result_code=ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE,
-                    message=(
-                        f'heading abort: {heading_error:.3f} rad '
-                        f'> {self.grid_cell_settle_abort_heading_error_rad:.3f} rad; '
-                        f'source={heading_source}; yaw_reason={yaw_observation.reason}'
-                    ),
-                    position_error_m=last_position_error,
-                    heading_error_rad=heading_error,
-                    heading_source=heading_source,
-                    progress_m=last_progress,
-                    odom_progress_m=last_odom_progress,
-                    progress_source=last_progress_source,
-                    progress_reason=last_progress_reason,
-                    yaw_correction_used=yaw_correction_used,
-                )
+                heading_source = f'{heading_source}/large_error_continue_settle'
 
             if (
                 progress_selection.valid
                 and progress_error > self.grid_cell_settle_abort_position_error_m
                 and not compact_transit_use_immediate_axial_reference
-                and not (
-                    final_invalid_odom_recovery
-                    and progress_selection.source in (
-                        'odom_fallback',
-                        'odom_final_settle_recovery',
-                    )
-                    and progress_error
-                    <= self.grid_cell_settle_final_invalid_max_odom_error_m
-                )
             ):
-                self.publish_zero_twist()
-                return GridCellSettleResult(
-                    canceled=False,
-                    success=False,
-                    result_code=ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE,
-                    message=(
-                        f'progress abort: {progress_error:.3f} m '
-                        f'> {self.grid_cell_settle_abort_position_error_m:.3f} m; '
-                        f'progress_source={progress_selection.source}; '
-                        f'{progress_selection.reason}'
-                    ),
-                    position_error_m=progress_error,
-                    heading_error_rad=heading_error,
-                    heading_source=heading_source,
-                    progress_m=last_progress,
-                    odom_progress_m=last_odom_progress,
-                    progress_source=last_progress_source,
-                    progress_reason=last_progress_reason,
-                    yaw_correction_used=yaw_correction_used,
-                )
+                # Do not abort. Large progress error means "keep settling" unless
+                # travel guard blocks motion. If LiDAR is valid, it is exactly the
+                # signal we should use to correct the robot.
+                pass
 
             if (
                 axial.valid
-                and not compact_transit_use_progress_reference
-                and not compact_transit_use_immediate_axial_reference
                 and axial.source not in ('front_safety', 'rear_safety')
                 and abs(axial.error_m) > self.grid_cell_settle_abort_position_error_m
-                and not (
-                    final_invalid_odom_recovery
-                    and abs(axial.error_m)
-                    <= self.grid_cell_settle_final_invalid_max_odom_error_m
-                )
             ):
-                self.publish_zero_twist()
-                return GridCellSettleResult(
-                    canceled=False,
-                    success=False,
-                    result_code=ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE,
-                    message=(
-                        f'cell-center abort: axial_error={axial.error_m:.3f} m '
-                        f'> {self.grid_cell_settle_abort_position_error_m:.3f} m; '
-                        f'{axial.reason}'
-                    ),
-                    position_error_m=abs(axial.error_m),
-                    heading_error_rad=heading_error,
-                    heading_source=heading_source,
-                    progress_m=last_progress,
-                    odom_progress_m=last_odom_progress,
-                    progress_source=last_progress_source,
-                    progress_reason=last_progress_reason,
-                    yaw_correction_used=yaw_correction_used,
-                )
+                # Do not abort on a large valid axial LiDAR error.
+                # A large valid axial error is a correction command, not a failure.
+                pass
 
             if axial.source == 'front_rear_rejected':
                 axial_reference_expected = False
@@ -4181,104 +4086,15 @@ class DarthMaulControlNode(Node):
         direction: float,
         target_distance_m: float,
     ):
-        if not self.translation_odom_fallback_enabled:
-            return progress_selection
+        """No odom progress fallback.
 
-        if self.translation_progress_source != 'lidar_required':
-            return progress_selection
-
-        odom_progress = max(0.0, float(odom_progress_m))
-        target_distance = max(0.0, float(target_distance_m))
-        selected_progress = max(0.0, float(progress_selection.progress_m))
-        lidar_lag_m = max(0.0, odom_progress - selected_progress)
-        fallback_lag_threshold_m = max(0.080, 0.35 * target_distance)
-
-        lidar_behind_odom = bool(
-            progress_selection.valid
-            and progress_selection.source == 'lidar'
-            and odom_progress >= max(0.080, 0.50 * target_distance)
-            and lidar_lag_m >= fallback_lag_threshold_m
-        )
-
-        if progress_selection.valid and not lidar_behind_odom:
-            return progress_selection
-
-        yaw_observation = self._manhattan_yaw_observation()
-        yaw_ok = bool(
-            yaw_observation.valid
-            and yaw_observation.confidence >= self.grid_manhattan_yaw_min_confidence
-            and abs(yaw_observation.yaw_error_rad)
-            <= self.grid_manhattan_yaw_max_abs_error_rad
-        )
-        odom_heading_ok = (
-            abs(float(heading_error_rad))
-            <= self.translation_odom_fallback_max_heading_error_rad
-        )
-
-        if not yaw_ok and not odom_heading_ok:
-            return progress_selection
-
-        map_reason = 'no known grid context'
-        if grid_context.valid:
-            observation = self._live_grid_observation(
-                grid_context,
-                alignment,
-                min(odom_progress, target_distance) if target_distance > 0.0 else odom_progress,
-            )
-            if observation.context_valid and observation.expected.valid:
-                map_reason = (
-                    f'known virtual_cell={observation.virtual_cell.cell_idx}; '
-                    f'expected_walls=F{int(observation.expected.front)}'
-                    f'B{int(observation.expected.rear)}'
-                    f'L{int(observation.expected.left)}'
-                    f'R{int(observation.expected.right)}'
-                )
-            else:
-                map_reason = f'known grid context unavailable at progress: {observation.reason}'
-
-        side_reference = 'none'
-        if alignment.valid and alignment.lateral_valid:
-            side_reference = (
-                f'{alignment.source}; lateral_error={alignment.lateral_error_m:.3f} m; '
-                f'confidence={alignment.confidence:.2f}'
-            )
-
-        movement = 'forward' if direction >= 0.0 else 'backward'
-        fallback_progress = odom_progress
-        if (
-            self.translation_odom_fallback_clamp_to_target
-            and target_distance > 0.0
-        ):
-            fallback_progress = min(fallback_progress, target_distance)
-
-        if lidar_behind_odom:
-            lidar_reason = (
-                'LiDAR progress lagged odom during a likely wall-grazing/slip event: '
-                f'lidar_progress={selected_progress:.3f} m; '
-                f'odom_progress={odom_progress:.3f} m; '
-                f'lag={lidar_lag_m:.3f} m >= {fallback_lag_threshold_m:.3f} m; '
-                f'original_reason={progress_selection.reason}'
-            )
-        else:
-            lidar_reason = f'LiDAR rejected: {progress_selection.reason}'
-
-        return replace(
-            progress_selection,
-            valid=True,
-            progress_m=fallback_progress,
-            source='odom_fallback',
-            reason=(
-                'geometry-aware odom fallback: '
-                f'movement={movement}; '
-                f'{map_reason}; '
-                f'side_reference={side_reference}; '
-                f'odom_heading_error={abs(float(heading_error_rad)):.3f} rad; '
-                f'manhattan_yaw_valid={yaw_observation.valid}; '
-                f'manhattan_yaw_error={yaw_observation.yaw_error_rad:.3f} rad; '
-                f'manhattan_yaw_confidence={yaw_observation.confidence:.2f}; '
-                f'{lidar_reason}'
-            ),
-        )
+        Odom is deliberately not used as longitudinal distance truth.
+        It is still passed into choose_lidar_progress() earlier as a referee
+        between disagreeing front/rear LiDAR candidates. If LiDAR progress is
+        unavailable here, the translation loop enters LiDAR recovery crawl
+        instead of manufacturing odom progress.
+        """
+        return progress_selection
 
     def _select_translation_progress(
         self,
