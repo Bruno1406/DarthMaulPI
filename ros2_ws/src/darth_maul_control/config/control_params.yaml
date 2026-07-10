@@ -98,7 +98,7 @@ darth_maul_control:
 
     # Expected distance from robot centerline to one side wall when centered.
     # This is used only for one-wall lateral error diagnostics.
-    grid_alignment_expected_half_width_m: 0.14
+    grid_alignment_expected_half_width_m: 0.13
 
     # A geometrically valid side-wall line is only an adjacent current-cell wall
     # if its fitted offset is close to the expected centered side-wall offset.
@@ -280,7 +280,7 @@ darth_maul_control:
     rotate_pre_clearance_settle_enabled: true
     rotate_pre_clearance_front_min_m: 0.155
     rotate_pre_clearance_rear_min_m: 0.155
-    rotate_pre_clearance_target_front_m: 0.145
+    rotate_pre_clearance_target_front_m: 0.13
     rotate_pre_clearance_target_rear_m: 0.135
     rotate_pre_clearance_timeout_sec: 1.0
     rotate_pre_clearance_max_linear_x_mps: 0.045
