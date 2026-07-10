@@ -33,9 +33,11 @@ class SearchRescueNode(Node):
 
         # TODO: Enable this client only when the grading service is running.
         # During local tests, keep it disabled to avoid blocking startup.
+
         # self.client = self.create_client(GradeCubes, "/grade_cubes")
         # while not self.client.wait_for_service(1.0):
         #     self.get_logger().info("waiting for grade_cubes service ...")
+        # self.has_submitted = False
 
     # -------------------------------------------------------------------------
     # Image and camera callbacks
@@ -97,6 +99,15 @@ class SearchRescueNode(Node):
  
         xr_cm, yr_cm = relative_position
 
+        # Correct measured distance from camera to tag/front face.
+        xr_cm = 1.18 * xr_cm - 3.19
+
+        # Convert front-face distance to cube-center distance.
+        xr_cm = xr_cm + 1.5
+
+        # Only record cubes in a useful distance range.
+        if xr_cm < 8 or xr_cm > 35:
+            return
         
         #TODO: Convert robot-relative cube position to global map coordinates.
         rect_crop = self.crop_cube_from_detection(self.latest_rect_image, detection)
@@ -167,6 +178,9 @@ class SearchRescueNode(Node):
             self.get_logger().info(
                 f"new cube: n={n}, x={round(x_cm)}, y={round(y_cm)}, color={color_id}"
             )
+
+            if n == 4:
+                self.submit_cubes_once()
         
     # self.camera_info_subscriber
     def callback_camera_info(self, msg):
@@ -218,33 +232,34 @@ class SearchRescueNode(Node):
         return forward_cm, left_cm
     
 
-    
-    # def maybe_submit_cubes(self, is_new_cube):
-    #     if not is_new_cube:
-    #        return
+    def on_exploration_finished(self):
+        self.get_logger().info("exploration finished")
+        self.submit_cubes_once()   
 
-    #     n, _, _, _ = self.tracker.export_for_service()
+    def submit_cubes_once(self):
+        if self.has_submitted:
+            return
 
-    #     if n > self.submitted_count and n <= 4:
-    #         self.submit_cubes()
-    #         self.submitted_count = n
-    
-    # def submit_cubes(self):
-    #     n,xs,ys,colors = self.tracker.export_for_service()
+        n, xs, ys, colors = self.tracker.export_for_service()
 
-    #     request = GradeCubes.Request()
-    #     request.n = n
-    #     request.x = xs
-    #     request.y = ys
-    #     request.color = colors
+        if n == 0:
+            self.get_logger().info("no cubes to submit")
+            return
 
-    #     future = self.client.call_async(request)
-    #     future.add_done_callback(self.handle_grade_response)
-    #     self.get_logger().info("submitted cubes")
+        request = GradeCubes.Request()
+        request.n = n
+        request.x = xs
+        request.y = ys
+        request.color = colors
 
-    # def handle_grade_response(self, future):
-    #     response = future.result()
-    #     self.get_logger().info(f"score: {response.score}")      
+        self.has_submitted = True
+
+        future = self.client.call_async(request)
+        future.add_done_callback(self.handle_grade_response)
+
+        self.get_logger().info(
+            f"submitted cubes once: n={n}, x={xs}, y={ys}, color={colors}"
+        )     
 
 
 def main(args=None):
