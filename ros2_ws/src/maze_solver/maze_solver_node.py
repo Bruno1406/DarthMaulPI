@@ -225,7 +225,16 @@ def build_motion_commands(
 
         turn = turn_between_orientations(current_orientation, run_orientation)
         if abs(turn) > 1.0e-6:
-            commands.append(MotionCommand('rotate', float(turn)))
+            rotate_start_idx = int(path[index]) if path is not None else 0
+            commands.append(
+                MotionCommand(
+                    'rotate',
+                    float(turn),
+                    start_idx=rotate_start_idx,
+                    heading=run_orientation,
+                    run_cells=1,
+                )
+            )
 
         distance_m = float(run_length) * float(cell_length_m)
         start_idx = int(path[index]) if path is not None else 0
@@ -623,6 +632,20 @@ class MazeSolverNode(Node):
             goal.primitive_type = ExecuteMotionPrimitive.Goal.ROTATE_RELATIVE
             goal.value = float(value)
             goal.collision_check_enabled = False
+            if (
+                self.current_maze_n > 0
+                and self.current_maze_m > 0
+                and motion_command.start_idx > 0
+                and motion_command.heading in VALID_ORIENTATIONS
+                and self.current_maze_l
+            ):
+                goal.grid_n = int(self.current_maze_n)
+                goal.grid_m = int(self.current_maze_m)
+                goal.grid_start_idx = int(motion_command.start_idx)
+                goal.grid_heading = int(motion_command.heading)
+                goal.grid_robot_heading = int(motion_command.heading)
+                goal.grid_run_cells = 1
+                goal.grid_l = list(self.current_maze_l)
         else:
             self._fatal(f'Unknown motion command: {command}')
             return

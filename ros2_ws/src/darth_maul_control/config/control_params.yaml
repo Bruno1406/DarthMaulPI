@@ -65,6 +65,7 @@ darth_maul_control:
     translation_progress_source: lidar_required
     translation_odom_fallback_enabled: true
     translation_odom_fallback_max_heading_error_rad: 0.140
+    translation_odom_fallback_clamp_to_target: false
 
     # If required LiDAR progress becomes invalid after temporal recovery is exhausted,
     # hold zero velocity briefly, then fail instead of completing from odom.
@@ -215,8 +216,12 @@ darth_maul_control:
     grid_cell_settle_compact_transit_accept_enabled: true
     grid_cell_settle_compact_transit_min_run_cells: 2
     grid_cell_settle_compact_transit_position_tolerance_m: 0.030
-    grid_cell_settle_compact_transit_lateral_tolerance_m: 0.045
+    grid_cell_settle_compact_transit_lateral_tolerance_m: 0.020
     grid_cell_settle_compact_transit_heading_tolerance_rad: 0.080
+    grid_cell_settle_compact_transit_lidar_progress_strict: true
+    grid_cell_settle_compact_transit_mask_returned_progress_error: false
+    grid_cell_settle_attempt_after_final_progress_invalid: true
+    grid_cell_settle_final_invalid_max_odom_error_m: 0.200
     # If expected front/rear endpoint walls disagree during final settle, allow
     # the travel-direction endpoint wall to be reacquired as a single-wall axial
     # reference once it is close enough to the calibrated cell-center range.
@@ -261,6 +266,12 @@ darth_maul_control:
     rotate_pre_clearance_target_rear_m: 0.135
     rotate_pre_clearance_timeout_sec: 1.0
     rotate_pre_clearance_max_linear_x_mps: 0.045
+    rotate_post_grid_settle_enabled: true
+    rotate_post_grid_settle_timeout_sec: 1.2
+    rotate_post_grid_settle_lateral_tolerance_m: 0.020
+    rotate_post_grid_settle_heading_tolerance_rad: 0.060
+    rotate_post_grid_settle_max_linear_y_mps: 0.035
+    rotate_post_grid_settle_max_yaw_radps: 0.140
 
     # Movement diagnostics. These are no longer "diagnostic only" philosophically:
     # the live controller actively uses lateral error when observable.

@@ -1697,6 +1697,20 @@ class MazeExplorerNode(Node):
             self._attach_grid_context_to_drive_goal(goal, step)
             if self.shutdown_requested:
                 return
+        elif step.kind == 'rotate':
+            msg, _ = self.maze.export_ros_maze(
+                self.start_cell,
+                self.current_cell,
+                self.start_heading,
+                False,
+            )
+            goal.grid_n = int(msg.n)
+            goal.grid_m = int(msg.m)
+            goal.grid_start_idx = int(msg.end_idx)
+            goal.grid_heading = int(step.direction)
+            goal.grid_robot_heading = int(step.direction)
+            goal.grid_run_cells = 1
+            goal.grid_l = [int(value) for value in msg.l]
         else:
             self._clear_grid_context(goal)
 
