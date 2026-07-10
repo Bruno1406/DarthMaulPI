@@ -20,6 +20,7 @@ def generate_launch_description():
     reverse_position_tolerance_m = LaunchConfiguration('reverse_position_tolerance_m')
     reverse_heading_tolerance_rad = LaunchConfiguration('reverse_heading_tolerance_rad')
     rotate_max_angular_z_radps = LaunchConfiguration('rotate_max_angular_z_radps')
+    rotate_heading_tolerance_rad = LaunchConfiguration('rotate_heading_tolerance_rad')
     max_cells_to_visit = LaunchConfiguration('max_cells_to_visit')
     output_maze_file = LaunchConfiguration('output_maze_file')
     shutdown_on_complete = LaunchConfiguration('shutdown_on_complete')
@@ -65,6 +66,7 @@ def generate_launch_description():
         'reverse_position_tolerance_m': reverse_position_tolerance_m,
         'reverse_heading_tolerance_rad': reverse_heading_tolerance_rad,
         'rotate_max_angular_z_radps': rotate_max_angular_z_radps,
+        'rotate_heading_tolerance_rad': rotate_heading_tolerance_rad,
         'max_cells_to_visit': max_cells_to_visit,
         'output_maze_file': output_maze_file,
         'shutdown_on_complete': shutdown_on_complete,
@@ -99,7 +101,8 @@ def generate_launch_description():
         DeclareLaunchArgument('reverse_backtracking_max_consecutive_cells', default_value='0'),
         DeclareLaunchArgument('reverse_position_tolerance_m', default_value='0.020'),
         DeclareLaunchArgument('reverse_heading_tolerance_rad', default_value='0.070'),
-        DeclareLaunchArgument('rotate_max_angular_z_radps', default_value='0.85'),
+        DeclareLaunchArgument('rotate_max_angular_z_radps', default_value='0.70'),
+        DeclareLaunchArgument('rotate_heading_tolerance_rad', default_value='0.045'),
         DeclareLaunchArgument('max_cells_to_visit', default_value='0'),
         DeclareLaunchArgument('output_maze_file', default_value=''),
         DeclareLaunchArgument('shutdown_on_complete', default_value='true'),

@@ -392,6 +392,7 @@ class MazeExplorerNode(Node):
         self.declare_parameter('reverse_position_tolerance_m', 0.020)
         self.declare_parameter('reverse_heading_tolerance_rad', 0.070)
         self.declare_parameter('rotate_max_angular_z_radps', 0.85)
+        self.declare_parameter('rotate_heading_tolerance_rad', 0.045)
         self.declare_parameter('motion_timeout_s', 0.0)
         self.declare_parameter('direction_priority', 'left_straight_right_back')
 
@@ -457,6 +458,9 @@ class MazeExplorerNode(Node):
         )
         self.rotate_max_angular_z_radps = float(
             self.get_parameter('rotate_max_angular_z_radps').value
+        )
+        self.rotate_heading_tolerance_rad = float(
+            self.get_parameter('rotate_heading_tolerance_rad').value
         )
         self.motion_timeout_s = float(self.get_parameter('motion_timeout_s').value)
         self.direction_priority = str(self.get_parameter('direction_priority').value).strip()
@@ -576,6 +580,8 @@ class MazeExplorerNode(Node):
             errors.append('reverse_heading_tolerance_rad must be > 0')
         if self.rotate_max_angular_z_radps <= 0.0:
             errors.append('rotate_max_angular_z_radps must be > 0')
+        if self.rotate_heading_tolerance_rad <= 0.0:
+            errors.append('rotate_heading_tolerance_rad must be > 0')
         if self.motion_timeout_s < 0.0:
             errors.append('motion_timeout_s must be >= 0')
         if self.direction_priority not in valid_priorities:
@@ -1688,6 +1694,9 @@ class MazeExplorerNode(Node):
         if step.kind == 'drive_backward':
             goal.position_tolerance_m = float(self.reverse_position_tolerance_m)
             goal.heading_tolerance_rad = float(self.reverse_heading_tolerance_rad)
+        elif step.kind == 'rotate':
+            goal.position_tolerance_m = 0.0
+            goal.heading_tolerance_rad = float(self.rotate_heading_tolerance_rad)
         else:
             goal.position_tolerance_m = 0.0
             goal.heading_tolerance_rad = 0.0
@@ -1766,21 +1775,14 @@ class MazeExplorerNode(Node):
             return
 
         if result.success:
-            if step is not None and step.kind in ('drive_forward', 'drive_backward'):
-                self.get_logger().info(
-                    f'Motion result for {step}: success=True, '
-                    f'code={result.result_code}, '
-                    f'pos_error={result.final_position_error_m:.3f}, '
-                    f'heading_error={result.final_heading_error_rad:.3f}, '
-                    f'message={result.message}'
-                )
-            else:
-                self.get_logger().info(
-                    f'Motion result for {step.kind if step else "none"}: '
-                    f'success=True, code={result.result_code}, '
-                    f'pos_error={result.final_position_error_m:.3f}, '
-                    f'heading_error={result.final_heading_error_rad:.3f}'
-                )
+            self.get_logger().info(
+                f'Motion result for {step}: '
+                f'success=True, '
+                f'code={result.result_code}, '
+                f'pos_error={result.final_position_error_m:.3f}, '
+                f'heading_error={result.final_heading_error_rad:.3f}, '
+                f'message={result.message}'
+            )
         else:
             self.get_logger().error(
                 f'Motion result for {step}: success=False, '

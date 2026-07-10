@@ -268,8 +268,12 @@ darth_maul_control:
     # and do not push farther into the wall. Treat longitudinal settle as good
     # enough and continue yaw/lateral correction only.
     grid_cell_settle_travel_guard_enabled: true
-    grid_cell_settle_min_front_distance_m: 0.155
-    grid_cell_settle_min_rear_distance_m: 0.155
+    # These are settle travel guards, not collision stops.
+    # Collision stops remain front_stop_distance_m/rear_stop_distance_m = 0.09.
+    # Do not block the calibrated center targets:
+    # front target = 0.140 m, rear target = 0.125 m.
+    grid_cell_settle_min_front_distance_m: 0.120
+    grid_cell_settle_min_rear_distance_m: 0.105
 
     # Calibrated front/rear ranges when the robot is centered in one cell.
     # Do not assume this is exactly cell_length_m / 2. Measure it on the real robot
@@ -291,7 +295,8 @@ darth_maul_control:
     # Rotate has a soft timeout and recovery extension. Do not accept a bad
     # 0.28 rad heading error, but also do not fail just because the first
     # computed timeout was too short.
-    rotate_timeout_accept_heading_error_rad: 0.090
+    # Do not accept a visibly bad rotate before the next drive.
+    rotate_timeout_accept_heading_error_rad: 0.070
     rotate_timeout_margin_sec: 8.0
     rotate_timeout_recovery_extra_sec: 6.0
     rotate_pre_clearance_settle_enabled: true
@@ -301,7 +306,9 @@ darth_maul_control:
     rotate_pre_clearance_target_rear_m: 0.135
     rotate_pre_clearance_timeout_sec: 1.0
     rotate_pre_clearance_max_linear_x_mps: 0.045
-    rotate_post_grid_settle_enabled: true
+    # Translation/grid settle handles centering. Post-rotate settling can perturb
+    # yaw and was observed to let a 0.143 rad rotate be accepted before driving.
+    rotate_post_grid_settle_enabled: false
     rotate_post_grid_settle_timeout_sec: 1.2
     rotate_post_grid_settle_lateral_tolerance_m: 0.020
     rotate_post_grid_settle_heading_tolerance_rad: 0.060

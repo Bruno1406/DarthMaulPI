@@ -893,7 +893,7 @@ class DarthMaulControlNode(Node):
         )
         self.grid_cell_settle_min_rear_distance_m = self._positive_float_param(
             'grid_cell_settle_min_rear_distance_m',
-            0.120,
+            0.105,
         )
         self.grid_center_expected_front_distance_m = self._positive_float_param(
             'grid_center_expected_front_distance_m',
@@ -925,7 +925,7 @@ class DarthMaulControlNode(Node):
         )
         self.rotate_timeout_accept_heading_error_rad = self._nonnegative_float_param(
             'rotate_timeout_accept_heading_error_rad',
-            0.090,
+            0.070,
         )
         self.rotate_timeout_margin_sec = self._nonnegative_float_param(
             'rotate_timeout_margin_sec',
@@ -965,7 +965,7 @@ class DarthMaulControlNode(Node):
         )
         self.rotate_post_grid_settle_enabled = self._bool_param(
             'rotate_post_grid_settle_enabled',
-            True,
+            False,
         )
         self.rotate_post_grid_settle_timeout_sec = self._positive_float_param(
             'rotate_post_grid_settle_timeout_sec',
@@ -1379,6 +1379,7 @@ class DarthMaulControlNode(Node):
         result_success = False
         result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
         result_message = 'unknown translation result'
+        settle_result_message = 'cell settle not run'
         final_position_error = target_distance
         final_heading_error = 0.0
         final_odom_progress = 0.0
@@ -1764,6 +1765,8 @@ class DarthMaulControlNode(Node):
                         limits=limits,
                     )
 
+                    settle_result_message = settle_result.message
+
                     if settle_result.canceled:
                         self._reset_live_grid_controller('translation canceled during cell settle')
                         self._reset_temporal_lidar_progress_tracker()
@@ -1816,7 +1819,8 @@ class DarthMaulControlNode(Node):
                     f'({final_heading_validation_source}; '
                     f'odom_heading={final_heading_error:.3f} rad), '
                     f'progress={final_control_progress:.3f} m '
-                    f'from {final_progress_source_used}'
+                    f'from {final_progress_source_used}; '
+                    f'settle_result={settle_result_message}'
                 )
                 break
 
@@ -2281,6 +2285,37 @@ class DarthMaulControlNode(Node):
         soft_timeout_warned = False
         hard_timeout_s = timeout_s + float(self.rotate_timeout_recovery_extra_sec)
 
+        def _post_rotate_heading_recheck(reason: str) -> tuple[bool, float, str]:
+            final_snapshot = self._get_motion_snapshot()
+            if final_snapshot is None:
+                return (
+                    False,
+                    float('inf'),
+                    f'{reason}; no fresh odom after post-rotate settle',
+                )
+
+            refreshed_error = abs(
+                normalize_angle(target_yaw - final_snapshot.pose.yaw)
+            )
+
+            if (
+                self.enforce_final_error
+                and refreshed_error > self.rotate_timeout_accept_heading_error_rad
+            ):
+                return (
+                    False,
+                    refreshed_error,
+                    f'{reason}; heading_error={refreshed_error:.3f} rad > '
+                    f'{self.rotate_timeout_accept_heading_error_rad:.3f} rad '
+                    'after post-rotate settle',
+                )
+
+            return (
+                True,
+                refreshed_error,
+                f'{reason}; heading_error={refreshed_error:.3f} rad',
+            )
+
         while True:
             if self._cancel_or_stop_requested(goal_handle):
                 return self._cancel_result(goal_handle)
@@ -2321,10 +2356,26 @@ class DarthMaulControlNode(Node):
                     if post_rotate_grid_settle_reason.endswith('canceled'):
                         return self._cancel_result(goal_handle)
 
-                    final_snapshot = self._get_motion_snapshot()
-                    if final_snapshot is not None:
-                        remaining = normalize_angle(target_yaw - final_snapshot.pose.yaw)
-                        final_heading_error = abs(remaining)
+                    (
+                        post_rotate_heading_ok,
+                        final_heading_error,
+                        post_rotate_recheck_reason,
+                    ) = _post_rotate_heading_recheck(post_rotate_grid_settle_reason)
+
+                    if not post_rotate_heading_ok:
+                        if time.monotonic() - start_time < hard_timeout_s:
+                            self.get_logger().warning(
+                                'ROTATE_RELATIVE post-rotate recheck failed; '
+                                f'continuing correction: {post_rotate_recheck_reason}'
+                            )
+                            continue
+
+                        result_code = ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
+                        result_message = (
+                            'ROTATE_RELATIVE post-rotate heading recheck failed: '
+                            f'{post_rotate_recheck_reason}'
+                        )
+                        break
 
                     result_success = True
                     result_code = ExecuteMotionPrimitive.Result.SUCCESS
@@ -2385,12 +2436,28 @@ class DarthMaulControlNode(Node):
                         if post_rotate_grid_settle_reason.endswith('canceled'):
                             return self._cancel_result(goal_handle)
 
-                        final_snapshot = self._get_motion_snapshot()
-                        if final_snapshot is not None:
-                            remaining = normalize_angle(
-                                target_yaw - final_snapshot.pose.yaw
+                        (
+                            post_rotate_heading_ok,
+                            final_heading_error,
+                            post_rotate_recheck_reason,
+                        ) = _post_rotate_heading_recheck(post_rotate_grid_settle_reason)
+
+                        if not post_rotate_heading_ok:
+                            if time.monotonic() - start_time < hard_timeout_s:
+                                self.get_logger().warning(
+                                    'ROTATE_RELATIVE post-rotate recheck failed; '
+                                    f'continuing correction: {post_rotate_recheck_reason}'
+                                )
+                                continue
+
+                            result_code = (
+                                ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
                             )
-                            final_heading_error = abs(remaining)
+                            result_message = (
+                                'ROTATE_RELATIVE post-rotate heading recheck failed: '
+                                f'{post_rotate_recheck_reason}'
+                            )
+                            break
 
                         result_success = True
                         result_code = ExecuteMotionPrimitive.Result.SUCCESS
@@ -2416,10 +2483,26 @@ class DarthMaulControlNode(Node):
                 if post_rotate_grid_settle_reason.endswith('canceled'):
                     return self._cancel_result(goal_handle)
 
-                final_snapshot = self._get_motion_snapshot()
-                if final_snapshot is not None:
-                    remaining = normalize_angle(target_yaw - final_snapshot.pose.yaw)
-                    final_heading_error = abs(remaining)
+                (
+                    post_rotate_heading_ok,
+                    final_heading_error,
+                    post_rotate_recheck_reason,
+                ) = _post_rotate_heading_recheck(post_rotate_grid_settle_reason)
+
+                if not post_rotate_heading_ok:
+                    if time.monotonic() - start_time < hard_timeout_s:
+                        self.get_logger().warning(
+                            'ROTATE_RELATIVE post-rotate recheck failed; '
+                            f'continuing correction: {post_rotate_recheck_reason}'
+                        )
+                        continue
+
+                    result_code = ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
+                    result_message = (
+                        'ROTATE_RELATIVE post-rotate heading recheck failed: '
+                        f'{post_rotate_recheck_reason}'
+                    )
+                    break
 
                 result_success = True
                 result_code = ExecuteMotionPrimitive.Result.SUCCESS
