@@ -73,7 +73,7 @@ darth_maul_control:
 
     # Maximum allowed disagreement between front and rear LiDAR progress.
     # If both are valid and disagree more than this, reject LiDAR progress.
-    lidar_progress_max_disagreement_m: 0.035
+    lidar_progress_max_disagreement_m: 0.100
 
     # Reject negative LiDAR progress below this threshold.
     lidar_progress_min_m: -0.010
