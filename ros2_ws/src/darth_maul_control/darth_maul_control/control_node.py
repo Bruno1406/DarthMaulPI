@@ -212,6 +212,17 @@ PRIMITIVE_NAMES = {
 }
 
 
+def _zero_twist() -> Twist:
+    msg = Twist()
+    msg.linear.x = 0.0
+    msg.linear.y = 0.0
+    msg.linear.z = 0.0
+    msg.angular.x = 0.0
+    msg.angular.y = 0.0
+    msg.angular.z = 0.0
+    return msg
+
+
 class DarthMaulControlNode(Node):
     def __init__(self):
         super().__init__('darth_maul_control')
@@ -292,6 +303,7 @@ class DarthMaulControlNode(Node):
 
         self._last_commanded_twist = Twist()
         self._last_command_time = time.monotonic()
+        self._settle_consumed_for_transition = False
 
         self._cmd_vel_pub = self.create_publisher(Twist, self.cmd_vel_topic, 10)
         self._status_pub = self.create_publisher(ControlStatus, self.status_topic, 10)
@@ -1340,6 +1352,7 @@ class DarthMaulControlNode(Node):
         lidar_required_mode = self.translation_progress_source == 'lidar_required'
         grid_context = grid_context_from_goal(request)
         self._reset_live_grid_controller('translation start')
+        self._settle_consumed_for_transition = False
 
         if bool(request.collision_check_enabled):
             if self.require_scan_for_collision_check and not self._is_scan_fresh():
@@ -1553,7 +1566,12 @@ class DarthMaulControlNode(Node):
                         cmd.angular.z = live_command.angular_z_radps
                         cmd = self._limiter.clamp(cmd, limits)
                         cmd = self._apply_acceleration_limits(cmd)
-                        self._cmd_vel_pub.publish(cmd)
+                        self._publish_drive_cmd(
+                            forward=cmd.linear.x,
+                            lateral=cmd.linear.y,
+                            yaw_rate=cmd.angular.z,
+                            allow_lateral=True,
+                        )
 
                         grid_yaw_correction_ever_used = (
                             grid_yaw_correction_ever_used or live_command.yaw_active
@@ -1654,9 +1672,10 @@ class DarthMaulControlNode(Node):
                         break
 
             if remaining <= position_tol:
-                self._publish_zero_for_duration()
+                self._flush_stop(n=6, dt=0.05)
                 time.sleep(self.settle_time_sec)
 
+                final_alignment = self._grid_alignment_snapshot()
                 final_snapshot = self._get_motion_snapshot()
                 if final_snapshot is not None:
                     progress_signed, _cross_track = self._translation_errors(
@@ -1682,7 +1701,6 @@ class DarthMaulControlNode(Node):
                     final_heading_error_signed = normalize_angle(
                         start.yaw - final_snapshot.pose.yaw
                     )
-                    final_alignment = self._grid_alignment_snapshot()
                     final_selection = self._maybe_use_geometry_aware_odom_progress(
                         progress_selection=final_selection,
                         grid_context=grid_context,
@@ -1724,7 +1742,10 @@ class DarthMaulControlNode(Node):
                     final_position_error = abs(remaining)
                     final_heading_error = abs(heading_error)
 
-                final_yaw_observation = self._manhattan_yaw_observation()
+                final_yaw_observation = self._heading_observation_from_sources(
+                    self._manhattan_yaw_observation(),
+                    final_alignment,
+                )
                 self._grid_live_last_yaw_observation = final_yaw_observation
 
                 (
@@ -1763,7 +1784,8 @@ class DarthMaulControlNode(Node):
                     break
 
                 if self.grid_cell_settle_enabled:
-                    settle_result = self._settle_grid_cell_after_translation(
+                    settle_result = self._settle_once_after_transit(
+                        reverse=direction < 0.0,
                         goal_handle=goal_handle,
                         context=grid_context,
                         start=start,
@@ -1867,7 +1889,12 @@ class DarthMaulControlNode(Node):
 
             cmd = self._limiter.clamp(cmd, limits)
             cmd = self._apply_acceleration_limits(cmd)
-            self._cmd_vel_pub.publish(cmd)
+            self._publish_drive_cmd(
+                forward=cmd.linear.x,
+                lateral=cmd.linear.y,
+                yaw_rate=cmd.angular.z,
+                allow_lateral=True,
+            )
             self._set_grid_yaw_control_status(
                 live_command.yaw_active,
                 live_command.angular_z_radps if live_command.yaw_active else 0.0,
@@ -2103,7 +2130,12 @@ class DarthMaulControlNode(Node):
                     f'front={front_distance:.3f} m; rear={rear_distance:.3f} m'
                 )
 
-            self._cmd_vel_pub.publish(cmd)
+            self._publish_drive_cmd(
+                forward=cmd.linear.x,
+                lateral=0.0,
+                yaw_rate=0.0,
+                allow_lateral=False,
+            )
             time.sleep(1.0 / self.control_rate_hz)
 
         self.publish_zero_twist()
@@ -2160,7 +2192,10 @@ class DarthMaulControlNode(Node):
                 min_confidence=self.grid_lateral_min_confidence,
             )
 
-            yaw_observation = self._manhattan_yaw_observation()
+            yaw_observation = self._heading_observation_from_sources(
+                self._manhattan_yaw_observation(),
+                alignment,
+            )
             yaw_valid = bool(
                 yaw_observation.valid
                 and yaw_observation.confidence >= self.grid_manhattan_yaw_min_confidence
@@ -2226,7 +2261,12 @@ class DarthMaulControlNode(Node):
             cmd.angular.z = angular_z
             cmd = self._limiter.clamp(cmd, settle_limits)
             cmd = self._apply_acceleration_limits(cmd)
-            self._cmd_vel_pub.publish(cmd)
+            self._publish_drive_cmd(
+                forward=cmd.linear.x,
+                lateral=cmd.linear.y,
+                yaw_rate=cmd.angular.z,
+                allow_lateral=True,
+            )
 
             last_reason = (
                 f'cell={virtual.cell_idx}; '
@@ -2265,6 +2305,10 @@ class DarthMaulControlNode(Node):
         timeout_s = self._rotation_timeout(request.timeout_s, target_angle, max_speed)
 
         pre_rotate_clearance_reason = self._pre_rotate_clearance_settle()
+        self._flush_stop(n=5, dt=0.05)
+        time.sleep(0.20)
+        self._reset_live_grid_controller('rotation active')
+        self._set_grid_yaw_control_status(False, 0.0, 'rotation active')
         post_rotate_grid_settle_reason = 'not run'
 
         start_snapshot = self._get_motion_snapshot()
@@ -2296,6 +2340,8 @@ class DarthMaulControlNode(Node):
         final_heading_error = abs(target_angle)
         soft_timeout_warned = False
         hard_timeout_s = timeout_s + float(self.rotate_timeout_recovery_extra_sec)
+        rotation_stable_count = 0
+        rotation_stable_tolerance = min(float(heading_tol), 0.025)
 
         def _post_rotate_heading_recheck(reason: str) -> tuple[bool, float, str]:
             final_snapshot = self._get_motion_snapshot()
@@ -2359,7 +2405,8 @@ class DarthMaulControlNode(Node):
                     )
                 )
                 if accept_near_target_timeout:
-                    self._publish_zero_for_duration()
+                    self._flush_stop(n=8, dt=0.05)
+                    time.sleep(0.30)
                     post_rotate_grid_settle_reason = self._post_rotate_grid_settle(
                         goal_handle,
                         rotate_grid_context,
@@ -2414,13 +2461,17 @@ class DarthMaulControlNode(Node):
             current_alignment = self._grid_alignment_snapshot()
             remaining = normalize_angle(target_yaw - current.yaw)
             final_heading_error = abs(remaining)
+            if final_heading_error < rotation_stable_tolerance:
+                rotation_stable_count += 1
+            else:
+                rotation_stable_count = 0
 
             rotated = abs(normalize_angle(current.yaw - start.yaw))
             target_abs = max(abs(target_angle), 1e-6)
 
-            if final_heading_error <= heading_tol:
-                self._publish_zero_for_duration()
-                time.sleep(self.settle_time_sec)
+            if rotation_stable_count >= 5:
+                self._flush_stop(n=8, dt=0.05)
+                time.sleep(0.30)
 
                 final_snapshot = self._get_motion_snapshot()
                 if final_snapshot is not None:
@@ -2534,8 +2585,7 @@ class DarthMaulControlNode(Node):
             cmd = Twist()
             cmd.angular.z = sign(remaining) * speed_mag
             cmd = self._limiter.clamp(cmd, limits)
-            cmd = self._apply_acceleration_limits(cmd)
-            self._cmd_vel_pub.publish(cmd)
+            self._publish_rotate_only(cmd.angular.z)
 
             self._update_motion_state(
                 distance_remaining=0.0,
@@ -2719,6 +2769,99 @@ class DarthMaulControlNode(Node):
             max_abs_yaw_error_rad=self.grid_manhattan_yaw_max_abs_error_rad,
         )
 
+    def _choose_heading_error(
+        self,
+        *,
+        manhattan_valid: bool,
+        manhattan_yaw: float,
+        manhattan_conf: float,
+        side_wall_valid: bool,
+        side_wall_yaw: float,
+    ) -> tuple[bool, float, str]:
+        """
+        Prefer high-confidence Manhattan yaw.
+        Reject side-wall yaw when it disagrees with Manhattan yaw.
+        """
+        MANHATTAN_CONF_MIN = 0.80
+        YAW_DISAGREE_REJECT_RAD = 0.05
+
+        if manhattan_valid and manhattan_conf >= MANHATTAN_CONF_MIN:
+            if (
+                side_wall_valid
+                and abs(float(side_wall_yaw) - float(manhattan_yaw))
+                > YAW_DISAGREE_REJECT_RAD
+            ):
+                return True, float(manhattan_yaw), (
+                    'manhattan_yaw accepted; side_wall_yaw rejected: '
+                    f'side={float(side_wall_yaw):.3f}, '
+                    f'manhattan={float(manhattan_yaw):.3f}'
+                )
+
+            return True, float(manhattan_yaw), 'manhattan_yaw accepted'
+
+        if side_wall_valid:
+            return (
+                True,
+                float(side_wall_yaw),
+                'side_wall_yaw accepted; manhattan unavailable/weak',
+            )
+
+        if manhattan_valid:
+            return True, float(manhattan_yaw), 'weak manhattan_yaw accepted; no side wall'
+
+        return False, 0.0, 'no valid yaw source'
+
+    def _heading_observation_from_sources(
+        self,
+        manhattan: GridYawObservation,
+        alignment: GridAlignmentEstimate,
+    ) -> GridYawObservation:
+        side_wall_valid = bool(
+            alignment.yaw_valid
+            and abs(float(alignment.yaw_error_rad))
+            <= float(self.grid_manhattan_yaw_max_abs_error_rad)
+        )
+
+        heading_valid, heading_error, heading_reason = self._choose_heading_error(
+            manhattan_valid=bool(manhattan.valid),
+            manhattan_yaw=float(manhattan.yaw_error_rad),
+            manhattan_conf=float(manhattan.confidence),
+            side_wall_valid=side_wall_valid,
+            side_wall_yaw=float(alignment.yaw_error_rad),
+        )
+
+        if not heading_valid:
+            return invalid_grid_yaw(heading_reason)
+
+        if 'side_wall_yaw accepted' in heading_reason:
+            line_count = 0
+            if alignment.left.valid:
+                line_count += 1
+            if alignment.right.valid:
+                line_count += 1
+            return GridYawObservation(
+                valid=True,
+                yaw_error_rad=float(heading_error),
+                confidence=float(alignment.confidence),
+                source=f'side_wall/{alignment.source}',
+                line_count=line_count,
+                dominant_axis_rad=0.0,
+                total_weight=float(line_count),
+                concentration=float(alignment.confidence),
+                reason=(
+                    f'{heading_reason}; side_wall_source={alignment.source}; '
+                    f'side_wall_reason={alignment.reason}; '
+                    f'manhattan_reason={manhattan.reason}'
+                ),
+            )
+
+        return replace(
+            manhattan,
+            valid=True,
+            yaw_error_rad=float(heading_error),
+            reason=f'{heading_reason}; {manhattan.reason}',
+        )
+
     def _reset_live_grid_controller(self, reason: str = '') -> None:
         self._grid_live_mode = UNAVAILABLE
         self._grid_yaw_mode = UNAVAILABLE
@@ -2754,7 +2897,10 @@ class DarthMaulControlNode(Node):
         alignment: GridAlignmentEstimate,
         progress_m: float,
     ) -> GridObservation:
-        yaw = self._manhattan_yaw_observation()
+        yaw = self._heading_observation_from_sources(
+            self._manhattan_yaw_observation(),
+            alignment,
+        )
 
         virtual, expected, centering = observe_centering_from_expected_side_walls(
             context=context,
@@ -3584,6 +3730,313 @@ class DarthMaulControlNode(Node):
         magnitude = clamp(abs(float(gain) * float(error_m)), floor, cap)
         return sign(float(error_m)) * magnitude
 
+    def _settle_once_after_transit(
+        self,
+        *,
+        reverse: bool = False,
+        goal_handle,
+        context: GridRunContext,
+        start: Pose2D,
+        direction: float,
+        commanded_distance: float,
+        start_ranges: Optional[LidarRangeSnapshot],
+        initial_progress_m: float,
+        initial_progress_source: str,
+        initial_progress_reason: str,
+        collision_check_enabled: bool,
+        limits: VelocityLimits,
+    ) -> GridCellSettleResult:
+        if getattr(self, '_settle_consumed_for_transition', False):
+            self.get_logger().warn('settle skipped: already consumed for this transition')
+            return GridCellSettleResult(
+                canceled=False,
+                success=True,
+                result_code=ExecuteMotionPrimitive.Result.SUCCESS,
+                message='settle skipped: already consumed for this transition',
+                position_error_m=abs(
+                    float(commanded_distance) - float(initial_progress_m)
+                ),
+                heading_error_rad=0.0,
+                heading_source='settle_consumed',
+                progress_m=float(initial_progress_m),
+                odom_progress_m=0.0,
+                progress_source=str(initial_progress_source),
+                progress_reason=str(initial_progress_reason),
+                yaw_correction_used=False,
+            )
+
+        self._settle_consumed_for_transition = True
+
+        if reverse:
+            return self._compact_settle_after_reverse(
+                goal_handle=goal_handle,
+                context=context,
+                start=start,
+                direction=direction,
+                commanded_distance=commanded_distance,
+                start_ranges=start_ranges,
+                initial_progress_m=initial_progress_m,
+                initial_progress_source=initial_progress_source,
+                initial_progress_reason=initial_progress_reason,
+            )
+
+        return self._settle_grid_cell_after_translation(
+            goal_handle=goal_handle,
+            context=context,
+            start=start,
+            direction=direction,
+            commanded_distance=commanded_distance,
+            start_ranges=start_ranges,
+            initial_progress_m=initial_progress_m,
+            initial_progress_source=initial_progress_source,
+            initial_progress_reason=initial_progress_reason,
+            collision_check_enabled=collision_check_enabled,
+            limits=limits,
+        )
+
+    def _compact_settle_after_reverse(
+        self,
+        *,
+        goal_handle,
+        context: GridRunContext,
+        start: Pose2D,
+        direction: float,
+        commanded_distance: float,
+        start_ranges: Optional[LidarRangeSnapshot],
+        initial_progress_m: float,
+        initial_progress_source: str,
+        initial_progress_reason: str,
+    ) -> GridCellSettleResult:
+        """
+        Reverse/backtrack settle:
+        stop, wait for fresh LiDAR, accept if inside tolerance.
+        Do not perform another axial correction unless the error is large.
+        """
+        self._flush_stop(n=8, dt=0.05)
+        time.sleep(0.30)
+
+        stable_count = 0
+        timeout_s = 1.50
+        start_time = time.monotonic()
+
+        last_axial_valid = False
+        last_axial_error = abs(float(commanded_distance) - float(initial_progress_m))
+        last_lateral_valid = False
+        last_lateral_error = 0.0
+        last_heading_valid = False
+        last_heading_error_signed = 0.0
+        last_heading_error = 0.0
+        last_heading_source = 'none'
+        last_progress = float(initial_progress_m)
+        last_odom_progress = 0.0
+        last_progress_source = str(initial_progress_source)
+        last_progress_reason = str(initial_progress_reason)
+        last_reason = 'not evaluated'
+
+        destination_cell = 0
+        settle_context: Optional[GridRunContext] = None
+        if context.valid:
+            destination_cell = advance_cells(
+                context.start_idx,
+                context.heading,
+                context.run_cells,
+                context.n,
+                context.m,
+            )
+            if destination_cell > 0:
+                settle_context = GridRunContext(
+                    True,
+                    context.n,
+                    context.m,
+                    destination_cell,
+                    context.heading,
+                    1,
+                    context.l,
+                    'destination cell compact reverse settle context',
+                    robot_heading=context.robot_heading,
+                )
+
+        settle_virtual_progress_m = 0.5 * self.cell_length_m
+
+        while time.monotonic() - start_time < timeout_s:
+            if self._cancel_or_stop_requested(goal_handle):
+                return GridCellSettleResult(
+                    canceled=True,
+                    success=False,
+                    result_code=ExecuteMotionPrimitive.Result.CANCELED,
+                    message='compact reverse settle canceled',
+                    position_error_m=last_axial_error,
+                    heading_error_rad=last_heading_error,
+                    heading_source=last_heading_source,
+                    progress_m=last_progress,
+                    odom_progress_m=last_odom_progress,
+                    progress_source=last_progress_source,
+                    progress_reason=last_progress_reason,
+                    yaw_correction_used=False,
+                )
+
+            snapshot = self._get_motion_snapshot()
+            if snapshot is not None:
+                progress_signed, _cross_track = self._translation_errors(
+                    start,
+                    snapshot.pose,
+                    direction,
+                )
+                last_odom_progress = max(0.0, progress_signed)
+                diagnostics = self._translation_diagnostics(
+                    direction=direction,
+                    odom_progress_m=last_odom_progress,
+                    start_ranges=start_ranges,
+                    end_ranges=self._cardinal_range_snapshot(),
+                    track_lidar_progress=False,
+                )
+                progress_selection = self._select_translation_progress(
+                    odom_progress_m=last_odom_progress,
+                    diagnostics=diagnostics,
+                )
+                if progress_selection.valid:
+                    last_progress = max(0.0, progress_selection.progress_m)
+                    last_progress_source = progress_selection.source
+                    last_progress_reason = progress_selection.reason
+
+            current_ranges = self._cardinal_range_snapshot()
+            alignment = self._grid_alignment_snapshot()
+
+            if settle_context is not None:
+                virtual, expected, centering = observe_centering_from_expected_side_walls(
+                    context=settle_context,
+                    alignment=alignment,
+                    progress_m=settle_virtual_progress_m,
+                    cell_length_m=self.cell_length_m,
+                    boundary_margin_m=self.grid_virtual_cell_boundary_margin_m,
+                    expected_half_width_m=self.grid_alignment_expected_half_width_m,
+                    adjacent_wall_tolerance_m=self.grid_alignment_adjacent_wall_tolerance_m,
+                    pair_width_tolerance_m=self.grid_alignment_pair_width_tolerance_m,
+                    max_abs_yaw_error_rad=self.grid_live_max_abs_yaw_error_rad,
+                    max_rms_error_m=self.grid_live_max_rms_error_m,
+                    min_span_x_m=self.grid_live_min_span_x_m,
+                    min_support_count=self.grid_live_min_support_count,
+                    min_confidence=self.grid_lateral_min_confidence,
+                )
+                axial = self._axial_cell_centering_estimate(expected, current_ranges)
+                if axial.source == 'front_rear_rejected':
+                    axial = self._reacquire_single_axial_cell_centering(
+                        expected=expected,
+                        ranges=current_ranges,
+                        rejected=axial,
+                        direction=direction,
+                    )
+            else:
+                virtual = VirtualCellEstimate(
+                    valid=False,
+                    cell_idx=0,
+                    completed_cells=0,
+                    progress_m=last_progress,
+                    distance_into_cell_m=0.0,
+                    boundary_zone=False,
+                    reason='no known grid context for compact reverse settle',
+                )
+                centering = self._mapless_centering_from_alignment(alignment)
+                axial = self._mapless_axial_cell_centering_estimate(current_ranges)
+
+            yaw_observation = self._heading_observation_from_sources(
+                self._manhattan_yaw_observation(),
+                alignment,
+            )
+            heading_valid = bool(
+                yaw_observation.valid
+                and yaw_observation.confidence >= self.grid_manhattan_yaw_min_confidence
+                and abs(yaw_observation.yaw_error_rad)
+                <= self.grid_manhattan_yaw_max_abs_error_rad
+            )
+            heading_error_signed = (
+                float(yaw_observation.yaw_error_rad) if heading_valid else 0.0
+            )
+
+            last_axial_valid = bool(axial.valid)
+            last_axial_error = abs(float(axial.error_m)) if axial.valid else 0.0
+            last_lateral_valid = bool(centering.valid)
+            last_lateral_error = (
+                abs(float(centering.lateral_error_m)) if centering.valid else 0.0
+            )
+            last_heading_valid = heading_valid
+            last_heading_error_signed = heading_error_signed
+            last_heading_error = abs(heading_error_signed)
+            last_heading_source = (
+                f'grid_yaw/{yaw_observation.source}' if heading_valid else 'none'
+            )
+
+            axial_ok = (not last_axial_valid) or last_axial_error <= 0.025
+            lateral_ok = (not last_lateral_valid) or last_lateral_error <= 0.020
+            yaw_ok = (not last_heading_valid) or last_heading_error <= 0.035
+
+            if axial_ok and lateral_ok and yaw_ok:
+                stable_count += 1
+            else:
+                stable_count = 0
+
+            last_reason = (
+                f'compact reverse settle: destination_cell={virtual.cell_idx}; '
+                f'axial_valid={last_axial_valid}; axial_error={last_axial_error:.3f} m; '
+                f'axial_source={axial.source}; '
+                f'lateral_valid={last_lateral_valid}; '
+                f'lateral_error={last_lateral_error:.3f} m; '
+                f'heading_valid={last_heading_valid}; '
+                f'heading_error={last_heading_error:.3f} rad; '
+                f'yaw_reason={yaw_observation.reason}; '
+                f'axial_reason={axial.reason}; lateral_reason={centering.reason}'
+            )
+
+            self._update_motion_state(
+                distance_remaining=max(0.0, float(commanded_distance) - last_progress),
+                distance_traveled=max(0.0, last_progress),
+                heading_error=last_heading_error_signed,
+                status=last_reason,
+            )
+
+            self._publish_feedback(
+                goal_handle,
+                progress=1.0,
+                distance_remaining=max(0.0, float(commanded_distance) - last_progress),
+                heading_remaining=last_heading_error_signed,
+                state='compact_reverse_settle',
+            )
+
+            if stable_count >= 5:
+                self._flush_stop(n=3, dt=0.03)
+                return GridCellSettleResult(
+                    canceled=False,
+                    success=True,
+                    result_code=ExecuteMotionPrimitive.Result.SUCCESS,
+                    message=last_reason,
+                    position_error_m=last_axial_error,
+                    heading_error_rad=last_heading_error,
+                    heading_source=last_heading_source,
+                    progress_m=last_progress,
+                    odom_progress_m=last_odom_progress,
+                    progress_source=last_progress_source,
+                    progress_reason=last_progress_reason,
+                    yaw_correction_used=False,
+                )
+
+            time.sleep(0.05)
+
+        self._flush_stop(n=5, dt=0.05)
+        return GridCellSettleResult(
+            canceled=False,
+            success=False,
+            result_code=ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE,
+            message='compact reverse settle timeout: ' + last_reason,
+            position_error_m=last_axial_error,
+            heading_error_rad=last_heading_error,
+            heading_source=last_heading_source,
+            progress_m=last_progress,
+            odom_progress_m=last_odom_progress,
+            progress_source=last_progress_source,
+            progress_reason=last_progress_reason,
+            yaw_correction_used=False,
+        )
+
     def _settle_grid_cell_after_translation(
         self,
         *,
@@ -4030,7 +4483,10 @@ class DarthMaulControlNode(Node):
                     self.grid_cell_settle_position_tolerance_m
                 )
 
-            yaw_observation = self._manhattan_yaw_observation()
+            yaw_observation = self._heading_observation_from_sources(
+                self._manhattan_yaw_observation(),
+                alignment,
+            )
             odom_heading_error = normalize_angle(start.yaw - snapshot.pose.yaw)
             yaw_valid = bool(
                 yaw_observation.valid
@@ -4369,6 +4825,20 @@ class DarthMaulControlNode(Node):
                 settle_limits.max_angular_z_radps,
                 0.0,
             )
+
+            AXIAL_DEADBAND_M = 0.015
+            LATERAL_DEADBAND_M = 0.010
+            YAW_DEADBAND_RAD = 0.025
+
+            if longitudinal_valid and abs(longitudinal_error_m) < AXIAL_DEADBAND_M:
+                linear_x = 0.0
+
+            if centering.valid and abs(centering.lateral_error_m) < LATERAL_DEADBAND_M:
+                linear_y = 0.0
+
+            if abs(heading_error_signed) < YAW_DEADBAND_RAD:
+                angular_z = 0.0
+
             yaw_correction_used = yaw_correction_used or bool(yaw_valid and angular_z != 0.0)
 
             cmd = Twist()
@@ -4377,7 +4847,12 @@ class DarthMaulControlNode(Node):
             cmd.angular.z = angular_z
             cmd = self._limiter.clamp(cmd, settle_limits)
             cmd = self._apply_acceleration_limits(cmd)
-            self._cmd_vel_pub.publish(cmd)
+            self._publish_drive_cmd(
+                forward=cmd.linear.x,
+                lateral=cmd.linear.y,
+                yaw_rate=cmd.angular.z,
+                allow_lateral=True,
+            )
             self._set_grid_yaw_control_status(
                 bool(yaw_valid and angular_z != 0.0),
                 angular_z if yaw_valid else 0.0,
@@ -5192,11 +5667,45 @@ class DarthMaulControlNode(Node):
             return time.monotonic() - self._last_scan_monotonic <= self.scan_timeout_sec
 
     def publish_zero_twist(self) -> None:
-        zero = Twist()
+        zero = _zero_twist()
         self._cmd_vel_pub.publish(zero)
         self._last_commanded_twist = zero
         self._last_command_time = time.monotonic()
         self._set_grid_yaw_control_status(False, 0.0, '')
+
+    def _flush_stop(self, n: int = 5, dt: float = 0.05) -> None:
+        """Hard stop. Use before/after rotate and before sensing/settling."""
+        msg = _zero_twist()
+        for _ in range(max(0, int(n))):
+            self._cmd_vel_pub.publish(msg)
+            self._last_commanded_twist = msg
+            self._last_command_time = time.monotonic()
+            self._set_grid_yaw_control_status(False, 0.0, '')
+            time.sleep(max(0.0, float(dt)))
+
+    def _publish_rotate_only(self, yaw_rate: float) -> None:
+        """Rotation must never carry lateral/forward correction."""
+        msg = _zero_twist()
+        msg.angular.z = float(yaw_rate)
+        self._cmd_vel_pub.publish(msg)
+        self._last_commanded_twist = msg
+        self._last_command_time = time.monotonic()
+
+    def _publish_drive_cmd(
+        self,
+        forward: float,
+        lateral: float = 0.0,
+        yaw_rate: float = 0.0,
+        *,
+        allow_lateral: bool = True,
+    ) -> None:
+        msg = _zero_twist()
+        msg.linear.x = float(forward)
+        msg.linear.y = float(lateral if allow_lateral else 0.0)
+        msg.angular.z = float(yaw_rate)
+        self._cmd_vel_pub.publish(msg)
+        self._last_commanded_twist = msg
+        self._last_command_time = time.monotonic()
 
     def _publish_zero_for_duration(self) -> None:
         end = time.monotonic() + self.stop_publish_duration_sec
