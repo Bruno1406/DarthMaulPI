@@ -895,6 +895,14 @@ class DarthMaulControlNode(Node):
             'grid_cell_settle_heading_tolerance_rad',
             0.060,
         )
+        self.grid_cell_settle_required_stable_samples = self._positive_int_param(
+            'grid_cell_settle_required_stable_samples',
+            4,
+        )
+        self.grid_cell_settle_min_duration_sec = self._nonnegative_float_param(
+            'grid_cell_settle_min_duration_sec',
+            0.30,
+        )
         self.grid_cell_settle_require_longitudinal_reference = self._bool_param(
             'grid_cell_settle_require_longitudinal_reference',
             False,
@@ -1784,45 +1792,64 @@ class DarthMaulControlNode(Node):
                     break
 
                 if self.grid_cell_settle_enabled:
-                    settle_result = self._settle_once_after_transit(
-                        reverse=direction < 0.0,
-                        goal_handle=goal_handle,
-                        context=grid_context,
-                        start=start,
-                        direction=direction,
-                        commanded_distance=target_distance,
-                        start_ranges=start_ranges,
-                        initial_progress_m=final_control_progress,
-                        initial_progress_source=final_progress_source_used,
-                        initial_progress_reason=final_control_progress_reason,
-                        collision_check_enabled=bool(request.collision_check_enabled),
-                        limits=limits,
+                    reverse_already_good = bool(
+                        direction < 0.0
+                        and final_position_error <= position_tol
+                        and final_heading_validation_error <= heading_tol
                     )
 
-                    settle_result_message = settle_result.message
+                    if reverse_already_good:
+                        settle_result_message = (
+                            'reverse settle skipped: reverse motion already inside tolerance; '
+                            f'pos_error={final_position_error:.3f} m <= '
+                            f'{position_tol:.3f} m; '
+                            f'heading_error={final_heading_validation_error:.3f} rad '
+                            f'<= {heading_tol:.3f} rad'
+                        )
+                    else:
+                        settle_result = self._settle_once_after_transit(
+                            reverse=direction < 0.0,
+                            goal_handle=goal_handle,
+                            context=grid_context,
+                            start=start,
+                            direction=direction,
+                            commanded_distance=target_distance,
+                            start_ranges=start_ranges,
+                            initial_progress_m=final_control_progress,
+                            initial_progress_source=final_progress_source_used,
+                            initial_progress_reason=final_control_progress_reason,
+                            collision_check_enabled=bool(request.collision_check_enabled),
+                            limits=limits,
+                        )
 
-                    if settle_result.canceled:
-                        self._reset_live_grid_controller('translation canceled during cell settle')
-                        self._reset_temporal_lidar_progress_tracker()
-                        return self._cancel_result(goal_handle)
+                        settle_result_message = settle_result.message
 
-                    final_position_error = settle_result.position_error_m
-                    final_heading_error = settle_result.heading_error_rad
-                    final_heading_validation_error = settle_result.heading_error_rad
-                    final_heading_validation_source = settle_result.heading_source
-                    final_control_progress = settle_result.progress_m
-                    final_odom_progress = settle_result.odom_progress_m
-                    final_progress_source_used = settle_result.progress_source
-                    final_control_progress_reason = settle_result.progress_reason
-                    grid_yaw_correction_ever_used = (
-                        grid_yaw_correction_ever_used
-                        or settle_result.yaw_correction_used
-                    )
+                        if settle_result.canceled:
+                            self._reset_live_grid_controller(
+                                'translation canceled during cell settle'
+                            )
+                            self._reset_temporal_lidar_progress_tracker()
+                            return self._cancel_result(goal_handle)
 
-                    if not settle_result.success:
-                        result_code = settle_result.result_code
-                        result_message = f'{name} cell settle failed: {settle_result.message}'
-                        break
+                        final_position_error = settle_result.position_error_m
+                        final_heading_error = settle_result.heading_error_rad
+                        final_heading_validation_error = settle_result.heading_error_rad
+                        final_heading_validation_source = settle_result.heading_source
+                        final_control_progress = settle_result.progress_m
+                        final_odom_progress = settle_result.odom_progress_m
+                        final_progress_source_used = settle_result.progress_source
+                        final_control_progress_reason = settle_result.progress_reason
+                        grid_yaw_correction_ever_used = (
+                            grid_yaw_correction_ever_used
+                            or settle_result.yaw_correction_used
+                        )
+
+                        if not settle_result.success:
+                            result_code = settle_result.result_code
+                            result_message = (
+                                f'{name} cell settle failed: {settle_result.message}'
+                            )
+                            break
 
                 if (
                     self.enforce_final_error
@@ -1831,18 +1858,18 @@ class DarthMaulControlNode(Node):
                         or final_heading_validation_error > heading_tol * 1.5
                     )
                 ):
-                    self.get_logger().warning(
-                        f'{name} final error still high after settle, continuing: '
-                        f'pos={final_position_error:.3f} m, '
+                    result_success = False
+                    result_code = ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
+                    result_message = (
+                        f'{name} final error still high after settle: '
+                        f'pos={final_position_error:.3f} m '
+                        f'> allowed={position_tol * 1.5:.3f} m or '
                         f'heading={final_heading_validation_error:.3f} rad '
+                        f'> allowed={heading_tol * 1.5:.3f} rad '
                         f'({final_heading_validation_source}; '
                         f'odom_heading={final_heading_error:.3f} rad)'
                     )
-                    final_position_error = min(final_position_error, position_tol)
-                    final_heading_validation_error = min(
-                        final_heading_validation_error,
-                        heading_tol,
-                    )
+                    break
 
                 result_success = True
                 result_code = ExecuteMotionPrimitive.Result.SUCCESS
@@ -2304,7 +2331,10 @@ class DarthMaulControlNode(Node):
 
         timeout_s = self._rotation_timeout(request.timeout_s, target_angle, max_speed)
 
-        pre_rotate_clearance_reason = self._pre_rotate_clearance_settle()
+        self._publish_zero_for_duration()
+        pre_rotate_clearance_reason = (
+            'pre-rotate clearance disabled; ROTATE_RELATIVE is rotation-only'
+        )
         self._flush_stop(n=5, dt=0.05)
         time.sleep(0.20)
         self._reset_live_grid_controller('rotation active')
@@ -4077,6 +4107,7 @@ class DarthMaulControlNode(Node):
         last_progress_source = str(initial_progress_source)
         last_progress_reason = str(initial_progress_reason)
         yaw_correction_used = False
+        stable_settle_samples = 0
 
         compact_transit_settle = bool(
             self.grid_cell_settle_compact_transit_accept_enabled
@@ -4196,26 +4227,33 @@ class DarthMaulControlNode(Node):
             elapsed = time.monotonic() - start_time
             if elapsed > self.grid_cell_settle_timeout_sec:
                 self.publish_zero_twist()
+
+                timeout_ok = bool(
+                    last_position_error <= effective_position_tolerance_m
+                    and last_heading_error <= effective_heading_tolerance_rad
+                )
+
                 return GridCellSettleResult(
                     canceled=False,
-                    success=True,
-                    result_code=ExecuteMotionPrimitive.Result.SUCCESS,
+                    success=timeout_ok,
+                    result_code=(
+                        ExecuteMotionPrimitive.Result.SUCCESS
+                        if timeout_ok
+                        else ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
+                    ),
                     message=(
-                        f'cell settle timed out after {elapsed:.2f}s but continuing; '
+                        f'cell settle timed out after {elapsed:.2f}s; '
+                        f'timeout_ok={timeout_ok}; '
                         f'last_pos_error={last_position_error:.3f} m; '
+                        f'pos_tol={effective_position_tolerance_m:.3f} m; '
                         f'last_heading_error={last_heading_error:.3f} rad; '
+                        f'heading_tol={effective_heading_tolerance_rad:.3f} rad; '
                         f'progress_source={last_progress_source}; '
                         f'{last_progress_reason}'
                     ),
-                    position_error_m=min(
-                        last_position_error,
-                        self.grid_cell_settle_position_tolerance_m,
-                    ),
-                    heading_error_rad=min(
-                        last_heading_error,
-                        self.grid_cell_settle_heading_tolerance_rad,
-                    ),
-                    heading_source=f'{last_heading_source}/settle_timeout_continue',
+                    position_error_m=last_position_error,
+                    heading_error_rad=last_heading_error,
+                    heading_source=f'{last_heading_source}/settle_timeout',
                     progress_m=last_progress,
                     odom_progress_m=last_odom_progress,
                     progress_source=last_progress_source,
@@ -4726,7 +4764,20 @@ class DarthMaulControlNode(Node):
 
             heading_ok = heading_error <= effective_heading_tolerance_rad
 
-            if longitudinal_ok and lateral_ok and heading_ok:
+            settle_stable_now = bool(longitudinal_ok and lateral_ok and heading_ok)
+
+            if elapsed < self.grid_cell_settle_min_duration_sec:
+                settle_stable_now = False
+
+            if settle_stable_now:
+                stable_settle_samples += 1
+            else:
+                stable_settle_samples = 0
+
+            if (
+                stable_settle_samples
+                >= self.grid_cell_settle_required_stable_samples
+            ):
                 self.publish_zero_twist()
 
                 returned_position_error = last_position_error

@@ -265,6 +265,8 @@ darth_maul_control:
     grid_cell_settle_open_corridor_lattice_agreement_m: 0.080
     grid_cell_settle_lateral_tolerance_m: 0.020
     grid_cell_settle_heading_tolerance_rad: 0.060
+    grid_cell_settle_required_stable_samples: 4
+    grid_cell_settle_min_duration_sec: 0.30
     grid_cell_settle_require_longitudinal_reference: false
     grid_cell_settle_abort_position_error_m: 0.120
     grid_cell_settle_abort_heading_error_rad: 0.220
@@ -305,11 +307,11 @@ darth_maul_control:
     rotate_timeout_accept_heading_error_rad: 0.070
     rotate_timeout_margin_sec: 8.0
     rotate_timeout_recovery_extra_sec: 6.0
-    rotate_pre_clearance_settle_enabled: true
-    rotate_pre_clearance_front_min_m: 0.155
-    rotate_pre_clearance_rear_min_m: 0.155
-    rotate_pre_clearance_target_front_m: 0.13
-    rotate_pre_clearance_target_rear_m: 0.135
+    rotate_pre_clearance_settle_enabled: false
+    rotate_pre_clearance_front_min_m: 0.115
+    rotate_pre_clearance_rear_min_m: 0.100
+    rotate_pre_clearance_target_front_m: 0.130
+    rotate_pre_clearance_target_rear_m: 0.115
     rotate_pre_clearance_timeout_sec: 1.0
     rotate_pre_clearance_max_linear_x_mps: 0.045
     # Translation/grid settle handles centering. Post-rotate settling can perturb
