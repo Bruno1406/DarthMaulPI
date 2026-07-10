@@ -1140,6 +1140,23 @@ class MazeExplorerNode(Node):
             direction: (state, distance, reason)
             for direction, state, distance, reason in observations
         }
+        front_state, front_distance, front_reason = state_by_direction.get(
+            self.heading,
+            (UNKNOWN, float('nan'), 'no live front observation'),
+        )
+        rear_state, rear_distance, rear_reason = state_by_direction.get(
+            OPPOSITE[self.heading],
+            (UNKNOWN, float('nan'), 'no live rear observation'),
+        )
+
+        # Do not forbid rotation only because front/rear is close; the controller
+        # has pre-rotate clearance settling now. But do report it clearly.
+        clearance_note = (
+            f'front={STATE_NAME[front_state]} {front_distance:.3f} m '
+            f'({front_reason}); '
+            f'rear={STATE_NAME[rear_state]} {rear_distance:.3f} m '
+            f'({rear_reason})'
+        )
 
         accepted_sides = []
         rejected_sides = []
@@ -1171,6 +1188,7 @@ class MazeExplorerNode(Node):
                 f'rotation dispatch allowed at cell={self.current_cell}; '
                 f'heading={DIR_NAME[self.heading]}; '
                 f'target={DIR_NAME[target_heading]}; '
+                f'{clearance_note}; '
                 + '; '.join(accepted_sides)
             )
 
