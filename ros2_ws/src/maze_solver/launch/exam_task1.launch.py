@@ -1,6 +1,6 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, TimerAction
-from launch.conditions import IfCondition, UnlessCondition
+from launch.actions import DeclareLaunchArgument
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -17,8 +17,6 @@ def generate_launch_description():
     camera_down_position = LaunchConfiguration('camera_down_position')
     camera_horizontal_servo_id = LaunchConfiguration('camera_horizontal_servo_id')
     camera_left_position = LaunchConfiguration('camera_left_position')
-    camera_publish_for_s = LaunchConfiguration('camera_publish_for_s')
-    camera_startup_delay_s = LaunchConfiguration('camera_startup_delay_s')
 
     return LaunchDescription([
         DeclareLaunchArgument('maze_nr', default_value='1'),
@@ -27,13 +25,13 @@ def generate_launch_description():
         DeclareLaunchArgument('execute_motions', default_value='false'),
         DeclareLaunchArgument('maze_service_timeout_s', default_value='15.0'),
         DeclareLaunchArgument('shutdown_on_fatal_error', default_value='true'),
-        DeclareLaunchArgument('camera_face_down', default_value='true'),
+
+        # Default false now: camera should be positioned separately before task.
+        DeclareLaunchArgument('camera_face_down', default_value='false'),
         DeclareLaunchArgument('camera_vertical_servo_id', default_value='1'),
         DeclareLaunchArgument('camera_down_position', default_value='2000'),
         DeclareLaunchArgument('camera_horizontal_servo_id', default_value='2'),
         DeclareLaunchArgument('camera_left_position', default_value='2000'),
-        DeclareLaunchArgument('camera_publish_for_s', default_value='1.5'),
-        DeclareLaunchArgument('camera_startup_delay_s', default_value='1.8'),
 
         Node(
             package='maze_solver',
@@ -47,30 +45,8 @@ def generate_launch_description():
                 'horizontal_servo_id': camera_horizontal_servo_id,
                 'left_position': camera_left_position,
                 'duration': 0.5,
-                'publish_for_s': camera_publish_for_s,
+                'publish_for_s': 8.0,
             }],
-        ),
-
-        TimerAction(
-            period=camera_startup_delay_s,
-            condition=IfCondition(camera_face_down),
-            actions=[
-                Node(
-                    package='maze_solver',
-                    executable='maze_solver_node',
-                    name='maze_solver_node',
-                    output='screen',
-                    parameters=[{
-                        'maze_nr': maze_nr,
-                        'cell_length_m': cell_length_m,
-                        'max_commands_to_execute': max_commands_to_execute,
-                        'execute_motions': execute_motions,
-                        'maze_service_name': '/get_ros_maze',
-                        'maze_service_timeout_s': maze_service_timeout_s,
-                        'shutdown_on_fatal_error': shutdown_on_fatal_error,
-                    }],
-                ),
-            ],
         ),
 
         Node(
@@ -78,7 +54,6 @@ def generate_launch_description():
             executable='maze_solver_node',
             name='maze_solver_node',
             output='screen',
-            condition=UnlessCondition(camera_face_down),
             parameters=[{
                 'maze_nr': maze_nr,
                 'cell_length_m': cell_length_m,
