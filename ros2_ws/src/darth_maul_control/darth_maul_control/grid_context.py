@@ -783,6 +783,9 @@ def live_grid_command(
     small_reacquire_yaw_rad: float,
     large_reacquire_yaw_rad: float,
     reacquire_speed_scale: float,
+    heading_coast_max_odom_yaw_radps: float,
+    heading_coast_speed_scale: float,
+    heading_coast_stop_odom_yaw_radps: float,
 ) -> LiveGridCommand:
     yaw_valid = bool(
         observation.yaw.valid
@@ -802,17 +805,43 @@ def live_grid_command(
         )
 
     if not yaw_valid:
+        raw_coast_yaw = float(odom_heading_correction_radps)
+        max_coast_yaw = abs(float(heading_coast_max_odom_yaw_radps))
+        stop_coast_yaw = abs(float(heading_coast_stop_odom_yaw_radps))
+
+        if max_coast_yaw > 0.0:
+            applied_coast_yaw = clamp(
+                raw_coast_yaw,
+                -max_coast_yaw,
+                max_coast_yaw,
+            )
+        else:
+            applied_coast_yaw = 0.0
+
+        coast_speed_scale = 1.0
+        if stop_coast_yaw > 0.0 and abs(raw_coast_yaw) >= stop_coast_yaw:
+            coast_speed_scale = 0.0
+        elif max_coast_yaw > 0.0 and abs(raw_coast_yaw) > max_coast_yaw:
+            coast_speed_scale = clamp(
+                float(heading_coast_speed_scale),
+                0.0,
+                1.0,
+            )
+
         return LiveGridCommand(
             mode=observation.combined_mode,
             yaw_mode=HEADING_COAST,
             lateral_mode=CENTER_LOCK if lateral_valid else LATERAL_COAST,
             yaw_active=False,
             lateral_active=lateral_valid,
-            angular_z_radps=float(odom_heading_correction_radps),
+            angular_z_radps=float(applied_coast_yaw),
             linear_y_mps=raw_lateral,
-            speed_scale=1.0,
+            speed_scale=float(coast_speed_scale),
             reason=(
                 f'heading coast: {observation.yaw.reason}; '
+                f'raw_odom_yaw_cmd={raw_coast_yaw:.3f} rad/s; '
+                f'applied_odom_yaw_cmd={applied_coast_yaw:.3f} rad/s; '
+                f'speed_scale={coast_speed_scale:.2f}; '
                 f'centering={observation.centering.reason}'
             ),
         )

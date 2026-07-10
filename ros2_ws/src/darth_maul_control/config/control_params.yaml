@@ -181,6 +181,12 @@ darth_maul_control:
     # tied to expected adjacent side walls.
     k_grid_live_yaw: 3.20
     max_grid_live_yaw_correction_radps: 0.260
+    # When Manhattan/grid yaw is invalid, do not let odom heading correction
+    # spin the robot hard while translating. This was the task-2 sudden-failure
+    # cause: heading_coast commanded ~0.66 rad/s during a forward cell move.
+    grid_heading_coast_max_odom_yaw_radps: 0.120
+    grid_heading_coast_speed_scale: 0.35
+    grid_heading_coast_stop_odom_yaw_radps: 0.450
 
     # Side-wall yaw quality gate for local centering lines.
     # This is not the global Manhattan yaw max error.

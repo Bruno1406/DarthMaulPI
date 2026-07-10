@@ -596,6 +596,18 @@ class DarthMaulControlNode(Node):
             'max_grid_live_yaw_correction_radps',
             0.140,
         )
+        self.grid_heading_coast_max_odom_yaw_radps = self._nonnegative_float_param(
+            'grid_heading_coast_max_odom_yaw_radps',
+            0.120,
+        )
+        self.grid_heading_coast_speed_scale = self._nonnegative_float_param(
+            'grid_heading_coast_speed_scale',
+            0.35,
+        )
+        self.grid_heading_coast_stop_odom_yaw_radps = self._nonnegative_float_param(
+            'grid_heading_coast_stop_odom_yaw_radps',
+            0.450,
+        )
         self.grid_manhattan_yaw_enabled = self._bool_param(
             'grid_manhattan_yaw_enabled',
             True,
@@ -2811,6 +2823,13 @@ class DarthMaulControlNode(Node):
             small_reacquire_yaw_rad=self.grid_reacquire_small_yaw_rad,
             large_reacquire_yaw_rad=self.grid_reacquire_large_yaw_rad,
             reacquire_speed_scale=self.grid_reacquire_speed_scale,
+            heading_coast_max_odom_yaw_radps=(
+                self.grid_heading_coast_max_odom_yaw_radps
+            ),
+            heading_coast_speed_scale=self.grid_heading_coast_speed_scale,
+            heading_coast_stop_odom_yaw_radps=(
+                self.grid_heading_coast_stop_odom_yaw_radps
+            ),
         )
 
         self._grid_live_mode = command.mode

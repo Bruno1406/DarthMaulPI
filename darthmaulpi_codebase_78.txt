@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 280
-Skipped files: 5570
+Skipped files: 5621
 
 # Included File Index
 
@@ -292,7 +292,7 @@ Skipped files: 5570
 - binary, media, generated, or not useful as text: 59
 - not UTF-8 text: 2
 - previous merged output: 1
-- skipped directory: 5508
+- skipped directory: 5559
 
 # File Contents
 
@@ -3652,8 +3652,12 @@ darth_maul_control:
     # and do not push farther into the wall. Treat longitudinal settle as good
     # enough and continue yaw/lateral correction only.
     grid_cell_settle_travel_guard_enabled: true
-    grid_cell_settle_min_front_distance_m: 0.155
-    grid_cell_settle_min_rear_distance_m: 0.155
+    # These are settle travel guards, not collision stops.
+    # Collision stops remain front_stop_distance_m/rear_stop_distance_m = 0.09.
+    # Do not block the calibrated center targets:
+    # front target = 0.140 m, rear target = 0.125 m.
+    grid_cell_settle_min_front_distance_m: 0.120
+    grid_cell_settle_min_rear_distance_m: 0.105
 
     # Calibrated front/rear ranges when the robot is centered in one cell.
     # Do not assume this is exactly cell_length_m / 2. Measure it on the real robot
@@ -3675,7 +3679,8 @@ darth_maul_control:
     # Rotate has a soft timeout and recovery extension. Do not accept a bad
     # 0.28 rad heading error, but also do not fail just because the first
     # computed timeout was too short.
-    rotate_timeout_accept_heading_error_rad: 0.090
+    # Do not accept a visibly bad rotate before the next drive.
+    rotate_timeout_accept_heading_error_rad: 0.070
     rotate_timeout_margin_sec: 8.0
     rotate_timeout_recovery_extra_sec: 6.0
     rotate_pre_clearance_settle_enabled: true
@@ -3685,7 +3690,9 @@ darth_maul_control:
     rotate_pre_clearance_target_rear_m: 0.135
     rotate_pre_clearance_timeout_sec: 1.0
     rotate_pre_clearance_max_linear_x_mps: 0.045
-    rotate_post_grid_settle_enabled: true
+    # Translation/grid settle handles centering. Post-rotate settling can perturb
+    # yaw and was observed to let a 0.143 rad rotate be accepted before driving.
+    rotate_post_grid_settle_enabled: false
     rotate_post_grid_settle_timeout_sec: 1.2
     rotate_post_grid_settle_lateral_tolerance_m: 0.020
     rotate_post_grid_settle_heading_tolerance_rad: 0.060
@@ -4613,7 +4620,7 @@ class DarthMaulControlNode(Node):
         )
         self.grid_cell_settle_min_rear_distance_m = self._positive_float_param(
             'grid_cell_settle_min_rear_distance_m',
-            0.120,
+            0.105,
         )
         self.grid_center_expected_front_distance_m = self._positive_float_param(
             'grid_center_expected_front_distance_m',
@@ -4645,7 +4652,7 @@ class DarthMaulControlNode(Node):
         )
         self.rotate_timeout_accept_heading_error_rad = self._nonnegative_float_param(
             'rotate_timeout_accept_heading_error_rad',
-            0.090,
+            0.070,
         )
         self.rotate_timeout_margin_sec = self._nonnegative_float_param(
             'rotate_timeout_margin_sec',
@@ -4685,7 +4692,7 @@ class DarthMaulControlNode(Node):
         )
         self.rotate_post_grid_settle_enabled = self._bool_param(
             'rotate_post_grid_settle_enabled',
-            True,
+            False,
         )
         self.rotate_post_grid_settle_timeout_sec = self._positive_float_param(
             'rotate_post_grid_settle_timeout_sec',
@@ -5099,6 +5106,7 @@ class DarthMaulControlNode(Node):
         result_success = False
         result_code = ExecuteMotionPrimitive.Result.INTERNAL_ERROR
         result_message = 'unknown translation result'
+        settle_result_message = 'cell settle not run'
         final_position_error = target_distance
         final_heading_error = 0.0
         final_odom_progress = 0.0
@@ -5484,6 +5492,8 @@ class DarthMaulControlNode(Node):
                         limits=limits,
                     )
 
+                    settle_result_message = settle_result.message
+
                     if settle_result.canceled:
                         self._reset_live_grid_controller('translation canceled during cell settle')
                         self._reset_temporal_lidar_progress_tracker()
@@ -5536,7 +5546,8 @@ class DarthMaulControlNode(Node):
                     f'({final_heading_validation_source}; '
                     f'odom_heading={final_heading_error:.3f} rad), '
                     f'progress={final_control_progress:.3f} m '
-                    f'from {final_progress_source_used}'
+                    f'from {final_progress_source_used}; '
+                    f'settle_result={settle_result_message}'
                 )
                 break
 
@@ -6001,6 +6012,37 @@ class DarthMaulControlNode(Node):
         soft_timeout_warned = False
         hard_timeout_s = timeout_s + float(self.rotate_timeout_recovery_extra_sec)
 
+        def _post_rotate_heading_recheck(reason: str) -> tuple[bool, float, str]:
+            final_snapshot = self._get_motion_snapshot()
+            if final_snapshot is None:
+                return (
+                    False,
+                    float('inf'),
+                    f'{reason}; no fresh odom after post-rotate settle',
+                )
+
+            refreshed_error = abs(
+                normalize_angle(target_yaw - final_snapshot.pose.yaw)
+            )
+
+            if (
+                self.enforce_final_error
+                and refreshed_error > self.rotate_timeout_accept_heading_error_rad
+            ):
+                return (
+                    False,
+                    refreshed_error,
+                    f'{reason}; heading_error={refreshed_error:.3f} rad > '
+                    f'{self.rotate_timeout_accept_heading_error_rad:.3f} rad '
+                    'after post-rotate settle',
+                )
+
+            return (
+                True,
+                refreshed_error,
+                f'{reason}; heading_error={refreshed_error:.3f} rad',
+            )
+
         while True:
             if self._cancel_or_stop_requested(goal_handle):
                 return self._cancel_result(goal_handle)
@@ -6041,10 +6083,26 @@ class DarthMaulControlNode(Node):
                     if post_rotate_grid_settle_reason.endswith('canceled'):
                         return self._cancel_result(goal_handle)
 
-                    final_snapshot = self._get_motion_snapshot()
-                    if final_snapshot is not None:
-                        remaining = normalize_angle(target_yaw - final_snapshot.pose.yaw)
-                        final_heading_error = abs(remaining)
+                    (
+                        post_rotate_heading_ok,
+                        final_heading_error,
+                        post_rotate_recheck_reason,
+                    ) = _post_rotate_heading_recheck(post_rotate_grid_settle_reason)
+
+                    if not post_rotate_heading_ok:
+                        if time.monotonic() - start_time < hard_timeout_s:
+                            self.get_logger().warning(
+                                'ROTATE_RELATIVE post-rotate recheck failed; '
+                                f'continuing correction: {post_rotate_recheck_reason}'
+                            )
+                            continue
+
+                        result_code = ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
+                        result_message = (
+                            'ROTATE_RELATIVE post-rotate heading recheck failed: '
+                            f'{post_rotate_recheck_reason}'
+                        )
+                        break
 
                     result_success = True
                     result_code = ExecuteMotionPrimitive.Result.SUCCESS
@@ -6105,12 +6163,28 @@ class DarthMaulControlNode(Node):
                         if post_rotate_grid_settle_reason.endswith('canceled'):
                             return self._cancel_result(goal_handle)
 
-                        final_snapshot = self._get_motion_snapshot()
-                        if final_snapshot is not None:
-                            remaining = normalize_angle(
-                                target_yaw - final_snapshot.pose.yaw
+                        (
+                            post_rotate_heading_ok,
+                            final_heading_error,
+                            post_rotate_recheck_reason,
+                        ) = _post_rotate_heading_recheck(post_rotate_grid_settle_reason)
+
+                        if not post_rotate_heading_ok:
+                            if time.monotonic() - start_time < hard_timeout_s:
+                                self.get_logger().warning(
+                                    'ROTATE_RELATIVE post-rotate recheck failed; '
+                                    f'continuing correction: {post_rotate_recheck_reason}'
+                                )
+                                continue
+
+                            result_code = (
+                                ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
                             )
-                            final_heading_error = abs(remaining)
+                            result_message = (
+                                'ROTATE_RELATIVE post-rotate heading recheck failed: '
+                                f'{post_rotate_recheck_reason}'
+                            )
+                            break
 
                         result_success = True
                         result_code = ExecuteMotionPrimitive.Result.SUCCESS
@@ -6136,10 +6210,26 @@ class DarthMaulControlNode(Node):
                 if post_rotate_grid_settle_reason.endswith('canceled'):
                     return self._cancel_result(goal_handle)
 
-                final_snapshot = self._get_motion_snapshot()
-                if final_snapshot is not None:
-                    remaining = normalize_angle(target_yaw - final_snapshot.pose.yaw)
-                    final_heading_error = abs(remaining)
+                (
+                    post_rotate_heading_ok,
+                    final_heading_error,
+                    post_rotate_recheck_reason,
+                ) = _post_rotate_heading_recheck(post_rotate_grid_settle_reason)
+
+                if not post_rotate_heading_ok:
+                    if time.monotonic() - start_time < hard_timeout_s:
+                        self.get_logger().warning(
+                            'ROTATE_RELATIVE post-rotate recheck failed; '
+                            f'continuing correction: {post_rotate_recheck_reason}'
+                        )
+                        continue
+
+                    result_code = ExecuteMotionPrimitive.Result.FINAL_ERROR_TOO_LARGE
+                    result_message = (
+                        'ROTATE_RELATIVE post-rotate heading recheck failed: '
+                        f'{post_rotate_recheck_reason}'
+                    )
+                    break
 
                 result_success = True
                 result_code = ExecuteMotionPrimitive.Result.SUCCESS
@@ -23734,6 +23824,7 @@ class MazeExplorerNode(Node):
         self.declare_parameter('reverse_position_tolerance_m', 0.020)
         self.declare_parameter('reverse_heading_tolerance_rad', 0.070)
         self.declare_parameter('rotate_max_angular_z_radps', 0.85)
+        self.declare_parameter('rotate_heading_tolerance_rad', 0.045)
         self.declare_parameter('motion_timeout_s', 0.0)
         self.declare_parameter('direction_priority', 'left_straight_right_back')
 
@@ -23799,6 +23890,9 @@ class MazeExplorerNode(Node):
         )
         self.rotate_max_angular_z_radps = float(
             self.get_parameter('rotate_max_angular_z_radps').value
+        )
+        self.rotate_heading_tolerance_rad = float(
+            self.get_parameter('rotate_heading_tolerance_rad').value
         )
         self.motion_timeout_s = float(self.get_parameter('motion_timeout_s').value)
         self.direction_priority = str(self.get_parameter('direction_priority').value).strip()
@@ -23918,6 +24012,8 @@ class MazeExplorerNode(Node):
             errors.append('reverse_heading_tolerance_rad must be > 0')
         if self.rotate_max_angular_z_radps <= 0.0:
             errors.append('rotate_max_angular_z_radps must be > 0')
+        if self.rotate_heading_tolerance_rad <= 0.0:
+            errors.append('rotate_heading_tolerance_rad must be > 0')
         if self.motion_timeout_s < 0.0:
             errors.append('motion_timeout_s must be >= 0')
         if self.direction_priority not in valid_priorities:
@@ -25030,6 +25126,9 @@ class MazeExplorerNode(Node):
         if step.kind == 'drive_backward':
             goal.position_tolerance_m = float(self.reverse_position_tolerance_m)
             goal.heading_tolerance_rad = float(self.reverse_heading_tolerance_rad)
+        elif step.kind == 'rotate':
+            goal.position_tolerance_m = 0.0
+            goal.heading_tolerance_rad = float(self.rotate_heading_tolerance_rad)
         else:
             goal.position_tolerance_m = 0.0
             goal.heading_tolerance_rad = 0.0
@@ -25108,21 +25207,14 @@ class MazeExplorerNode(Node):
             return
 
         if result.success:
-            if step is not None and step.kind in ('drive_forward', 'drive_backward'):
-                self.get_logger().info(
-                    f'Motion result for {step}: success=True, '
-                    f'code={result.result_code}, '
-                    f'pos_error={result.final_position_error_m:.3f}, '
-                    f'heading_error={result.final_heading_error_rad:.3f}, '
-                    f'message={result.message}'
-                )
-            else:
-                self.get_logger().info(
-                    f'Motion result for {step.kind if step else "none"}: '
-                    f'success=True, code={result.result_code}, '
-                    f'pos_error={result.final_position_error_m:.3f}, '
-                    f'heading_error={result.final_heading_error_rad:.3f}'
-                )
+            self.get_logger().info(
+                f'Motion result for {step}: '
+                f'success=True, '
+                f'code={result.result_code}, '
+                f'pos_error={result.final_position_error_m:.3f}, '
+                f'heading_error={result.final_heading_error_rad:.3f}, '
+                f'message={result.message}'
+            )
         else:
             self.get_logger().error(
                 f'Motion result for {step}: success=False, '
@@ -26344,6 +26436,7 @@ def generate_launch_description():
     reverse_position_tolerance_m = LaunchConfiguration('reverse_position_tolerance_m')
     reverse_heading_tolerance_rad = LaunchConfiguration('reverse_heading_tolerance_rad')
     rotate_max_angular_z_radps = LaunchConfiguration('rotate_max_angular_z_radps')
+    rotate_heading_tolerance_rad = LaunchConfiguration('rotate_heading_tolerance_rad')
     max_cells_to_visit = LaunchConfiguration('max_cells_to_visit')
     output_maze_file = LaunchConfiguration('output_maze_file')
     shutdown_on_complete = LaunchConfiguration('shutdown_on_complete')
@@ -26389,6 +26482,7 @@ def generate_launch_description():
         'reverse_position_tolerance_m': reverse_position_tolerance_m,
         'reverse_heading_tolerance_rad': reverse_heading_tolerance_rad,
         'rotate_max_angular_z_radps': rotate_max_angular_z_radps,
+        'rotate_heading_tolerance_rad': rotate_heading_tolerance_rad,
         'max_cells_to_visit': max_cells_to_visit,
         'output_maze_file': output_maze_file,
         'shutdown_on_complete': shutdown_on_complete,
@@ -26423,7 +26517,8 @@ def generate_launch_description():
         DeclareLaunchArgument('reverse_backtracking_max_consecutive_cells', default_value='0'),
         DeclareLaunchArgument('reverse_position_tolerance_m', default_value='0.020'),
         DeclareLaunchArgument('reverse_heading_tolerance_rad', default_value='0.070'),
-        DeclareLaunchArgument('rotate_max_angular_z_radps', default_value='0.85'),
+        DeclareLaunchArgument('rotate_max_angular_z_radps', default_value='0.70'),
+        DeclareLaunchArgument('rotate_heading_tolerance_rad', default_value='0.045'),
         DeclareLaunchArgument('max_cells_to_visit', default_value='0'),
         DeclareLaunchArgument('output_maze_file', default_value=''),
         DeclareLaunchArgument('shutdown_on_complete', default_value='true'),
