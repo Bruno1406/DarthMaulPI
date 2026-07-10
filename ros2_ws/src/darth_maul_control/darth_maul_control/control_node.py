@@ -841,6 +841,28 @@ class DarthMaulControlNode(Node):
                 0.120,
             )
         )
+        self.grid_cell_settle_open_corridor_lattice_enabled = self._bool_param(
+            'grid_cell_settle_open_corridor_lattice_enabled',
+            True,
+        )
+        self.grid_cell_settle_open_corridor_lattice_max_distance_m = (
+            self._positive_float_param(
+                'grid_cell_settle_open_corridor_lattice_max_distance_m',
+                1.800,
+            )
+        )
+        self.grid_cell_settle_open_corridor_lattice_max_error_m = (
+            self._positive_float_param(
+                'grid_cell_settle_open_corridor_lattice_max_error_m',
+                0.080,
+            )
+        )
+        self.grid_cell_settle_open_corridor_lattice_agreement_m = (
+            self._positive_float_param(
+                'grid_cell_settle_open_corridor_lattice_agreement_m',
+                0.080,
+            )
+        )
         self.grid_cell_settle_lateral_tolerance_m = self._positive_float_param(
             'grid_cell_settle_lateral_tolerance_m',
             0.020,
@@ -3277,6 +3299,170 @@ class DarthMaulControlNode(Node):
             ),
         )
 
+    def _open_corridor_lattice_axial_cell_centering_estimate(
+        self,
+        ranges: Optional[LidarRangeSnapshot],
+    ) -> AxialCellCenterEstimate:
+        """Use visible front/rear LiDAR snapped to the cell-length lattice.
+
+        This is mainly for task 2 exploration, where the full maze is not known
+        yet. It does not use odom as distance truth.
+        """
+        if not self.grid_cell_settle_open_corridor_lattice_enabled:
+            return AxialCellCenterEstimate(
+                valid=False,
+                error_m=0.0,
+                source='none',
+                front_usable=False,
+                rear_usable=False,
+                disagreement_m=0.0,
+                reason='open-corridor lattice axial settle disabled',
+            )
+
+        if ranges is None:
+            return AxialCellCenterEstimate(
+                valid=False,
+                error_m=0.0,
+                source='none',
+                front_usable=False,
+                rear_usable=False,
+                disagreement_m=0.0,
+                reason='open-corridor lattice unavailable: no fresh cardinal ranges',
+            )
+
+        cell_length = max(float(self.cell_length_m), 1.0e-6)
+        max_distance = float(self.grid_cell_settle_open_corridor_lattice_max_distance_m)
+        max_error = float(self.grid_cell_settle_open_corridor_lattice_max_error_m)
+
+        candidates: list[tuple[float, AxialCellCenterEstimate]] = []
+
+        def add_candidate(
+            *,
+            source: str,
+            sector,
+            base_expected_m: float,
+            use_front_sign: bool,
+        ) -> None:
+            distance = self._range_value(sector)
+            if (
+                not sector.valid
+                or not math.isfinite(distance)
+                or distance <= 0.0
+                or distance > max_distance
+            ):
+                return
+
+            lattice_cells = int(
+                round((float(distance) - float(base_expected_m)) / cell_length)
+            )
+            if lattice_cells < 0:
+                return
+
+            expected = float(base_expected_m) + float(lattice_cells) * cell_length
+            if expected <= 0.0 or expected > max_distance:
+                return
+
+            if use_front_sign:
+                error = float(distance) - expected
+            else:
+                error = expected - float(distance)
+
+            if abs(error) > max_error:
+                return
+
+            candidates.append(
+                (
+                    float(distance),
+                    AxialCellCenterEstimate(
+                        valid=True,
+                        error_m=float(error),
+                        source=source,
+                        front_usable=bool(use_front_sign),
+                        rear_usable=not bool(use_front_sign),
+                        disagreement_m=0.0,
+                        reason=(
+                            f'open-corridor lattice {source} accepted; '
+                            f'distance={distance:.3f} m; '
+                            f'expected={expected:.3f} m; '
+                            f'lattice_cells={lattice_cells}; '
+                            f'cell_length={cell_length:.3f} m; '
+                            f'error={error:.3f} m'
+                        ),
+                    ),
+                )
+            )
+
+        add_candidate(
+            source='open_lattice_front',
+            sector=ranges.front,
+            base_expected_m=self.grid_center_expected_front_distance_m,
+            use_front_sign=True,
+        )
+        add_candidate(
+            source='open_lattice_rear',
+            sector=ranges.rear,
+            base_expected_m=self.grid_center_expected_rear_distance_m,
+            use_front_sign=False,
+        )
+
+        if not candidates:
+            return AxialCellCenterEstimate(
+                valid=False,
+                error_m=0.0,
+                source='none',
+                front_usable=False,
+                rear_usable=False,
+                disagreement_m=0.0,
+                reason=(
+                    'open-corridor lattice unavailable: no bounded front/rear '
+                    f'range within {max_distance:.3f} m and lattice error '
+                    f'<= {max_error:.3f} m'
+                ),
+            )
+
+        if len(candidates) == 1:
+            return candidates[0][1]
+
+        first = candidates[0][1]
+        second = candidates[1][1]
+        disagreement = abs(float(first.error_m) - float(second.error_m))
+
+        if disagreement <= float(
+            self.grid_cell_settle_open_corridor_lattice_agreement_m
+        ):
+            averaged_error = 0.5 * (float(first.error_m) + float(second.error_m))
+            return AxialCellCenterEstimate(
+                valid=True,
+                error_m=float(averaged_error),
+                source='open_lattice_front_rear',
+                front_usable=True,
+                rear_usable=True,
+                disagreement_m=float(disagreement),
+                reason=(
+                    'open-corridor lattice front/rear agreed; '
+                    f'front_error={first.error_m:.3f} m; '
+                    f'rear_error={second.error_m:.3f} m; '
+                    f'average_error={averaged_error:.3f} m; '
+                    f'disagreement={disagreement:.3f} m'
+                ),
+            )
+
+        # If front/rear disagree, trust the nearer physical wall. It is usually
+        # less noisy than a far wall seen through several cells.
+        candidates.sort(key=lambda item: item[0])
+        chosen = candidates[0][1]
+        rejected = candidates[1][1]
+
+        return replace(
+            chosen,
+            disagreement_m=float(disagreement),
+            reason=(
+                f'{chosen.reason}; open-corridor lattice front/rear disagreed; '
+                f'chose nearer wall {chosen.source} over {rejected.source}; '
+                f'disagreement={disagreement:.3f} m'
+            ),
+        )
+
     @staticmethod
     def _settle_axis_command(
         error_m: float,
@@ -3658,6 +3844,28 @@ class DarthMaulControlNode(Node):
                         ),
                     )
 
+            if (
+                not axial.valid
+                and not axial_reference_expected
+                and not immediate_axial_seen
+            ):
+                open_lattice_axial = (
+                    self._open_corridor_lattice_axial_cell_centering_estimate(
+                        current_ranges
+                    )
+                )
+                if open_lattice_axial.valid:
+                    axial = open_lattice_axial
+                    axial_reference_expected = True
+                else:
+                    axial = replace(
+                        axial,
+                        reason=(
+                            f'{axial.reason}; open_corridor_lattice='
+                            f'{open_lattice_axial.reason}'
+                        ),
+                    )
+
             safety_axial = self._safety_axial_cell_centering_estimate(current_ranges)
             if safety_axial.valid and (
                 not axial.valid
@@ -3688,6 +3896,9 @@ class DarthMaulControlNode(Node):
                     'projected_front',
                     'projected_rear',
                     'projected_front_rear',
+                    'open_lattice_front',
+                    'open_lattice_rear',
+                    'open_lattice_front_rear',
                     'front_safety',
                     'rear_safety',
                 )

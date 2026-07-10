@@ -247,6 +247,16 @@ darth_maul_control:
     grid_cell_settle_projected_axial_max_distance_m: 1.200
     grid_cell_settle_projected_axial_max_error_m: 0.160
     grid_cell_settle_projected_axial_front_rear_agreement_m: 0.120
+    # Task 2 exploration does not know the full maze yet. Unknown/open front/rear
+    # edges often mean "no expected axial wall", even though LiDAR sees a real
+    # far wall on the maze cell lattice. Use bounded LiDAR lattice snapping as
+    # an absolute longitudinal reference before falling back to relative progress.
+    #
+    # This is still LiDAR as distance truth. Odom is not used as distance truth.
+    grid_cell_settle_open_corridor_lattice_enabled: true
+    grid_cell_settle_open_corridor_lattice_max_distance_m: 1.800
+    grid_cell_settle_open_corridor_lattice_max_error_m: 0.080
+    grid_cell_settle_open_corridor_lattice_agreement_m: 0.080
     grid_cell_settle_lateral_tolerance_m: 0.020
     grid_cell_settle_heading_tolerance_rad: 0.060
     grid_cell_settle_require_longitudinal_reference: false

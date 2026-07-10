@@ -1766,7 +1766,7 @@ class MazeExplorerNode(Node):
             return
 
         if result.success:
-            if step is not None and step.kind in ('drive_forward', 'drive_backward') and step.run_cells > 1:
+            if step is not None and step.kind in ('drive_forward', 'drive_backward'):
                 self.get_logger().info(
                     f'Motion result for {step}: success=True, '
                     f'code={result.result_code}, '
