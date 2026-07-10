@@ -38,6 +38,7 @@ from darth_maul_control.grid_context import (
     LATERAL_COAST,
     UNAVAILABLE,
     YAW_RECOVERY,
+    AxialWallReference,
     ExpectedWalls,
     GridCenteringObservation,
     GridObservation,
@@ -49,6 +50,7 @@ from darth_maul_control.grid_context import (
     invalid_centering,
     live_grid_command,
     make_grid_observation,
+    nearest_axial_wall_reference,
     observe_centering_from_expected_side_walls,
 )
 from darth_maul_control.grid_yaw import (
@@ -791,6 +793,40 @@ class DarthMaulControlNode(Node):
             self._positive_float_param(
                 'grid_cell_settle_rejected_axial_single_wall_max_error_m',
                 0.080,
+            )
+        )
+        self.grid_cell_settle_projected_axial_enabled = self._bool_param(
+            'grid_cell_settle_projected_axial_enabled',
+            True,
+        )
+        self.grid_cell_settle_projected_axial_min_run_cells = (
+            self._positive_int_param(
+                'grid_cell_settle_projected_axial_min_run_cells',
+                2,
+            )
+        )
+        self.grid_cell_settle_projected_axial_max_open_cells = (
+            self._positive_int_param(
+                'grid_cell_settle_projected_axial_max_open_cells',
+                4,
+            )
+        )
+        self.grid_cell_settle_projected_axial_max_distance_m = (
+            self._positive_float_param(
+                'grid_cell_settle_projected_axial_max_distance_m',
+                1.200,
+            )
+        )
+        self.grid_cell_settle_projected_axial_max_error_m = (
+            self._positive_float_param(
+                'grid_cell_settle_projected_axial_max_error_m',
+                0.160,
+            )
+        )
+        self.grid_cell_settle_projected_axial_front_rear_agreement_m = (
+            self._positive_float_param(
+                'grid_cell_settle_projected_axial_front_rear_agreement_m',
+                0.120,
             )
         )
         self.grid_cell_settle_lateral_tolerance_m = self._positive_float_param(
@@ -3020,6 +3056,192 @@ class DarthMaulControlNode(Node):
         candidates.sort(key=lambda item: (item[0], item[1], item[2]))
         return candidates[0][3]
 
+    def _projected_axial_wall_cell_centering_estimate(
+        self,
+        *,
+        reference: AxialWallReference,
+        ranges: Optional[LidarRangeSnapshot],
+    ) -> AxialCellCenterEstimate:
+        """Use bounded mapped far-wall LiDAR as absolute longitudinal settle."""
+        if not self.grid_cell_settle_projected_axial_enabled:
+            return AxialCellCenterEstimate(
+                valid=False,
+                error_m=0.0,
+                source='none',
+                front_usable=False,
+                rear_usable=False,
+                disagreement_m=0.0,
+                reason='projected axial settle disabled',
+            )
+
+        if ranges is None:
+            return AxialCellCenterEstimate(
+                valid=False,
+                error_m=0.0,
+                source='none',
+                front_usable=False,
+                rear_usable=False,
+                disagreement_m=0.0,
+                reason='projected axial unavailable: no fresh cardinal ranges',
+            )
+
+        if not reference.valid:
+            return AxialCellCenterEstimate(
+                valid=False,
+                error_m=0.0,
+                source='none',
+                front_usable=False,
+                rear_usable=False,
+                disagreement_m=0.0,
+                reason=f'projected axial unavailable: {reference.reason}',
+            )
+
+        max_open_cells = int(self.grid_cell_settle_projected_axial_max_open_cells)
+        max_distance = float(self.grid_cell_settle_projected_axial_max_distance_m)
+        max_error = float(self.grid_cell_settle_projected_axial_max_error_m)
+
+        candidates: list[tuple[float, float, AxialCellCenterEstimate]] = []
+
+        front_distance = self._range_value(ranges.front)
+        if (
+            reference.front
+            and ranges.front.valid
+            and math.isfinite(front_distance)
+            and math.isfinite(reference.front_expected_distance_m)
+            and reference.front_expected_distance_m > 0.0
+            and reference.front_open_cells <= max_open_cells
+            and front_distance <= max_distance
+            and reference.front_expected_distance_m <= max_distance
+        ):
+            front_error = (
+                float(front_distance)
+                - float(reference.front_expected_distance_m)
+            )
+            if abs(front_error) <= max_error:
+                candidates.append(
+                    (
+                        float(front_distance),
+                        abs(front_error),
+                        AxialCellCenterEstimate(
+                            valid=True,
+                            error_m=float(front_error),
+                            source='projected_front',
+                            front_usable=True,
+                            rear_usable=False,
+                            disagreement_m=0.0,
+                            reason=(
+                                'bounded projected front wall accepted; '
+                                f'front_distance={front_distance:.3f} m; '
+                                f'expected={reference.front_expected_distance_m:.3f} m; '
+                                f'open_cells={reference.front_open_cells}; '
+                                f'wall_cell={reference.front_wall_cell_idx}; '
+                                f'error={front_error:.3f} m; '
+                                f'reference={reference.reason}'
+                            ),
+                        ),
+                    )
+                )
+
+        rear_distance = self._range_value(ranges.rear)
+        if (
+            reference.rear
+            and ranges.rear.valid
+            and math.isfinite(rear_distance)
+            and math.isfinite(reference.rear_expected_distance_m)
+            and reference.rear_expected_distance_m > 0.0
+            and reference.rear_open_cells <= max_open_cells
+            and rear_distance <= max_distance
+            and reference.rear_expected_distance_m <= max_distance
+        ):
+            rear_error = (
+                float(reference.rear_expected_distance_m)
+                - float(rear_distance)
+            )
+            if abs(rear_error) <= max_error:
+                candidates.append(
+                    (
+                        float(rear_distance),
+                        abs(rear_error),
+                        AxialCellCenterEstimate(
+                            valid=True,
+                            error_m=float(rear_error),
+                            source='projected_rear',
+                            front_usable=False,
+                            rear_usable=True,
+                            disagreement_m=0.0,
+                            reason=(
+                                'bounded projected rear wall accepted; '
+                                f'rear_distance={rear_distance:.3f} m; '
+                                f'expected={reference.rear_expected_distance_m:.3f} m; '
+                                f'open_cells={reference.rear_open_cells}; '
+                                f'wall_cell={reference.rear_wall_cell_idx}; '
+                                f'error={rear_error:.3f} m; '
+                                f'reference={reference.reason}'
+                            ),
+                        ),
+                    )
+                )
+
+        if not candidates:
+            return AxialCellCenterEstimate(
+                valid=False,
+                error_m=0.0,
+                source='none',
+                front_usable=False,
+                rear_usable=False,
+                disagreement_m=0.0,
+                reason=(
+                    'no bounded projected axial wall usable; '
+                    f'front_valid={ranges.front.valid}; front={front_distance:.3f} m; '
+                    f'rear_valid={ranges.rear.valid}; rear={rear_distance:.3f} m; '
+                    f'max_distance={max_distance:.3f} m; '
+                    f'max_open_cells={max_open_cells}; '
+                    f'max_error={max_error:.3f} m; '
+                    f'reference={reference.reason}'
+                ),
+            )
+
+        if len(candidates) == 1:
+            return candidates[0][2]
+
+        first = candidates[0][2]
+        second = candidates[1][2]
+        disagreement = abs(float(first.error_m) - float(second.error_m))
+
+        if disagreement <= float(
+            self.grid_cell_settle_projected_axial_front_rear_agreement_m
+        ):
+            averaged_error = 0.5 * (float(first.error_m) + float(second.error_m))
+            return AxialCellCenterEstimate(
+                valid=True,
+                error_m=averaged_error,
+                source='projected_front_rear',
+                front_usable=True,
+                rear_usable=True,
+                disagreement_m=disagreement,
+                reason=(
+                    'bounded projected front/rear walls agreed; '
+                    f'front_error={first.error_m:.3f} m; '
+                    f'rear_error={second.error_m:.3f} m; '
+                    f'average_error={averaged_error:.3f} m; '
+                    f'disagreement={disagreement:.3f} m'
+                ),
+            )
+
+        # If far references disagree, trust the nearest measured wall.
+        candidates.sort(key=lambda item: (item[0], item[1]))
+        chosen = candidates[0][2]
+        rejected = candidates[1][2]
+        return replace(
+            chosen,
+            disagreement_m=disagreement,
+            reason=(
+                f'{chosen.reason}; projected front/rear disagreed; '
+                f'chose nearest measured wall {chosen.source} over '
+                f'{rejected.source}; disagreement={disagreement:.3f} m'
+            ),
+        )
+
     @staticmethod
     def _settle_axis_command(
         error_m: float,
@@ -3112,6 +3334,7 @@ class DarthMaulControlNode(Node):
 
         destination_cell = 0
         settle_context: Optional[GridRunContext] = None
+        projected_axial_reference: Optional[AxialWallReference] = None
 
         if context.valid:
             destination_cell = advance_cells(
@@ -3153,6 +3376,22 @@ class DarthMaulControlNode(Node):
                 context.l,
                 'destination cell settle context',
                 robot_heading=context.robot_heading,
+            )
+
+        if (
+            self.grid_cell_settle_projected_axial_enabled
+            and settle_context is not None
+            and settle_context.valid
+            and destination_cell > 0
+            and int(context.run_cells)
+            >= int(self.grid_cell_settle_projected_axial_min_run_cells)
+        ):
+            projected_axial_reference = nearest_axial_wall_reference(
+                context=settle_context,
+                cell_idx=destination_cell,
+                cell_length_m=self.cell_length_m,
+                expected_front_distance_m=self.grid_center_expected_front_distance_m,
+                expected_rear_distance_m=self.grid_center_expected_rear_distance_m,
             )
 
         # Use the middle of a one-cell settle context so side-wall centering is
@@ -3339,6 +3578,31 @@ class DarthMaulControlNode(Node):
                 axial_reference_expected = axial.valid
                 lateral_reference_expected = centering.valid
 
+            if (
+                projected_axial_reference is not None
+                and (
+                    not axial.valid
+                    or axial.source in ('none', 'front_rear_rejected')
+                )
+            ):
+                projected_axial = (
+                    self._projected_axial_wall_cell_centering_estimate(
+                        reference=projected_axial_reference,
+                        ranges=current_ranges,
+                    )
+                )
+                if projected_axial.valid:
+                    axial = projected_axial
+                    axial_reference_expected = True
+                elif not axial.valid:
+                    axial = replace(
+                        axial,
+                        reason=(
+                            f'{axial.reason}; projected_axial='
+                            f'{projected_axial.reason}'
+                        ),
+                    )
+
             safety_axial = self._safety_axial_cell_centering_estimate(current_ranges)
             if safety_axial.valid and (
                 not axial.valid
@@ -3356,6 +3620,9 @@ class DarthMaulControlNode(Node):
                     'front_rear',
                     'front_reacquired',
                     'rear_reacquired',
+                    'projected_front',
+                    'projected_rear',
+                    'projected_front_rear',
                     'front_safety',
                     'rear_safety',
                 )
@@ -3530,9 +3797,8 @@ class DarthMaulControlNode(Node):
                 longitudinal_error_m = float(axial.error_m)
                 longitudinal_source = f'axial/immediate_{axial.source}'
                 longitudinal_reason = (
-                    'compact known-transit settle uses immediate destination '
-                    'front/rear LiDAR axial reference; no nearest far-wall '
-                    'inference; '
+                    'compact known-transit settle uses axial LiDAR reference '
+                    '(immediate or bounded projected mapped wall); '
                     f'run_cells={context.run_cells}; '
                     f'axial_error={axial.error_m:.3f} m; '
                     f'axial_source={axial.source}; '

@@ -230,6 +230,16 @@ darth_maul_control:
     # reference once it is close enough to the calibrated cell-center range.
     grid_cell_settle_rejected_axial_single_wall_enabled: true
     grid_cell_settle_rejected_axial_single_wall_max_error_m: 0.080
+    # Bounded projected front/rear axial settle.
+    # This restores absolute longitudinal cell-centering when the nearest
+    # front/rear wall is not immediate but is still visible and map-consistent.
+    # Odom is not used as distance truth.
+    grid_cell_settle_projected_axial_enabled: true
+    grid_cell_settle_projected_axial_min_run_cells: 2
+    grid_cell_settle_projected_axial_max_open_cells: 4
+    grid_cell_settle_projected_axial_max_distance_m: 1.200
+    grid_cell_settle_projected_axial_max_error_m: 0.160
+    grid_cell_settle_projected_axial_front_rear_agreement_m: 0.120
     grid_cell_settle_lateral_tolerance_m: 0.020
     grid_cell_settle_heading_tolerance_rad: 0.060
     grid_cell_settle_require_longitudinal_reference: false
