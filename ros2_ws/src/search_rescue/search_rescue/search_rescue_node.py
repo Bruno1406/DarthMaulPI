@@ -538,7 +538,7 @@ class SearchRescueNode(Node):
 
         # TODO: Enable this client only when the grading service is running.
         # During local tests, keep it disabled to avoid blocking startup.
-        # self.client = self.create_client(GradeCubes, "/grade_cubes")
+        self.client = self.create_client(GradeCubes, "/grade_cubes")
         # while not self.client.wait_for_service(1.0):
         #     self.get_logger().info("waiting for grade_cubes service ...")
 
@@ -737,6 +737,7 @@ class SearchRescueNode(Node):
         self.get_logger().info("exploration finished")
         self.submit_cubes_once()   
 
+    
     def submit_cubes_once(self):
         if self.has_submitted:
             return
@@ -2004,6 +2005,8 @@ class SearchRescueNode(Node):
             self.unknown_as_wall_on_export,
         )
         self.maze_pub.publish(msg)
+
+        self.submit_cubes_once()
 
 
         self.get_logger().info(

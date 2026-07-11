@@ -1,10 +1,10 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, SetEnvironmentVariable
 
 
 def generate_launch_description():
@@ -85,11 +85,44 @@ def generate_launch_description():
         DeclareLaunchArgument('grade_service_timeout_s', default_value='10.0'),
         DeclareLaunchArgument('grade_result_required', default_value='false'),
 
-        DeclareLaunchArgument('camera_face_down', default_value='true'),
+        # 11111
+        DeclareLaunchArgument('camera_face_down', default_value='false'),
         DeclareLaunchArgument('camera_vertical_servo_id', default_value='1'),
         DeclareLaunchArgument('camera_down_position', default_value='2000'),
         DeclareLaunchArgument('camera_horizontal_servo_id', default_value='2'),
         DeclareLaunchArgument('camera_left_position', default_value='2000'),
+
+        SetEnvironmentVariable('MACHINE_TYPE', 'MentorPi_Mecanum'),
+
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                PathJoinSubstitution([
+                    FindPackageShare('controller'),
+                    'launch',
+                    'controller.launch.py',
+                ])
+            )
+        ),
+
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                PathJoinSubstitution([
+                    FindPackageShare('ldlidar_node'),
+                    'launch',
+                    'ldlidar.launch.py',
+                ])
+            )
+        ),
+
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                PathJoinSubstitution([
+                    FindPackageShare('darth_maul_control'),
+                    'launch',
+                    'control.launch.py',
+                ])
+            )
+        ),
 
         # --- 3. Include Peripheral Launch Files (from your XML) ---
         IncludeLaunchDescription(
