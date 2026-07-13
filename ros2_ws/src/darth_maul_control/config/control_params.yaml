@@ -314,14 +314,20 @@ darth_maul_control:
     rotate_pre_clearance_target_rear_m: 0.115
     rotate_pre_clearance_timeout_sec: 1.0
     rotate_pre_clearance_max_linear_x_mps: 0.045
-    # Translation/grid settle handles centering. Post-rotate settling can perturb
-    # yaw and was observed to let a 0.143 rad rotate be accepted before driving.
-    rotate_post_grid_settle_enabled: false
-    rotate_post_grid_settle_timeout_sec: 1.2
-    rotate_post_grid_settle_lateral_tolerance_m: 0.020
-    rotate_post_grid_settle_heading_tolerance_rad: 0.060
-    rotate_post_grid_settle_max_linear_y_mps: 0.035
-    rotate_post_grid_settle_max_yaw_radps: 0.140
+    # After odometry finishes a relative turn, use only global Manhattan LiDAR
+    # geometry for a small yaw-only correction. This is map-independent, never
+    # commands translation, and is nonfatal when wall geometry is unavailable.
+    rotate_post_manhattan_snap_enabled: true
+    rotate_post_manhattan_snap_acquire_timeout_sec: 0.60
+    rotate_post_manhattan_snap_timeout_sec: 2.0
+    rotate_post_manhattan_snap_tolerance_rad: 0.040
+    rotate_post_manhattan_snap_max_abs_error_rad: 0.200
+    rotate_post_manhattan_snap_max_yaw_radps: 0.140
+    rotate_post_manhattan_snap_min_confidence: 0.70
+    rotate_post_manhattan_snap_confirm_samples: 2
+    rotate_post_manhattan_snap_stable_samples: 2
+    rotate_post_manhattan_snap_max_sample_delta_rad: 0.035
+    rotate_post_manhattan_snap_max_scan_hold_sec: 0.20
 
     # Movement diagnostics. These are no longer "diagnostic only" philosophically:
     # the live controller actively uses lateral error when observable.
