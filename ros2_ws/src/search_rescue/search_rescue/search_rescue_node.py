@@ -574,6 +574,10 @@ class SearchRescueNode(Node):
             self.get_logger().info("no raw image yet")
             return
         
+        # Only trust cube detection when the robot is already stopped between steps.
+        if self.motion_in_flight:
+            return
+        
         valid_detections = []
         for d in msg.detections:
             xs = [c.x for c in d.corners]
@@ -612,6 +616,11 @@ class SearchRescueNode(Node):
         # Only record cubes in a useful distance range.
         if xr_cm < 8 or xr_cm > 35:
             return
+        
+        cube_cell = neighbor(self.current_cell, self.heading)
+        self.block_cube_cell(cube_cell)
+        self.motion_queue.clear()
+        return
 
         
         #TODO: Convert robot-relative cube position to global map coordinates.
@@ -625,10 +634,18 @@ class SearchRescueNode(Node):
         cv2.imwrite("/tmp/search_rescue_rect_crop.jpg", rect_crop)
         cv2.imwrite("/tmp/search_rescue_raw_crop.jpg", raw_crop)
 
-        # TODO: xr_cm and yr_cm are currently robot-relative coordinates.
-        # The competition requires absolute maze coordinates, so convert them
-        # using the robot's global pose before calling process_cube_detection().
-        self.process_cube_detection(xr_cm, yr_cm, raw_crop) 
+        
+        x_abs_cm, y_abs_cm = self.cube_robot_to_global(xr_cm, yr_cm)
+        self.process_cube_detection(x_abs_cm, y_abs_cm, raw_crop) 
+    
+    def block_cube_cell(self, cell):
+        self.maze.ensure_cell(cell)
+
+        for direction in DIRECTIONS:
+            self.maze.update_edge(cell, direction, WALL)
+
+        self.get_logger().warn(f"blocked cube cell: {cell}")
+        self._publish_map("cube cell blocked")
 
     def crop_cube_from_detection(self, image, detection):
         if image is None:
@@ -732,6 +749,32 @@ class SearchRescueNode(Node):
         left_cm = -lateral_m * 100
 
         return forward_cm, left_cm
+    
+    def cube_robot_to_global(self, forward_cm, left_cm):
+        cell_cm = self.cell_length_m * 100.0
+
+        robot_x_cm = self.current_cell[0] * cell_cm
+        robot_y_cm = self.current_cell[1] * cell_cm
+
+        # TODO: Measure these on the real robot if the camera is not at robot center.
+        camera_forward_offset_cm = 8.0
+        camera_left_offset_cm = 0.0
+
+        f = forward_cm + camera_forward_offset_cm
+        l = left_cm + camera_left_offset_cm
+
+        if self.heading == POS_X:
+            dx_cm, dy_cm = f, l
+        elif self.heading == POS_Y:
+            dx_cm, dy_cm = -l, f
+        elif self.heading == NEG_X:
+            dx_cm, dy_cm = -f, -l
+        elif self.heading == NEG_Y:
+            dx_cm, dy_cm = l, -f
+        else:
+            raise ValueError(f"Invalid heading: {self.heading}")
+
+        return robot_x_cm + dx_cm, robot_y_cm + dy_cm
     
     def on_exploration_finished(self):
         self.get_logger().info("exploration finished")
