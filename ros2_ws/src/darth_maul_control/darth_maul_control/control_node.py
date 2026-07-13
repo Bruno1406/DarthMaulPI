@@ -193,15 +193,6 @@ class GridCellSettleResult:
     yaw_correction_used: bool
 
 
-@dataclass(frozen=True)
-class PostRotateManhattanSnapResult:
-    canceled: bool
-    correction_applied: bool
-    converged: bool
-    measured_abs_error_rad: Optional[float]
-    reason: str
-
-
 SUPPORTED_PRIMITIVES = {
     ExecuteMotionPrimitive.Goal.DRIVE_FORWARD,
     ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD,
@@ -1040,67 +1031,6 @@ class DarthMaulControlNode(Node):
             'rotate_pre_clearance_max_linear_x_mps',
             0.045,
         )
-        self.rotate_post_manhattan_snap_enabled = self._bool_param(
-            'rotate_post_manhattan_snap_enabled',
-            True,
-        )
-        self.rotate_post_manhattan_snap_acquire_timeout_sec = (
-            self._positive_float_param(
-                'rotate_post_manhattan_snap_acquire_timeout_sec',
-                0.60,
-            )
-        )
-        self.rotate_post_manhattan_snap_timeout_sec = self._positive_float_param(
-            'rotate_post_manhattan_snap_timeout_sec',
-            2.0,
-        )
-        self.rotate_post_manhattan_snap_tolerance_rad = self._positive_float_param(
-            'rotate_post_manhattan_snap_tolerance_rad',
-            0.040,
-        )
-        self.rotate_post_manhattan_snap_max_abs_error_rad = (
-            self._positive_float_param(
-                'rotate_post_manhattan_snap_max_abs_error_rad',
-                0.200,
-            )
-        )
-        self.rotate_post_manhattan_snap_max_yaw_radps = (
-            self._positive_float_param(
-                'rotate_post_manhattan_snap_max_yaw_radps',
-                0.140,
-            )
-        )
-        self.rotate_post_manhattan_snap_min_confidence = (
-            self._nonnegative_float_param(
-                'rotate_post_manhattan_snap_min_confidence',
-                0.70,
-            )
-        )
-        self.rotate_post_manhattan_snap_confirm_samples = self._positive_int_param(
-            'rotate_post_manhattan_snap_confirm_samples',
-            2,
-        )
-        self.rotate_post_manhattan_snap_stable_samples = self._positive_int_param(
-            'rotate_post_manhattan_snap_stable_samples',
-            2,
-        )
-        self.rotate_post_manhattan_snap_max_sample_delta_rad = (
-            self._positive_float_param(
-                'rotate_post_manhattan_snap_max_sample_delta_rad',
-                0.035,
-            )
-        )
-        self.rotate_post_manhattan_snap_max_scan_hold_sec = (
-            self._positive_float_param(
-                'rotate_post_manhattan_snap_max_scan_hold_sec',
-                0.20,
-            )
-        )
-        self.rotate_post_manhattan_snap_min_confidence = max(
-            0.0,
-            min(1.0, self.rotate_post_manhattan_snap_min_confidence),
-        )
-
         self.grid_lateral_drift_diagnostics_enabled = self._bool_param(
             'grid_lateral_drift_diagnostics_enabled',
             True,
@@ -2347,279 +2277,6 @@ class DarthMaulControlNode(Node):
         self.publish_zero_twist()
         return 'pre-rotate clearance settle timeout or unavailable: ' + last_reason
 
-    def _post_rotate_manhattan_snap(
-        self,
-        goal_handle,
-        limits: VelocityLimits,
-    ) -> PostRotateManhattanSnapResult:
-        """Apply a small, yaw-only Manhattan correction after odom rotation.
-
-        This phase is deliberately independent of map context. It never commands
-        translation and it is nonfatal when Manhattan geometry is unavailable.
-        """
-        if not self.rotate_post_manhattan_snap_enabled:
-            return PostRotateManhattanSnapResult(
-                canceled=False,
-                correction_applied=False,
-                converged=False,
-                measured_abs_error_rad=None,
-                reason='post-rotate Manhattan snap disabled',
-            )
-
-        if not self.grid_manhattan_yaw_enabled:
-            return PostRotateManhattanSnapResult(
-                canceled=False,
-                correction_applied=False,
-                converged=False,
-                measured_abs_error_rad=None,
-                reason='post-rotate Manhattan snap skipped: Manhattan yaw disabled',
-            )
-
-        max_yaw_rate = min(
-            abs(float(limits.max_angular_z_radps)),
-            float(self.rotate_post_manhattan_snap_max_yaw_radps),
-        )
-        if max_yaw_rate <= 0.0:
-            return PostRotateManhattanSnapResult(
-                canceled=False,
-                correction_applied=False,
-                converged=False,
-                measured_abs_error_rad=None,
-                reason='post-rotate Manhattan snap skipped: zero angular speed limit',
-            )
-
-        self.publish_zero_twist()
-
-        # Discard the scan that existed when the snap phase began. The next
-        # observation must come from a distinct scan received after stopping.
-        _, last_scan_token = self._fresh_scan_copy_with_token()
-
-        start_time = time.monotonic()
-        acquire_deadline = (
-            start_time + self.rotate_post_manhattan_snap_acquire_timeout_sec
-        )
-        deadline = start_time + self.rotate_post_manhattan_snap_timeout_sec
-
-        previous_error: Optional[float] = None
-        consistent_samples = 0
-        stable_samples = 0
-        correction_applied = False
-        last_valid_error: Optional[float] = None
-        last_reason = 'waiting for a distinct fresh LiDAR scan'
-
-        while time.monotonic() <= deadline:
-            if self._cancel_or_stop_requested(goal_handle):
-                self.publish_zero_twist()
-                return PostRotateManhattanSnapResult(
-                    canceled=True,
-                    correction_applied=correction_applied,
-                    converged=False,
-                    measured_abs_error_rad=(
-                        abs(last_valid_error)
-                        if last_valid_error is not None
-                        else None
-                    ),
-                    reason='post-rotate Manhattan snap canceled',
-                )
-
-            scan, scan_token = self._fresh_scan_copy_with_token()
-            now = time.monotonic()
-
-            if scan is None or scan_token is None:
-                self.publish_zero_twist()
-                last_reason = 'no fresh LiDAR scan'
-
-                if not correction_applied and now >= acquire_deadline:
-                    break
-
-                time.sleep(1.0 / self.control_rate_hz)
-                continue
-
-            if scan_token == last_scan_token:
-                # Do not allow the last angular command to remain active
-                # indefinitely while waiting for another scan.
-                if (
-                    correction_applied
-                    and now - scan_token
-                    > self.rotate_post_manhattan_snap_max_scan_hold_sec
-                ):
-                    self.publish_zero_twist()
-                    last_reason = (
-                        'waiting for a new LiDAR scan; angular command held for '
-                        'too long and was stopped'
-                    )
-
-                if (
-                    not correction_applied
-                    and now >= acquire_deadline
-                    and consistent_samples
-                    < self.rotate_post_manhattan_snap_confirm_samples
-                ):
-                    last_reason = (
-                        'not enough distinct consistent post-stop LiDAR scans '
-                        'before acquisition timeout'
-                    )
-                    break
-
-                time.sleep(1.0 / self.control_rate_hz)
-                continue
-
-            last_scan_token = scan_token
-
-            observation = self._manhattan_yaw_observation_from_scan(
-                scan,
-                max_abs_yaw_error_rad=(
-                    self.rotate_post_manhattan_snap_max_abs_error_rad
-                ),
-            )
-
-            observation_valid = bool(
-                observation.valid
-                and observation.confidence
-                >= self.rotate_post_manhattan_snap_min_confidence
-            )
-
-            if not observation_valid:
-                self.publish_zero_twist()
-
-                # Invalid geometry breaks the consecutive-observation chain.
-                previous_error = None
-                consistent_samples = 0
-                stable_samples = 0
-
-                last_reason = (
-                    'invalid Manhattan observation: '
-                    f'confidence={observation.confidence:.2f}; '
-                    f'{observation.reason}'
-                )
-
-                if not correction_applied and now >= acquire_deadline:
-                    break
-
-                time.sleep(1.0 / self.control_rate_hz)
-                continue
-
-            error = float(observation.yaw_error_rad)
-            last_valid_error = error
-
-            if previous_error is None:
-                consistent_samples = 1
-            else:
-                # Sign changes are allowed inside the final tolerance because
-                # small measurement noise can move the estimate across zero.
-                same_direction = bool(
-                    error * previous_error >= 0.0
-                    or abs(error)
-                    <= self.rotate_post_manhattan_snap_tolerance_rad
-                    or abs(previous_error)
-                    <= self.rotate_post_manhattan_snap_tolerance_rad
-                )
-                close_enough = bool(
-                    abs(error - previous_error)
-                    <= self.rotate_post_manhattan_snap_max_sample_delta_rad
-                )
-
-                consistent_samples = (
-                    consistent_samples + 1
-                    if same_direction and close_enough
-                    else 1
-                )
-
-            previous_error = error
-
-            if abs(error) <= self.rotate_post_manhattan_snap_tolerance_rad:
-                # Stop while confirming that the final heading remains stable.
-                self.publish_zero_twist()
-                stable_samples = (
-                    stable_samples + 1 if consistent_samples > 1 else 1
-                )
-                angular_z = 0.0
-            else:
-                stable_samples = 0
-
-                if (
-                    consistent_samples
-                    >= self.rotate_post_manhattan_snap_confirm_samples
-                ):
-                    angular_z = clamp(
-                        self.k_grid_live_yaw * error,
-                        -max_yaw_rate,
-                        max_yaw_rate,
-                    )
-                    self._publish_rotate_only(angular_z)
-                    correction_applied = True
-                else:
-                    # Never rotate from only one Manhattan observation.
-                    angular_z = 0.0
-                    self.publish_zero_twist()
-
-            last_reason = (
-                f'error={error:.3f} rad; '
-                f'confidence={observation.confidence:.2f}; '
-                f'consistent={consistent_samples}/'
-                f'{self.rotate_post_manhattan_snap_confirm_samples}; '
-                f'stable={stable_samples}/'
-                f'{self.rotate_post_manhattan_snap_stable_samples}; '
-                f'cmd_yaw={angular_z:.3f} rad/s; '
-                f'{observation.reason}'
-            )
-
-            self._update_motion_state(
-                distance_remaining=0.0,
-                distance_traveled=0.0,
-                heading_error=error,
-                status='ROTATE_RELATIVE Manhattan snap: ' + last_reason,
-            )
-            self._publish_feedback(
-                goal_handle,
-                progress=1.0,
-                distance_remaining=0.0,
-                heading_remaining=error,
-                state='ROTATE_RELATIVE_MANHATTAN_SNAP',
-            )
-
-            if stable_samples >= self.rotate_post_manhattan_snap_stable_samples:
-                self.publish_zero_twist()
-                return PostRotateManhattanSnapResult(
-                    canceled=False,
-                    correction_applied=correction_applied,
-                    converged=True,
-                    measured_abs_error_rad=abs(error),
-                    reason='post-rotate Manhattan snap converged: ' + last_reason,
-                )
-
-            if (
-                not correction_applied
-                and now >= acquire_deadline
-                and consistent_samples
-                < self.rotate_post_manhattan_snap_confirm_samples
-            ):
-                last_reason = (
-                    'post-rotate Manhattan snap skipped: observations did not '
-                    'become consistent before acquisition timeout; '
-                    + last_reason
-                )
-                break
-
-            time.sleep(1.0 / self.control_rate_hz)
-
-        self.publish_zero_twist()
-
-        measured_error = (
-            abs(last_valid_error)
-            if last_valid_error is not None
-            else None
-        )
-        outcome = 'timed out' if correction_applied else 'skipped'
-
-        return PostRotateManhattanSnapResult(
-            canceled=False,
-            correction_applied=correction_applied,
-            converged=False,
-            measured_abs_error_rad=measured_error,
-            reason=f'post-rotate Manhattan snap {outcome}: {last_reason}',
-        )
-
     def _execute_rotate(self, goal_handle):
         request = goal_handle.request
         target_angle = float(request.value)
@@ -2781,7 +2438,7 @@ class DarthMaulControlNode(Node):
                 result_success = True
                 result_code = ExecuteMotionPrimitive.Result.SUCCESS
                 result_message = (
-                    'ROTATE_RELATIVE odom phase succeeded: '
+                    'ROTATE_RELATIVE succeeded: '
                     f'odom_heading_error={final_heading_error:.3f} rad'
                 )
                 break
@@ -2818,36 +2475,6 @@ class DarthMaulControlNode(Node):
             )
 
             time.sleep(1.0 / self.control_rate_hz)
-
-        if result_success:
-            odom_heading_error_before_snap = final_heading_error
-
-            snap_result = self._post_rotate_manhattan_snap(
-                goal_handle,
-                limits,
-            )
-
-            if snap_result.canceled:
-                return self._cancel_result(goal_handle)
-
-            # A skipped, unconfirmed observation must not replace the accepted
-            # odometry result. Use Manhattan error only when it converged or when
-            # it actually commanded a correction.
-            if (
-                snap_result.measured_abs_error_rad is not None
-                and (
-                    snap_result.converged
-                    or snap_result.correction_applied
-                )
-            ):
-                final_heading_error = snap_result.measured_abs_error_rad
-
-            result_message = (
-                f'{result_message}; '
-                f'odom_heading_error_before_snap='
-                f'{odom_heading_error_before_snap:.3f} rad; '
-                f'{snap_result.reason}'
-            )
 
         final_alignment = self._grid_alignment_snapshot()
         result_message = self._append_grid_alignment_diagnostics(
@@ -2985,15 +2612,11 @@ class DarthMaulControlNode(Node):
         scan = self._fresh_scan_copy()
         return self._grid_alignment_from_scan(scan)
 
-    def _manhattan_yaw_observation_from_scan(
-        self,
-        scan: Optional[LaserScan],
-        *,
-        max_abs_yaw_error_rad: float,
-    ) -> GridYawObservation:
+    def _manhattan_yaw_observation(self) -> GridYawObservation:
         if not self.grid_manhattan_yaw_enabled:
             return invalid_grid_yaw('grid Manhattan yaw disabled')
 
+        scan = self._fresh_scan_copy()
         if scan is None:
             return invalid_grid_yaw('no fresh scan for Manhattan yaw')
 
@@ -3010,12 +2633,6 @@ class DarthMaulControlNode(Node):
             min_line_count=self.grid_manhattan_yaw_min_line_count,
             min_total_weight=self.grid_manhattan_yaw_min_total_weight,
             min_concentration=self.grid_manhattan_yaw_min_concentration,
-            max_abs_yaw_error_rad=max_abs_yaw_error_rad,
-        )
-
-    def _manhattan_yaw_observation(self) -> GridYawObservation:
-        return self._manhattan_yaw_observation_from_scan(
-            self._fresh_scan_copy(),
             max_abs_yaw_error_rad=self.grid_manhattan_yaw_max_abs_error_rad,
         )
 
@@ -5610,24 +5227,13 @@ class DarthMaulControlNode(Node):
     def _wall_support_count(estimate: WallLineEstimate) -> int:
         return int(max(0, min(65535, estimate.support_count)))
 
-    def _fresh_scan_copy_with_token(
-        self,
-    ) -> tuple[Optional[LaserScan], Optional[float]]:
+    def _fresh_scan_copy(self) -> Optional[LaserScan]:
         with self._scan_lock:
             if self._latest_scan is None or self._last_scan_monotonic is None:
-                return None, None
-
+                return None
             if time.monotonic() - self._last_scan_monotonic > self.scan_timeout_sec:
-                return None, None
-
-            return (
-                deepcopy(self._latest_scan),
-                float(self._last_scan_monotonic),
-            )
-
-    def _fresh_scan_copy(self) -> Optional[LaserScan]:
-        scan, _ = self._fresh_scan_copy_with_token()
-        return scan
+                return None
+            return deepcopy(self._latest_scan)
 
     def _get_motion_snapshot(self) -> Optional[MotionSnapshot]:
         with self._odom_lock:
