@@ -95,7 +95,7 @@ def generate_launch_description():
         DeclareLaunchArgument('start_heading', default_value='1'),
         DeclareLaunchArgument('wall_threshold_m', default_value='0.18'),
         DeclareLaunchArgument('open_threshold_m', default_value='0.30'),
-        DeclareLaunchArgument('drive_max_linear_x_mps', default_value='0.22'),
+        DeclareLaunchArgument('drive_max_linear_x_mps', default_value='0.25'),
         DeclareLaunchArgument('reverse_max_linear_x_mps', default_value='0.085'),
         DeclareLaunchArgument('reverse_backtracking_enabled', default_value='true'),
         DeclareLaunchArgument('reverse_backtracking_max_consecutive_cells', default_value='0'),

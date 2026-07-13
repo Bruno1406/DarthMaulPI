@@ -19,7 +19,8 @@ darth_maul_control:
     default_heading_tolerance_rad: 0.060
 
     # Competition speed limits tuned for reliable rotation settling.
-    default_linear_speed_mps: 0.240
+    # Normal forward transit. Task-specific goals may request a lower cap.
+    default_linear_speed_mps: 0.270
     default_reverse_speed_mps: 0.080
     default_angular_speed_radps: 0.820
 
