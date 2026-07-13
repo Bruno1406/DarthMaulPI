@@ -130,9 +130,9 @@ def generate_launch_description():
 
         DeclareLaunchArgument('camera_face_down', default_value='false'),
         DeclareLaunchArgument('camera_vertical_servo_id', default_value='1'),
-        DeclareLaunchArgument('camera_down_position', default_value='2000'),
+        DeclareLaunchArgument('camera_down_position', default_value='2500'),
         DeclareLaunchArgument('camera_horizontal_servo_id', default_value='2'),
-        DeclareLaunchArgument('camera_left_position', default_value='2000'),
+        DeclareLaunchArgument('camera_left_position', default_value='2500'),
 
         Node(
             package='maze_solver',
