@@ -775,7 +775,21 @@ def choose_lidar_progress(
     odom_progress_m: float | None = None,
     odom_arbitration_tolerance_m: float = 0.060,
     odom_arbitration_min_margin_m: float = 0.010,
+    max_progress_m: float | None = None,
 ) -> LidarProgressEstimate:
+    def progress_is_plausible(progress_m: float) -> bool:
+        if not math.isfinite(progress_m):
+            return False
+        if progress_m < min_progress_m:
+            return False
+        if (
+            max_progress_m is not None
+            and math.isfinite(float(max_progress_m))
+            and progress_m > float(max_progress_m)
+        ):
+            return False
+        return True
+
     def rejection_reason(
         name: str,
         valid: bool,
@@ -790,17 +804,25 @@ def choose_lidar_progress(
                 f'{name} progress {float(progress_m):.3f} m '
                 f'< {float(min_progress_m):.3f} m'
             )
+        if (
+            max_progress_m is not None
+            and math.isfinite(float(max_progress_m))
+            and progress_m > float(max_progress_m)
+        ):
+            return (
+                f'{name} progress {float(progress_m):.3f} m '
+                f'> maximum plausible {float(max_progress_m):.3f} m; '
+                'likely range-surface transition'
+            )
         return f'{name} progress valid'
 
-    front_ok = (
+    front_ok = bool(
         front_valid
-        and math.isfinite(front_progress_m)
-        and front_progress_m >= min_progress_m
+        and progress_is_plausible(float(front_progress_m))
     )
-    rear_ok = (
+    rear_ok = bool(
         rear_valid
-        and math.isfinite(rear_progress_m)
-        and rear_progress_m >= min_progress_m
+        and progress_is_plausible(float(rear_progress_m))
     )
     front_rejection = rejection_reason(
         'front',

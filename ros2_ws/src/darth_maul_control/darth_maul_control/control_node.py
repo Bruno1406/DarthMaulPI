@@ -1446,6 +1446,7 @@ class DarthMaulControlNode(Node):
                 start_ranges=start_ranges,
                 end_ranges=start_ranges,
                 track_lidar_progress=True,
+                target_distance_m=target_distance,
             )
             start_selection = self._select_translation_progress(
                 odom_progress_m=0.0,
@@ -1489,6 +1490,7 @@ class DarthMaulControlNode(Node):
                     start_ranges=current_ranges,
                     end_ranges=current_ranges,
                     track_lidar_progress=True,
+                    target_distance_m=target_distance,
                 )
                 progress_selection = self._select_translation_progress(
                     odom_progress_m=0.0,
@@ -1510,6 +1512,7 @@ class DarthMaulControlNode(Node):
                     start_ranges=start_ranges,
                     end_ranges=current_ranges,
                     track_lidar_progress=True,
+                    target_distance_m=target_distance,
                 )
                 progress_selection = self._select_translation_progress(
                     odom_progress_m=odom_progress,
@@ -1810,6 +1813,7 @@ class DarthMaulControlNode(Node):
                         start_ranges=start_ranges,
                         end_ranges=final_ranges,
                         track_lidar_progress=True,
+                        target_distance_m=target_distance,
                     )
                     final_selection = self._select_translation_progress(
                         odom_progress_m=odom_progress,
@@ -2093,6 +2097,7 @@ class DarthMaulControlNode(Node):
                 start_ranges=start_ranges,
                 end_ranges=end_ranges,
                 track_lidar_progress=True,
+                target_distance_m=target_distance,
             )
 
             final_selection = self._select_translation_progress(
@@ -3756,6 +3761,7 @@ class DarthMaulControlNode(Node):
                     start_ranges=start_ranges,
                     end_ranges=self._cardinal_range_snapshot(),
                     track_lidar_progress=False,
+                    target_distance_m=commanded_distance,
                 )
                 progress_selection = self._select_translation_progress(
                     odom_progress_m=last_odom_progress,
@@ -4131,6 +4137,7 @@ class DarthMaulControlNode(Node):
                 start_ranges=start_ranges,
                 end_ranges=current_ranges,
                 track_lidar_progress=False,
+                target_distance_m=commanded_distance,
             )
             progress_selection = self._select_translation_progress(
                 odom_progress_m=odom_progress,
@@ -4991,6 +4998,7 @@ class DarthMaulControlNode(Node):
         start_ranges: Optional[LidarRangeSnapshot],
         end_ranges: Optional[LidarRangeSnapshot],
         track_lidar_progress: bool = False,
+        target_distance_m: Optional[float] = None,
     ) -> TranslationDiagnostics:
         if start_ranges is None or end_ranges is None:
             return TranslationDiagnostics(
@@ -5021,6 +5029,15 @@ class DarthMaulControlNode(Node):
             front_progress = front_end - front_start if front_valid else 0.0
             rear_progress = rear_start - rear_end if rear_valid else 0.0
 
+        max_progress_m = None
+        if (
+            target_distance_m is not None
+            and math.isfinite(float(target_distance_m))
+            and float(target_distance_m) > 0.0
+        ):
+            target = float(target_distance_m)
+            max_progress_m = target + max(0.10, 0.50 * target)
+
         lidar_estimate = choose_lidar_progress(
             front_valid=front_valid,
             front_progress_m=front_progress,
@@ -5036,6 +5053,7 @@ class DarthMaulControlNode(Node):
             odom_arbitration_min_margin_m=(
                 self.lidar_progress_odom_arbitration_min_margin_m
             ),
+            max_progress_m=max_progress_m,
         )
 
         temporal_degraded = False
