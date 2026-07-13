@@ -1797,17 +1797,25 @@ class DarthMaulControlNode(Node):
                     'diagnostic_only'
                 )
 
+                final_control_progress = control_progress
+                final_progress_source_used = (
+                    progress_selection.source
+                )
+                final_control_progress_reason = (
+                    progress_selection.reason
+                    + '; physical no-progress stall'
+                )
+
                 translation_diagnostics = replace(
                     current_diagnostics,
                     final_control_progress_m=(
-                        control_progress
+                        final_control_progress
                     ),
                     progress_source_used=(
-                        progress_selection.source
+                        final_progress_source_used
                     ),
                     control_progress_reason=(
-                        progress_selection.reason
-                        + '; physical no-progress stall'
+                        final_control_progress_reason
                     ),
                 )
 

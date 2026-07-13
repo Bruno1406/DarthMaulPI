@@ -32,6 +32,9 @@ class RosRobotController(Node):
 
         self.running = True
         self._reception_enabled = True
+        self._shutdown_event = threading.Event()
+        self._publisher_thread = None
+        self._watchdog_thread = None
 
         self._motor_lock = threading.RLock()
         self._last_motor_command_monotonic = time.monotonic()
@@ -39,6 +42,22 @@ class RosRobotController(Node):
         self._motor_watchdog_tripped = False
 
         self.board = Board()
+
+        if not self._safe_stop_motors(
+            'startup',
+            repeat=5,
+            delay_sec=0.03,
+        ):
+            try:
+                self.board.close()
+            except Exception as exc:
+                self.get_logger().error(
+                    f'Failed to close motor board after startup failure: {exc}'
+                )
+            raise RuntimeError(
+                'Unable to send startup motor-zero command'
+            )
+
         self.board.enable_reception(True)
 
         self.declare_parameter('imu_frame', 'imu_link')
@@ -80,19 +99,17 @@ class RosRobotController(Node):
         # 加载并设置舵机偏移量从 YAML 文件
         self.load_servo_offsets()
 
-        # 初始化电机速度
-        self._safe_stop_motors(
-            'startup',
-            repeat=3,
-            delay_sec=0.02,
-        )
-
         self.clock = self.get_clock()
-        threading.Thread(target=self.pub_callback, daemon=True).start()
-        threading.Thread(
+        self._publisher_thread = threading.Thread(
+            target=self.pub_callback,
+            daemon=True,
+        )
+        self._watchdog_thread = threading.Thread(
             target=self._motor_watchdog_loop,
             daemon=True,
-        ).start()
+        )
+        self._publisher_thread.start()
+        self._watchdog_thread.start()
         self.create_service(Trigger, '~/init_finish', self.get_node_state)
         self.get_logger().info('\033[1;32m%s\033[0m' % 'start')
 
@@ -131,7 +148,10 @@ class RosRobotController(Node):
         return response
 
     def pub_callback(self):
-        while self.running and rclpy.ok():
+        while (
+            not self._shutdown_event.is_set()
+            and rclpy.ok()
+        ):
             if self._reception_enabled:
                 self.pub_button_data(self.button_pub)
                 self.pub_joy_data(self.joy_pub)
@@ -139,7 +159,7 @@ class RosRobotController(Node):
                 self.pub_sbus_data(self.sbus_pub)
                 self.pub_battery_data(self.battery_pub)
 
-            time.sleep(0.02)
+            self._shutdown_event.wait(0.02)
 
     def _enable_reception_callback(self, msg):
         self._reception_enabled = bool(msg.data)
@@ -208,9 +228,9 @@ class RosRobotController(Node):
         return stopped
 
     def _motor_watchdog_loop(self):
-        while self.running:
-            time.sleep(self.motor_watchdog_period_sec)
-
+        while not self._shutdown_event.wait(
+            self.motor_watchdog_period_sec
+        ):
             with self._motor_lock:
                 command_nonzero = self._last_motor_command_nonzero
                 command_age = (
@@ -488,6 +508,7 @@ class RosRobotController(Node):
 
     def destroy_node(self):
         self.running = False
+        self._shutdown_event.set()
 
         # Direct SDK write. This does not depend on another ROS node receiving
         # a final message during shutdown.
@@ -496,6 +517,23 @@ class RosRobotController(Node):
             repeat=5,
             delay_sec=0.03,
         )
+
+        for thread in (
+            self._publisher_thread,
+            self._watchdog_thread,
+        ):
+            if (
+                thread is not None
+                and thread is not threading.current_thread()
+            ):
+                thread.join(timeout=0.5)
+
+        try:
+            self.board.close()
+        except Exception as exc:
+            self.get_logger().error(
+                f'Failed to close motor board cleanly: {exc}'
+            )
 
         return super().destroy_node()
 

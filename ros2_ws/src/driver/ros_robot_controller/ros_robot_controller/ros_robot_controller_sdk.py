@@ -116,6 +116,7 @@ class Board:
         self.servo_read_lock = threading.Lock()
         self.pwm_servo_read_lock = threading.Lock()
         self.write_lock = threading.Lock()
+        self._recv_stop_event = threading.Event()
 
         # 队列用来存储数据(use queue to store data)
         self.sys_queue = queue.Queue(maxsize=1)
@@ -137,7 +138,11 @@ class Board:
         }
 
         time.sleep(0.5)
-        threading.Thread(target=self.recv_task, daemon=True).start()
+        self._recv_thread = threading.Thread(
+            target=self.recv_task,
+            daemon=True,
+        )
+        self._recv_thread.start()
 
 
     def packet_report_sys(self, data):
@@ -336,7 +341,12 @@ class Board:
                 raise serial.SerialException(
                     'ros_robot_controller serial port is closed'
                 )
-            self.port.write(buf)
+            written = self.port.write(buf)
+            if written != len(buf):
+                raise serial.SerialTimeoutException(
+                    'Incomplete serial write: '
+                    f'{written}/{len(buf)} bytes'
+                )
         #print(buf)
 
 
@@ -494,10 +504,41 @@ class Board:
     def enable_reception(self, enable=True):
         self.enable_recv = enable
 
+    def close(self, join_timeout=0.5):
+        self.enable_recv = False
+        self._recv_stop_event.set()
+
+        if self.port.is_open:
+            cancel_read = getattr(self.port, 'cancel_read', None)
+            if callable(cancel_read):
+                try:
+                    cancel_read()
+                except (OSError, serial.SerialException):
+                    pass
+
+        if self._recv_thread is not threading.current_thread():
+            self._recv_thread.join(timeout=max(0.0, float(join_timeout)))
+
+        with self.write_lock:
+            if self.port.is_open:
+                self.port.close()
+
+        if (
+            self._recv_thread is not threading.current_thread()
+            and self._recv_thread.is_alive()
+        ):
+            self._recv_thread.join(timeout=max(0.0, float(join_timeout)))
+
     def recv_task(self):
-        while True:
+        while not self._recv_stop_event.is_set():
             if self.enable_recv:
-                recv_data = self.port.read()
+                try:
+                    recv_data = self.port.read()
+                except (OSError, serial.SerialException):
+                    if self._recv_stop_event.is_set():
+                        break
+                    raise
+
                 if recv_data:
                     for dat in recv_data:
                         # print("%0.2X "%dat)
@@ -545,9 +586,7 @@ class Board:
                             self.state = PacketControllerState.PACKET_CONTROLLER_STATE_STARTBYTE1
                             continue
             else:
-                time.sleep(0.01)
-        self.port.close()
-        print("END...")
+                self._recv_stop_event.wait(0.01)
 
 def bus_servo_test(board):
     board.bus_servo_set_position(1, [[1, 500], [2, 500]])

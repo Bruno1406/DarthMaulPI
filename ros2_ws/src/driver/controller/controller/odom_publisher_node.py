@@ -370,7 +370,7 @@ class Controller(Node):
             return
 
         with self.odom_lock:
-            self.current_time = time.time()
+            self.current_time = time.monotonic()
 
             if self.last_time is None:
                 self.dt = 0.0
