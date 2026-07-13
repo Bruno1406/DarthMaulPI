@@ -62,6 +62,7 @@ def generate_launch_description():
             'base_frame_id': base_frame,
             'odom_frame_id': odom_frame,
             'pub_odom_topic': True,
+            'cmd_vel_timeout_sec': 0.30,
             }],
     )
 

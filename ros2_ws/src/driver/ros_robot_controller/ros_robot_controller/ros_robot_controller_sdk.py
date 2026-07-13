@@ -101,7 +101,12 @@ class Board:
         self.frame = []
         self.recv_count = 0
 
-        self.port = serial.Serial(None, baudrate, timeout=timeout)
+        self.port = serial.Serial(
+            None,
+            baudrate,
+            timeout=timeout,
+            write_timeout=0.20,
+        )
         self.port.rts = False
         self.port.dtr = False
         self.port.setPort(device)
@@ -110,6 +115,7 @@ class Board:
         self.state = PacketControllerState.PACKET_CONTROLLER_STATE_STARTBYTE1
         self.servo_read_lock = threading.Lock()
         self.pwm_servo_read_lock = threading.Lock()
+        self.write_lock = threading.Lock()
 
         # 队列用来存储数据(use queue to store data)
         self.sys_queue = queue.Queue(maxsize=1)
@@ -322,7 +328,15 @@ class Board:
         buf.extend(data)
         buf.append(checksum_crc8(bytes(buf[2:])))
         buf = bytes(buf)
-        self.port.write(buf)
+
+        # Watchdog, shutdown, servo, and motor callbacks may write from
+        # different threads. A complete protocol frame must remain atomic.
+        with self.write_lock:
+            if not self.port.is_open:
+                raise serial.SerialException(
+                    'ros_robot_controller serial port is closed'
+                )
+            self.port.write(buf)
         #print(buf)
 
 

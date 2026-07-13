@@ -11,7 +11,11 @@ def generate_launch_description():
         package='ros_robot_controller',
         executable='ros_robot_controller',
         output='screen',
-        parameters=[{'imu_frame': imu_frame}]
+        parameters=[{
+            'imu_frame': imu_frame,
+            'motor_command_timeout_sec': 0.50,
+            'motor_watchdog_period_sec': 0.05,
+        }]
     )
 
     return LaunchDescription([

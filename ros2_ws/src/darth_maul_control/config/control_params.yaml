@@ -72,6 +72,15 @@ darth_maul_control:
     translation_lidar_recovery_enabled: true
     translation_lidar_recovery_linear_x_mps: 0.045
 
+    # Abort when meaningful drive commands produce no trusted physical
+    # LiDAR progress. Odom is excluded because it integrates command velocity.
+    translation_stall_detection_enabled: true
+    translation_stall_grace_sec: 0.75
+    translation_stall_window_sec: 0.80
+    translation_stall_min_command_mps: 0.080
+    translation_stall_min_progress_m: 0.008
+    translation_stall_min_remaining_m: 0.050
+
     # 3.5 cm was too tight. Front/rear beams can disagree during long corridors,
     # wall gaps, corners, and after turns. If they disagree, use odom only as
     # referee to choose the plausible LiDAR side, not as progress truth.

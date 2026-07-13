@@ -491,6 +491,42 @@ class DarthMaulControlNode(Node):
             'translation_lidar_recovery_linear_x_mps',
             0.045,
         )
+        self.translation_stall_detection_enabled = (
+            self._bool_param(
+                'translation_stall_detection_enabled',
+                True,
+            )
+        )
+        self.translation_stall_grace_sec = (
+            self._nonnegative_float_param(
+                'translation_stall_grace_sec',
+                0.75,
+            )
+        )
+        self.translation_stall_window_sec = (
+            self._positive_float_param(
+                'translation_stall_window_sec',
+                0.80,
+            )
+        )
+        self.translation_stall_min_command_mps = (
+            self._positive_float_param(
+                'translation_stall_min_command_mps',
+                0.080,
+            )
+        )
+        self.translation_stall_min_progress_m = (
+            self._positive_float_param(
+                'translation_stall_min_progress_m',
+                0.008,
+            )
+        )
+        self.translation_stall_min_remaining_m = (
+            self._positive_float_param(
+                'translation_stall_min_remaining_m',
+                0.050,
+            )
+        )
 
         self.lidar_progress_max_disagreement_m = self._positive_float_param(
             'lidar_progress_max_disagreement_m',
@@ -1469,6 +1505,8 @@ class DarthMaulControlNode(Node):
         lidar_required_invalid_consecutive_samples = 0
         preserve_failure_progress_diagnostics = False
         force_cell_settle_after_invalid_final_progress = False
+        stall_anchor_time = start_time
+        stall_anchor_progress_m = 0.0
 
         lidar_required_start_acquired = True
         if lidar_required_mode:
@@ -1560,6 +1598,11 @@ class DarthMaulControlNode(Node):
             )
 
             if not progress_selection.valid:
+                stall_anchor_time = time.monotonic()
+                stall_anchor_progress_m = (
+                    final_control_progress
+                )
+
                 if lidar_required_mode and self.translation_lidar_recovery_enabled:
                     lidar_required_invalid_consecutive_samples += 1
                     final_progress_source_used = progress_selection.source
@@ -1685,6 +1728,91 @@ class DarthMaulControlNode(Node):
 
             final_position_error = abs(remaining)
             final_heading_error = abs(heading_error)
+
+            now_monotonic = time.monotonic()
+
+            last_commanded_forward_mps = abs(
+                float(
+                    self._last_commanded_twist.linear.x
+                )
+            )
+
+            lidar_is_physical_progress = bool(
+                progress_selection.valid
+                and progress_selection.source == 'lidar'
+            )
+
+            stall_watch_active = bool(
+                self.translation_stall_detection_enabled
+                and lidar_is_physical_progress
+                and elapsed
+                >= self.translation_stall_grace_sec
+                and remaining
+                >= self.translation_stall_min_remaining_m
+                and last_commanded_forward_mps
+                >= self.translation_stall_min_command_mps
+            )
+
+            progress_since_anchor = max(
+                0.0,
+                control_progress
+                - stall_anchor_progress_m,
+            )
+
+            if not stall_watch_active:
+                stall_anchor_time = now_monotonic
+                stall_anchor_progress_m = control_progress
+
+            elif (
+                progress_since_anchor
+                >= self.translation_stall_min_progress_m
+            ):
+                stall_anchor_time = now_monotonic
+                stall_anchor_progress_m = control_progress
+
+            elif (
+                now_monotonic
+                - stall_anchor_time
+                >= self.translation_stall_window_sec
+            ):
+                self._flush_stop(
+                    n=10,
+                    dt=0.03,
+                )
+
+                result_code = (
+                    ExecuteMotionPrimitive.Result.TIMEOUT
+                )
+
+                result_message = (
+                    f'{name} physical no-progress stall: '
+                    f'trusted LiDAR progress increased only '
+                    f'{progress_since_anchor:.3f} m in '
+                    f'{now_monotonic - stall_anchor_time:.2f}s '
+                    f'while commanding '
+                    f'{last_commanded_forward_mps:.3f} m/s; '
+                    f'control_progress={control_progress:.3f} m; '
+                    f'remaining={remaining:.3f} m; '
+                    f'odom_progress={odom_progress:.3f} m '
+                    'diagnostic_only'
+                )
+
+                translation_diagnostics = replace(
+                    current_diagnostics,
+                    final_control_progress_m=(
+                        control_progress
+                    ),
+                    progress_source_used=(
+                        progress_selection.source
+                    ),
+                    control_progress_reason=(
+                        progress_selection.reason
+                        + '; physical no-progress stall'
+                    ),
+                )
+
+                preserve_failure_progress_diagnostics = True
+                break
 
             if bool(request.collision_check_enabled):
                 if self.require_scan_for_collision_check and not self._is_scan_fresh():

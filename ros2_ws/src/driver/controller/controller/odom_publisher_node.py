@@ -4,13 +4,18 @@ import os
 import math
 import time
 import rclpy
-import signal
 import threading
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from std_srvs.srv import Trigger
 from nav_msgs.msg import Odometry
 from controller import ackermann, mecanum
-from ros_robot_controller_msgs.msg import MotorsState, SetPWMServoState, PWMServoState
+from ros_robot_controller_msgs.msg import (
+    MotorState,
+    MotorsState,
+    SetPWMServoState,
+    PWMServoState,
+)
 from geometry_msgs.msg import Pose2D, Pose, Twist, PoseWithCovarianceStamped, TransformStamped
 
 ODOM_POSE_COVARIANCE = list(map(float, 
@@ -68,9 +73,9 @@ def qua2rpy(x, y, z, w):
     return roll, pitch, yaw
 
 class Controller(Node):
+    MOTOR_IDS = (1, 2, 3, 4)
     
     def __init__(self, name):
-        rclpy.init()
         super().__init__(name)
 
         self.x = 0.0
@@ -82,7 +87,9 @@ class Controller(Node):
         self.last_time = None
         self.current_time = None
         self.odom_lock = threading.RLock()
-        signal.signal(signal.SIGINT, self.shutdown)
+        self.running = True
+        self._last_cmd_vel_monotonic = time.monotonic()
+        self._cmd_vel_watchdog_tripped = False
 
         self.ackermann = ackermann.AckermannChassis(wheelbase=0.145, track_width=0.133, wheel_diameter=0.067)
         self.mecanum = mecanum.MecanumChassis(wheelbase=0.1368, track_width=0.1446, wheel_diameter=0.065)
@@ -95,10 +102,22 @@ class Controller(Node):
         self.declare_parameter('linear_correction_factor_tank', 0.52)
         self.declare_parameter('angular_correction_factor', 1.00)
         self.declare_parameter('machine_type', os.environ['MACHINE_TYPE'])
+        self.declare_parameter(
+            'cmd_vel_timeout_sec',
+            0.30,
+        )
         
         self.pub_odom_topic = self.get_parameter('pub_odom_topic').value
         self.base_frame_id = self.get_parameter('base_frame_id').value
         self.odom_frame_id = self.get_parameter('odom_frame_id').value
+        self.cmd_vel_timeout_sec = max(
+            0.10,
+            float(
+                self.get_parameter(
+                    'cmd_vel_timeout_sec'
+                ).value
+            ),
+        )
         
         #self.machine_type = os.environ.get('MACHINE_TYPE', 'MentorPi_Mecanum')
         self.machine_type = self.get_parameter('machine_type').value
@@ -123,8 +142,6 @@ class Controller(Node):
             
             self.odom_pub = self.create_publisher(Odometry, 'odom_raw', 1)
             self.dt = 1.0/50.0
-
-            threading.Thread(target=self.cal_odom_fun, daemon=True).start()
         self.get_logger().info('\033[1;32m%f %f\033[0m' % (self.linear_factor, self.angular_factor))
         self.motor_pub = self.create_publisher(MotorsState, 'ros_robot_controller/set_motor', 1)
         self.servo_state_pub = self.create_publisher(SetPWMServoState, 'ros_robot_controller/pwm_servo/set_state', 10)
@@ -135,15 +152,106 @@ class Controller(Node):
         self.create_subscription(Twist, 'cmd_vel', self.app_cmd_vel_callback, 1)
         self.create_service(Trigger, 'controller/load_calibrate_param', self.load_calibrate_param)
         self.create_service(Trigger, '~/init_finish', self.get_node_state)
+
+        self.odom_timer = None
+
+        if self.pub_odom_topic:
+            self.odom_timer = self.create_timer(
+                0.02,
+                self.cal_odom,
+            )
+
+        self.cmd_vel_watchdog_timer = self.create_timer(
+            0.05,
+            self._cmd_vel_watchdog_callback,
+        )
         self.get_logger().info('\033[1;32m%s\033[0m' % 'start')
 
     def get_node_state(self, request, response):
         response.success = True
         return response
 
-    def shutdown(self, signum, frame):
-        self.get_logger().info('\033[1;32m%s\033[0m' % 'shutdown')
-        rclpy.shutdown()
+    @classmethod
+    def _zero_motor_message(cls):
+        msg = MotorsState()
+
+        for motor_id in cls.MOTOR_IDS:
+            state = MotorState()
+            state.id = motor_id
+            state.rps = 0.0
+            msg.data.append(state)
+
+        return msg
+
+    def _publish_motor_zero(
+        self,
+        *,
+        repeat=1,
+        delay_sec=0.0,
+    ):
+        zero = self._zero_motor_message()
+
+        for _ in range(max(1, int(repeat))):
+            if not rclpy.ok():
+                return
+
+            try:
+                self.motor_pub.publish(zero)
+            except Exception as exc:
+                self.get_logger().error(
+                    f'Failed to publish motor zero: {exc}'
+                )
+                return
+
+            if delay_sec > 0.0:
+                time.sleep(float(delay_sec))
+
+    def _force_zero_command_state(self):
+        with self.odom_lock:
+            self.linear_x = 0.0
+            self.linear_y = 0.0
+            self.angular_z = 0.0
+
+    def _cmd_vel_watchdog_callback(self):
+        if not self.running:
+            return
+
+        with self.odom_lock:
+            command_nonzero = any(
+                abs(value) > 1e-6
+                for value in (
+                    self.linear_x,
+                    self.linear_y,
+                    self.angular_z,
+                )
+            )
+
+        if not command_nonzero:
+            self._cmd_vel_watchdog_tripped = False
+            return
+
+        command_age = (
+            time.monotonic()
+            - self._last_cmd_vel_monotonic
+        )
+
+        if command_age <= self.cmd_vel_timeout_sec:
+            return
+
+        if not self._cmd_vel_watchdog_tripped:
+            self.get_logger().error(
+                'cmd_vel watchdog expired: '
+                f'age={command_age:.3f}s > '
+                f'{self.cmd_vel_timeout_sec:.3f}s; '
+                'forcing velocity and motors to zero'
+            )
+            self._cmd_vel_watchdog_tripped = True
+
+        self._force_zero_command_state()
+        self._publish_motor_zero(
+            repeat=2,
+            delay_sec=0.01,
+        )
 
     def load_calibrate_param(self, request, response):
         if self.machine_type == 'JetRover_Tank':
@@ -211,6 +319,11 @@ class Controller(Node):
         self.cmd_vel_callback(msg)
 
     def cmd_vel_callback(self, msg):
+        self._last_cmd_vel_monotonic = (
+            time.monotonic()
+        )
+        self._cmd_vel_watchdog_tripped = False
+
         if self.machine_type == 'MentorPi_Mecanum':
             with self.odom_lock:
                 self.linear_x = float(msg.linear.x)
@@ -252,58 +365,132 @@ class Controller(Node):
                 speeds = self.ackermann.set_velocity(linear_x, 0.0)
                 self.motor_pub.publish(speeds[1])
 
-    def cal_odom_fun(self):
-        while True:
-            with self.odom_lock:
-                self.current_time = time.time()
-                if self.last_time is None:
-                    self.dt = 0.0
-                else:
-                    self.dt = self.current_time - self.last_time
+    def cal_odom(self):
+        if not self.running or not rclpy.ok():
+            return
 
-                self.odom.header.stamp = self.clock.now().to_msg()
+        with self.odom_lock:
+            self.current_time = time.time()
 
-                delta_x = (
-                    (
-                        self.linear_x * math.cos(self.pose_yaw)
-                        - self.linear_y * math.sin(self.pose_yaw)
-                    )
-                    * self.dt
+            if self.last_time is None:
+                self.dt = 0.0
+            else:
+                self.dt = (
+                    self.current_time
+                    - self.last_time
                 )
-                delta_y = (
-                    (
-                        self.linear_x * math.sin(self.pose_yaw)
-                        + self.linear_y * math.cos(self.pose_yaw)
-                    )
-                    * self.dt
+
+            self.odom.header.stamp = (
+                self.clock.now().to_msg()
+            )
+
+            delta_x = (
+                self.linear_x
+                * math.cos(self.pose_yaw)
+                - self.linear_y
+                * math.sin(self.pose_yaw)
+            ) * self.dt
+
+            delta_y = (
+                self.linear_x
+                * math.sin(self.pose_yaw)
+                + self.linear_y
+                * math.cos(self.pose_yaw)
+            ) * self.dt
+
+            delta_yaw = (
+                self.angular_z
+                * self.dt
+            )
+
+            self.x += delta_x
+            self.y += delta_y
+            self.pose_yaw += delta_yaw
+
+            self.odom.pose.pose.position.x = (
+                self.linear_factor * self.x
+            )
+            self.odom.pose.pose.position.y = (
+                self.linear_factor * self.y
+            )
+            self.odom.pose.pose.orientation = (
+                rpy2qua(
+                    0.0,
+                    0.0,
+                    self.pose_yaw,
                 )
-                delta_yaw = self.angular_z * self.dt
+            )
 
-                self.x += delta_x
-                self.y += delta_y
-                self.pose_yaw += delta_yaw
+            self.odom.twist.twist.linear.x = (
+                self.linear_x
+            )
+            self.odom.twist.twist.linear.y = (
+                self.linear_y
+            )
+            self.odom.twist.twist.angular.z = (
+                self.angular_z
+            )
 
-                self.odom.pose.pose.position.x = self.linear_factor * self.x
-                self.odom.pose.pose.position.y = self.linear_factor * self.y
-                self.odom.pose.pose.orientation = rpy2qua(0.0, 0.0, self.pose_yaw)
-                self.odom.twist.twist.linear.x = self.linear_x
-                self.odom.twist.twist.linear.y = self.linear_y
-                self.odom.twist.twist.angular.z = self.angular_z
+            stopped = (
+                self.linear_x == 0.0
+                and self.linear_y == 0.0
+                and self.angular_z == 0.0
+            )
 
-                if self.linear_x == 0.0 and self.linear_y == 0.0 and self.angular_z == 0.0:
-                    self.odom.pose.covariance = ODOM_POSE_COVARIANCE_STOP
-                    self.odom.twist.covariance = ODOM_TWIST_COVARIANCE_STOP
-                else:
-                    self.odom.pose.covariance = ODOM_POSE_COVARIANCE
-                    self.odom.twist.covariance = ODOM_TWIST_COVARIANCE
+            if stopped:
+                self.odom.pose.covariance = (
+                    ODOM_POSE_COVARIANCE_STOP
+                )
+                self.odom.twist.covariance = (
+                    ODOM_TWIST_COVARIANCE_STOP
+                )
+            else:
+                self.odom.pose.covariance = (
+                    ODOM_POSE_COVARIANCE
+                )
+                self.odom.twist.covariance = (
+                    ODOM_TWIST_COVARIANCE
+                )
 
-                self.odom_pub.publish(self.odom)
-                self.last_time = self.current_time
-            time.sleep(0.02)
+            self.odom_pub.publish(self.odom)
+            self.last_time = self.current_time
+
+    def destroy_node(self):
+        self.running = False
+
+        if self.odom_timer is not None:
+            self.odom_timer.cancel()
+
+        self.cmd_vel_watchdog_timer.cancel()
+
+        self._force_zero_command_state()
+        self._publish_motor_zero(
+            repeat=5,
+            delay_sec=0.03,
+        )
+
+        return super().destroy_node()
 
 
-def main():
-    node = Controller('odom_publisher')
-    rclpy.spin(node)  
+def main(args=None):
+    rclpy.init(args=args)
+    node = None
+
+    try:
+        node = Controller('odom_publisher')
+        rclpy.spin(node)
+    except (
+        KeyboardInterrupt,
+        ExternalShutdownException,
+    ):
+        pass
+    finally:
+        if node is not None:
+            node.destroy_node()
+
+        if rclpy.ok():
+            rclpy.shutdown()
+
+
 if __name__ == "__main__":
     main()

@@ -8,9 +8,9 @@ import os
 import math
 import time
 import rclpy
-import signal
 import threading
 import yaml  # 已导入 PyYAML
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from std_srvs.srv import Trigger
 from sensor_msgs.msg import Imu, Joy
@@ -25,17 +25,35 @@ from ros_robot_controller_msgs.msg import (
 
 class RosRobotController(Node):
     gravity = 9.80665
+    MOTOR_IDS = (1, 2, 3, 4)
 
     def __init__(self, name):
-        rclpy.init()
         super().__init__(name)
-        self.board = Board()
-        self.board.enable_reception()
+
         self.running = True
+        self._reception_enabled = True
+
+        self._motor_lock = threading.RLock()
+        self._last_motor_command_monotonic = time.monotonic()
+        self._last_motor_command_nonzero = False
+        self._motor_watchdog_tripped = False
+
+        self.board = Board()
+        self.board.enable_reception(True)
 
         self.declare_parameter('imu_frame', 'imu_link')
         self.declare_parameter('init_finish', False)
+        self.declare_parameter('motor_command_timeout_sec', 0.50)
+        self.declare_parameter('motor_watchdog_period_sec', 0.05)
         self.IMU_FRAME = self.get_parameter('imu_frame').value
+        self.motor_command_timeout_sec = max(
+            0.10,
+            float(self.get_parameter('motor_command_timeout_sec').value),
+        )
+        self.motor_watchdog_period_sec = max(
+            0.02,
+            float(self.get_parameter('motor_watchdog_period_sec').value),
+        )
 
         self.imu_pub = self.create_publisher(Imu, '~/imu_raw', 1)
         self.joy_pub = self.create_publisher(Joy, '~/joy', 1)
@@ -46,7 +64,12 @@ class RosRobotController(Node):
         self.create_subscription(BuzzerState, '~/set_buzzer', self.set_buzzer_state, 5)
         self.create_subscription(OLEDState, '~/set_oled', self.set_oled_state, 5)
         self.create_subscription(MotorsState, '~/set_motor', self.set_motor_state, 10)
-        self.create_subscription(Bool, '~/enable_reception', self.enable_reception, 1)
+        self.create_subscription(
+            Bool,
+            '~/enable_reception',
+            self._enable_reception_callback,
+            1,
+        )
         self.create_subscription(SetBusServoState, '~/bus_servo/set_state', self.set_bus_servo_state, 10)
         self.create_subscription(ServosPosition, '~/bus_servo/set_position', self.set_bus_servo_position, 10)
         self.create_subscription(SetPWMServoState, '~/pwm_servo/set_state', self.set_pwm_servo_state, 10)
@@ -58,10 +81,18 @@ class RosRobotController(Node):
         self.load_servo_offsets()
 
         # 初始化电机速度
-        self.board.set_motor_speed([[1, 0], [2, 0], [3, 0], [4, 0]])
+        self._safe_stop_motors(
+            'startup',
+            repeat=3,
+            delay_sec=0.02,
+        )
 
         self.clock = self.get_clock()
         threading.Thread(target=self.pub_callback, daemon=True).start()
+        threading.Thread(
+            target=self._motor_watchdog_loop,
+            daemon=True,
+        ).start()
         self.create_service(Trigger, '~/init_finish', self.get_node_state)
         self.get_logger().info('\033[1;32m%s\033[0m' % 'start')
 
@@ -100,22 +131,23 @@ class RosRobotController(Node):
         return response
 
     def pub_callback(self):
-        while self.running:
-            if getattr(self, 'enable_reception', False):
+        while self.running and rclpy.ok():
+            if self._reception_enabled:
                 self.pub_button_data(self.button_pub)
                 self.pub_joy_data(self.joy_pub)
                 self.pub_imu_data(self.imu_pub)
                 self.pub_sbus_data(self.sbus_pub)
                 self.pub_battery_data(self.battery_pub)
-                time.sleep(0.02)
-            else:
-                time.sleep(0.02)
-        rclpy.shutdown()
 
-    def enable_reception(self, msg):
-        self.get_logger().info('\033[1;32m%s\033[0m' % ('enable_reception ' + str(msg.data)))
-        self.enable_reception = msg.data
-        self.board.enable_reception(msg.data)
+            time.sleep(0.02)
+
+    def _enable_reception_callback(self, msg):
+        self._reception_enabled = bool(msg.data)
+        self.get_logger().info(
+            '\033[1;32m%s\033[0m'
+            % ('enable_reception ' + str(self._reception_enabled))
+        )
+        self.board.enable_reception(self._reception_enabled)
 
     def set_led_state(self, msg):
         self.board.set_led(msg.on_time, msg.off_time, msg.repeat, msg.id)
@@ -129,11 +161,129 @@ class RosRobotController(Node):
             pixels.append((state.index, state.red, state.green, state.blue))
         self.board.set_rgb(pixels)
 
+    @classmethod
+    def _zero_motor_data(cls):
+        return [
+            [motor_id, 0.0]
+            for motor_id in cls.MOTOR_IDS
+        ]
+
+    def _write_motor_speeds(self, data, *, context):
+        try:
+            with self._motor_lock:
+                self.board.set_motor_speed(data)
+            return True
+        except Exception as exc:
+            self.get_logger().error(
+                f'Motor serial write failed during {context}: {exc}'
+            )
+            return False
+
+    def _safe_stop_motors(
+        self,
+        reason,
+        *,
+        repeat=1,
+        delay_sec=0.0,
+    ):
+        stopped = False
+
+        for _ in range(max(1, int(repeat))):
+            stopped = (
+                self._write_motor_speeds(
+                    self._zero_motor_data(),
+                    context=f'safe stop: {reason}',
+                )
+                or stopped
+            )
+
+            if delay_sec > 0.0:
+                time.sleep(float(delay_sec))
+
+        if stopped:
+            with self._motor_lock:
+                self._last_motor_command_nonzero = False
+                self._motor_watchdog_tripped = False
+
+        return stopped
+
+    def _motor_watchdog_loop(self):
+        while self.running:
+            time.sleep(self.motor_watchdog_period_sec)
+
+            with self._motor_lock:
+                command_nonzero = self._last_motor_command_nonzero
+                command_age = (
+                    time.monotonic()
+                    - self._last_motor_command_monotonic
+                )
+
+            if not command_nonzero:
+                continue
+
+            if command_age <= self.motor_command_timeout_sec:
+                continue
+
+            if not self._motor_watchdog_tripped:
+                self.get_logger().error(
+                    'Motor command watchdog expired: '
+                    f'age={command_age:.3f}s > '
+                    f'{self.motor_command_timeout_sec:.3f}s; '
+                    'forcing all motors to zero'
+                )
+                self._motor_watchdog_tripped = True
+
+            self._safe_stop_motors(
+                'motor command watchdog',
+                repeat=3,
+                delay_sec=0.01,
+            )
+
     def set_motor_state(self, msg):
-        data = []
-        for i in msg.data:
-            data.extend([[i.id, i.rps]])
-        self.board.set_motor_speed(data)
+        # Always send all four channels. A missing channel must become zero,
+        # not retain an older speed on the expansion board.
+        speeds = {
+            motor_id: 0.0
+            for motor_id in self.MOTOR_IDS
+        }
+
+        for item in msg.data:
+            motor_id = int(item.id)
+            speed = float(item.rps)
+
+            if motor_id not in speeds:
+                self.get_logger().warning(
+                    f'Ignoring invalid motor id={motor_id}'
+                )
+                continue
+
+            if not math.isfinite(speed):
+                self.get_logger().error(
+                    'Ignoring non-finite motor speed: '
+                    f'id={motor_id}, rps={speed}'
+                )
+                continue
+
+            speeds[motor_id] = speed
+
+        data = [
+            [motor_id, speeds[motor_id]]
+            for motor_id in self.MOTOR_IDS
+        ]
+
+        if not self._write_motor_speeds(
+            data,
+            context='motor command callback',
+        ):
+            return
+
+        with self._motor_lock:
+            self._last_motor_command_monotonic = time.monotonic()
+            self._last_motor_command_nonzero = any(
+                abs(speed) > 1e-6
+                for speed in speeds.values()
+            )
+            self._motor_watchdog_tripped = False
 
     def set_oled_state(self, msg):
         self.board.set_oled_text(int(msg.index), msg.text)
@@ -336,18 +486,46 @@ class RosRobotController(Node):
                                                  0.0, 0.0, 0.004]
             pub.publish(msg)
 
-def main():
-    node = RosRobotController('ros_robot_controller')
+    def destroy_node(self):
+        self.running = False
+
+        # Direct SDK write. This does not depend on another ROS node receiving
+        # a final message during shutdown.
+        self._safe_stop_motors(
+            'node destruction',
+            repeat=5,
+            delay_sec=0.03,
+        )
+
+        return super().destroy_node()
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = None
+
     try:
+        node = RosRobotController(
+            'ros_robot_controller'
+        )
         rclpy.spin(node)
-    except KeyboardInterrupt:
-        # 安全关闭电机速度
-        node.board.set_motor_speed([[1, 0], [2, 0], [3, 0], [4, 0]])
-        node.destroy_node()
-        rclpy.shutdown()
-        print('shutdown')
+    except (
+        KeyboardInterrupt,
+        ExternalShutdownException,
+    ):
+        pass
     finally:
-        print('shutdown finish')
+        if node is not None:
+            try:
+                node.destroy_node()
+            except Exception as exc:
+                print(
+                    'Failed to destroy '
+                    f'ros_robot_controller cleanly: {exc}'
+                )
+
+        if rclpy.ok():
+            rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
