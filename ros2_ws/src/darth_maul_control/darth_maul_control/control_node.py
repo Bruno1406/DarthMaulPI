@@ -4721,7 +4721,7 @@ class DarthMaulControlNode(Node):
                 0.0,
             )
 
-            AXIAL_DEADBAND_M = 0.015
+            AXIAL_DEADBAND_M = longitudinal_tolerance_m
             LATERAL_DEADBAND_M = 0.010
             YAW_DEADBAND_RAD = 0.025
 

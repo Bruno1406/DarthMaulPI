@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 281
-Skipped files: 7519
+Skipped files: 7571
 
 # Included File Index
 
@@ -293,7 +293,7 @@ Skipped files: 7519
 - binary, media, generated, or not useful as text: 59
 - not UTF-8 text: 2
 - previous merged output: 1
-- skipped directory: 7457
+- skipped directory: 7509
 
 # File Contents
 
@@ -3612,7 +3612,7 @@ darth_maul_control:
     grid_cell_settle_min_linear_x_mps: 0.010
     grid_cell_settle_max_linear_y_mps: 0.040
     grid_cell_settle_max_yaw_radps: 0.160
-    grid_cell_settle_position_tolerance_m: 0.015
+    grid_cell_settle_position_tolerance_m: 0.0025
     # Once immediate front/rear axial LiDAR was used in a settle pass, do not
     # switch to progress or projected far-wall settle in the same pass.
     grid_cell_settle_latch_immediate_axial_once_seen: true
@@ -3658,7 +3658,7 @@ darth_maul_control:
     grid_cell_settle_open_corridor_lattice_max_distance_m: 1.800
     grid_cell_settle_open_corridor_lattice_max_error_m: 0.080
     grid_cell_settle_open_corridor_lattice_agreement_m: 0.080
-    grid_cell_settle_lateral_tolerance_m: 0.020
+    grid_cell_settle_lateral_tolerance_m: 0.010
     grid_cell_settle_heading_tolerance_rad: 0.060
     grid_cell_settle_required_stable_samples: 4
     grid_cell_settle_min_duration_sec: 0.30
@@ -3675,13 +3675,13 @@ darth_maul_control:
     # Collision stops remain front_stop_distance_m/rear_stop_distance_m = 0.09.
     # Do not block the calibrated center targets:
     # front target = 0.140 m, rear target = 0.125 m.
-    grid_cell_settle_min_front_distance_m: 0.120
+    grid_cell_settle_min_front_distance_m: 0.140
     grid_cell_settle_min_rear_distance_m: 0.105
 
     # Calibrated front/rear ranges when the robot is centered in one cell.
     # Do not assume this is exactly cell_length_m / 2. Measure it on the real robot
     # because LiDAR mounting offset and wall/socket geometry change the value.
-    grid_center_expected_front_distance_m: 0.14
+    grid_center_expected_front_distance_m: 0.1425
     grid_center_expected_rear_distance_m: 0.125
     grid_center_front_rear_agreement_tolerance_m: 0.035
 
@@ -8458,7 +8458,7 @@ class DarthMaulControlNode(Node):
                 0.0,
             )
 
-            AXIAL_DEADBAND_M = 0.015
+            AXIAL_DEADBAND_M = longitudinal_tolerance_m
             LATERAL_DEADBAND_M = 0.010
             YAW_DEADBAND_RAD = 0.025
 
