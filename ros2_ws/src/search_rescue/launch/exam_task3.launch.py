@@ -166,6 +166,9 @@ def generate_launch_description():
     camera_data_timeout_s = LaunchConfiguration(
         'camera_data_timeout_s'
     )
+    rect_image_buffer_size = LaunchConfiguration(
+        'rect_image_buffer_size'
+    )
     perception_startup_timeout_s = LaunchConfiguration(
         'perception_startup_timeout_s'
     )
@@ -311,6 +314,9 @@ def generate_launch_description():
         'tag_max_aspect_ratio': tag_max_aspect_ratio,
         'cube_crop_scale': cube_crop_scale,
         'camera_data_timeout_s': camera_data_timeout_s,
+        'rect_image_buffer_size': (
+            rect_image_buffer_size
+        ),
         'perception_startup_timeout_s': (
             perception_startup_timeout_s
         ),
@@ -562,6 +568,10 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'camera_data_timeout_s',
             default_value='0.75',
+        ),
+        DeclareLaunchArgument(
+            'rect_image_buffer_size',
+            default_value='30',
         ),
         DeclareLaunchArgument(
             'perception_startup_timeout_s',

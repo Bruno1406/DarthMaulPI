@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import time
+from collections import OrderedDict
 from typing import List, Optional, Tuple
 
 import rclpy
@@ -22,6 +23,7 @@ from maze_explorer_node import (
     neighbor,
     parse_bool,
 )
+from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import CameraInfo, Image
 
 from search_rescue.cube_tracker import (
@@ -100,6 +102,14 @@ class SearchRescueNode(MazeExplorerNode):
         self.declare_parameter(
             'apriltag_topic',
             '/apriltag_detections',
+        )
+        self.declare_parameter(
+            'allowed_tag_ids',
+            [992, 993, 994, 995, 996, 997],
+        )
+        self.declare_parameter(
+            'rect_image_buffer_size',
+            30,
         )
 
         self.declare_parameter(
@@ -224,6 +234,19 @@ class SearchRescueNode(MazeExplorerNode):
                 'apriltag_topic'
             ).value
         ).strip()
+
+        self.allowed_tag_ids = frozenset(
+            int(value)
+            for value in self.get_parameter(
+                'allowed_tag_ids'
+            ).value
+        )
+
+        self.rect_image_buffer_size = int(
+            self.get_parameter(
+                'rect_image_buffer_size'
+            ).value
+        )
 
         self.tag_size_m = float(
             self.get_parameter(
@@ -401,16 +424,25 @@ class SearchRescueNode(MazeExplorerNode):
 
         self.latest_rect_image = None
         self.latest_rect_image_monotonic = 0.0
-        self.last_apriltag_message_monotonic = 0.0
+
+        # Images and detection arrays are matched by the original ROS timestamp.
+        self.rect_image_buffer = OrderedDict()
+        self.pending_apriltag_messages = OrderedDict()
+
+        self.last_synchronized_perception_monotonic = 0.0
+        self.last_synchronized_perception_stamp_ns = 0
+
         self.camera_info: Optional[CameraInfo] = None
 
         now = time.monotonic()
+        now_ros_ns = self.get_clock().now().nanoseconds
 
         self.perception_unready_since_monotonic: Optional[
             float
         ] = now
+        self.perception_ready_once = False
 
-        self.observation_required_after_monotonic = now
+        self.observation_required_after_stamp_ns = now_ros_ns
         self.observation_hold_until_monotonic = (
             now + self.observation_hold_s
         )
@@ -423,14 +455,14 @@ class SearchRescueNode(MazeExplorerNode):
             Image,
             self.rect_image_topic,
             self.callback_rect_image,
-            10,
+            qos_profile_sensor_data,
         )
 
         self.camera_info_subscriber = self.create_subscription(
             CameraInfo,
             self.camera_info_topic,
             self.callback_camera_info,
-            10,
+            qos_profile_sensor_data,
         )
 
         self.apriltag_subscriber = self.create_subscription(
@@ -474,6 +506,24 @@ class SearchRescueNode(MazeExplorerNode):
                 errors.append(
                     f'{name} must not be empty'
                 )
+
+        if not self.allowed_tag_ids:
+            errors.append(
+                'allowed_tag_ids must contain at least one ID'
+            )
+
+        if any(
+            tag_id < 0
+            for tag_id in self.allowed_tag_ids
+        ):
+            errors.append(
+                'allowed_tag_ids must contain only non-negative IDs'
+            )
+
+        if self.rect_image_buffer_size < 2:
+            errors.append(
+                'rect_image_buffer_size must be >= 2'
+            )
 
         positive_parameters = {
             'tag_size_m': self.tag_size_m,
@@ -626,16 +676,21 @@ class SearchRescueNode(MazeExplorerNode):
             self.get_logger().error(message)
             raise ValueError(message)
 
+    @staticmethod
+    def _stamp_to_nanoseconds(stamp) -> int:
+        return (
+            int(stamp.sec) * 1_000_000_000
+            + int(stamp.nanosec)
+        )
+
     def callback_rect_image(
         self,
         msg: Image,
     ) -> None:
         try:
-            self.latest_rect_image = (
-                self.bridge.imgmsg_to_cv2(
-                    msg,
-                    desired_encoding='bgr8',
-                )
+            rect_image = self.bridge.imgmsg_to_cv2(
+                msg,
+                desired_encoding='bgr8',
             )
         except Exception as exc:
             self.get_logger().warn(
@@ -644,9 +699,46 @@ class SearchRescueNode(MazeExplorerNode):
             )
             return
 
-        self.latest_rect_image_monotonic = (
-            time.monotonic()
+        stamp_ns = self._stamp_to_nanoseconds(
+            msg.header.stamp
         )
+
+        if stamp_ns <= 0:
+            self.get_logger().error(
+                'Rectified image has a zero timestamp; '
+                'Task 3 cannot synchronize it with '
+                'AprilTag detections.',
+                throttle_duration_sec=2.0,
+            )
+            return
+
+        self.latest_rect_image = rect_image
+        self.latest_rect_image_monotonic = time.monotonic()
+
+        self.rect_image_buffer[stamp_ns] = rect_image
+        self.rect_image_buffer.move_to_end(stamp_ns)
+
+        while (
+            len(self.rect_image_buffer)
+            > self.rect_image_buffer_size
+        ):
+            self.rect_image_buffer.popitem(
+                last=False
+            )
+
+        pending_message = (
+            self.pending_apriltag_messages.pop(
+                stamp_ns,
+                None,
+            )
+        )
+
+        if pending_message is not None:
+            self._process_synchronized_apriltag(
+                pending_message,
+                rect_image,
+                stamp_ns,
+            )
 
     def callback_camera_info(
         self,
@@ -667,36 +759,85 @@ class SearchRescueNode(MazeExplorerNode):
         self,
         msg: AprilTagDetectionArray,
     ) -> None:
+        detection_stamp_ns = self._stamp_to_nanoseconds(
+            msg.header.stamp
+        )
+
+        if detection_stamp_ns <= 0:
+            self.get_logger().error(
+                'AprilTag detection array has a zero timestamp; '
+                'Task 3 cannot associate it with its source image.',
+                throttle_duration_sec=2.0,
+            )
+            return
+
+        rect_image = self.rect_image_buffer.get(
+            detection_stamp_ns
+        )
+
+        if rect_image is None:
+            # The detection callback may run before the corresponding
+            # image callback. Keep it temporarily.
+            self.pending_apriltag_messages[
+                detection_stamp_ns
+            ] = msg
+
+            self.pending_apriltag_messages.move_to_end(
+                detection_stamp_ns
+            )
+
+            while (
+                len(self.pending_apriltag_messages)
+                > self.rect_image_buffer_size
+            ):
+                self.pending_apriltag_messages.popitem(
+                    last=False
+                )
+
+            return
+
+        self._process_synchronized_apriltag(
+            msg,
+            rect_image,
+            detection_stamp_ns,
+        )
+
+    def _process_synchronized_apriltag(
+        self,
+        msg: AprilTagDetectionArray,
+        rect_image,
+        detection_stamp_ns: int,
+    ) -> None:
         now = time.monotonic()
 
-        # Record empty arrays as well. This tells the motion integration
-        # that the detector processed a stationary camera frame.
-        self.last_apriltag_message_monotonic = now
+        # Empty detection arrays count as processed perception frames.
+        self.last_synchronized_perception_monotonic = now
+        self.last_synchronized_perception_stamp_ns = max(
+            self.last_synchronized_perception_stamp_ns,
+            detection_stamp_ns,
+        )
 
+        if self.completed or self.motion_in_flight:
+            return
+
+        # Reject frames captured before the most recent motion completed.
+        # This prevents a moving-frame detection from being transformed
+        # using the next cell's discrete robot pose.
         if (
-            self.completed
-            or self.motion_in_flight
-            or not msg.detections
+            detection_stamp_ns
+            < self.observation_required_after_stamp_ns
         ):
             return
 
-        if (
-            self.latest_rect_image is None
-            or (
-                now
-                - self.latest_rect_image_monotonic
-                > self.camera_data_timeout_s
-            )
-        ):
-            self.get_logger().debug(
-                'Ignoring tag detection without '
-                'a fresh rectified image.'
-            )
+        if not msg.detections:
             return
 
         valid_detections = []
 
         for detection in msg.detections:
+            if int(detection.id) not in self.allowed_tag_ids:
+                continue
+
             if len(detection.corners) < 4:
                 continue
 
@@ -725,10 +866,8 @@ class SearchRescueNode(MazeExplorerNode):
             )
 
             if (
-                aspect_ratio
-                < self.tag_min_aspect_ratio
-                or aspect_ratio
-                > self.tag_max_aspect_ratio
+                aspect_ratio < self.tag_min_aspect_ratio
+                or aspect_ratio > self.tag_max_aspect_ratio
             ):
                 continue
 
@@ -742,8 +881,6 @@ class SearchRescueNode(MazeExplorerNode):
         if not valid_detections:
             return
 
-        # Do not process only the largest tag. Process every spatially
-        # distinct cube visible in the frame.
         valid_detections.sort(
             key=lambda item: item[1],
             reverse=True,
@@ -754,10 +891,8 @@ class SearchRescueNode(MazeExplorerNode):
         ] = []
 
         for detection, _ in valid_detections:
-            position = (
-                self._calibrated_cube_position(
-                    detection
-                )
+            position = self._calibrated_cube_position(
+                detection
             )
 
             if position is None:
@@ -793,6 +928,7 @@ class SearchRescueNode(MazeExplorerNode):
             )
 
             self._process_cube_detection(
+                rect_image=rect_image,
                 detection=detection,
                 forward_cm=forward_cm,
                 left_cm=left_cm,
@@ -851,6 +987,7 @@ class SearchRescueNode(MazeExplorerNode):
     def _process_cube_detection(
         self,
         *,
+        rect_image,
         detection,
         forward_cm: float,
         left_cm: float,
@@ -883,7 +1020,7 @@ class SearchRescueNode(MazeExplorerNode):
         # Detection coordinates refer to image_rect, so color must be
         # cropped from image_rect as well.
         cube_crop = self.crop_cube_from_detection(
-            self.latest_rect_image,
+            rect_image,
             detection,
         )
 
@@ -1252,7 +1389,9 @@ class SearchRescueNode(MazeExplorerNode):
     def _begin_observation_window(self) -> None:
         now = time.monotonic()
 
-        self.observation_required_after_monotonic = now
+        self.observation_required_after_stamp_ns = (
+            self.get_clock().now().nanoseconds
+        )
 
         self.observation_hold_until_monotonic = (
             now + self.observation_hold_s
@@ -1300,6 +1439,28 @@ class SearchRescueNode(MazeExplorerNode):
                 'AprilTag detector has no publisher',
             )
 
+        if (
+            self.last_synchronized_perception_monotonic
+            <= 0.0
+        ):
+            return (
+                False,
+                'no timestamp-matched image/detection pair '
+                'has been received',
+            )
+
+        synchronized_age_s = (
+            now
+            - self.last_synchronized_perception_monotonic
+        )
+
+        if synchronized_age_s > self.camera_data_timeout_s:
+            return (
+                False,
+                'timestamp-matched image/detection stream '
+                f'is stale ({synchronized_age_s:.2f} s)',
+            )
+
         return True, 'ready'
 
     def _observation_window_complete(
@@ -1309,36 +1470,24 @@ class SearchRescueNode(MazeExplorerNode):
         if now < self.observation_hold_until_monotonic:
             return False
 
-        rect_frame_seen = (
-            self.latest_rect_image_monotonic
-            >= self.observation_required_after_monotonic
-        )
-
-        tag_message_seen = (
-            self.last_apriltag_message_monotonic
-            >= self.observation_required_after_monotonic
-        )
-
-        if rect_frame_seen and tag_message_seen:
+        if (
+            self.last_synchronized_perception_stamp_ns
+            >= self.observation_required_after_stamp_ns
+        ):
             return True
 
         if now < self.observation_timeout_at_monotonic:
             return False
 
-        # Some detector implementations may not publish empty arrays.
-        # A post-motion rectified frame is therefore accepted after the
-        # timeout, but this condition is explicitly logged.
-        if rect_frame_seen:
-            if not self.observation_timeout_warned:
-                self.get_logger().warn(
-                    'Observation window timed out without '
-                    'a post-motion AprilTag message; '
-                    'continuing because a fresh rectified '
-                    'frame was received.'
-                )
-                self.observation_timeout_warned = True
+        if not self.observation_timeout_warned:
+            self.observation_timeout_warned = True
 
-            return True
+            self._fatal(
+                'No timestamp-matched rectified image and '
+                'AprilTag result arrived after the latest motion. '
+                'Refusing to continue Task 3 without a valid '
+                'stationary observation.'
+            )
 
         return False
 
@@ -1372,50 +1521,52 @@ class SearchRescueNode(MazeExplorerNode):
         ):
             now = time.monotonic()
 
-            ready, reason = (
-                self._perception_streams_ready(
-                    now
-                )
-            )
-
-            if not ready:
-                if (
-                    self.perception_unready_since_monotonic
-                    is None
-                ):
-                    self.perception_unready_since_monotonic = (
+            # Apply the longer startup timeout only before the perception
+            # pipeline has successfully produced its first matched pair.
+            if not self.perception_ready_once:
+                ready, reason = (
+                    self._perception_streams_ready(
                         now
                     )
-
-                unavailable_s = (
-                    now
-                    - self.perception_unready_since_monotonic
                 )
 
-                if (
-                    unavailable_s
-                    > self.perception_startup_timeout_s
-                ):
-                    self._fatal(
-                        'Task 3 perception unavailable for '
-                        f'{unavailable_s:.1f} s: {reason}'
+                if not ready:
+                    unavailable_s = (
+                        now
+                        - self.perception_unready_since_monotonic
+                    )
+
+                    if (
+                        unavailable_s
+                        > self.perception_startup_timeout_s
+                    ):
+                        self._fatal(
+                            'Task 3 perception unavailable for '
+                            f'{unavailable_s:.1f} s: {reason}'
+                        )
+                        return
+
+                    self.get_logger().warn(
+                        f'Waiting for Task 3 perception: {reason}',
+                        throttle_duration_sec=2.0,
                     )
                     return
 
-                self.get_logger().warn(
-                    f'Waiting for Task 3 perception: {reason}',
-                    throttle_duration_sec=2.0,
+                self.perception_ready_once = True
+                self.perception_unready_since_monotonic = None
+
+                self.get_logger().info(
+                    'Task 3 perception stream is ready.'
                 )
-                return
 
-            self.perception_unready_since_monotonic = None
-
+            # After startup, every completed motion requires a new
+            # timestamp-matched stationary perception frame.
             if not self._observation_window_complete(
                 now
             ):
                 return
 
-        # Preserve v87 exploration, planning and motion dispatch.
+        # All planning and motion dispatch remain the v87 implementation.
         super()._tick()
 
         self._maybe_request_task3_shutdown()

@@ -1,23 +1,47 @@
 apriltag_detector:
   ros__parameters:
-    image_transport: raw  # Image format type
-    family: Custom48h12      # Tag family (change if needed)
-    max_hamming: 0        # Maximum allowed Hamming distance
-    size: 0.084           # Default tag size (meters, used if not specified per tag)
+    image_transport: raw
+    qos_profile: sensor_data
 
-    # Detector parameters
+    family: Custom48h12
+    size: 0.0162
+    max_hamming: 0
+
+    # Task 3 uses the detected image corners directly.
+    # It does not consume AprilTag TF poses.
+    pose_estimation_method: ""
+
     detector:
       threads: 1
       decimate: 1.0
       blur: 0.0
-      refine: True
+      refine: true
       sharpening: 0.25
-      debug: False
+      debug: false
 
-    # Standalone tag definitions
-    standalone_tags:
-      ids:    [992, 993, 994, 995, 996, 997]
-      sizes:  [0.0162, 0.0162, 0.0162, 0.0162, 0.0162, 0.0162]
+    # Upstream Jazzy apriltag_ros parameter names.
+    # The nonempty frames list also enforces ID filtering.
+    tag:
+      ids:
+        - 992
+        - 993
+        - 994
+        - 995
+        - 996
+        - 997
 
+      frames:
+        - cube_face_992
+        - cube_face_993
+        - cube_face_994
+        - cube_face_995
+        - cube_face_996
+        - cube_face_997
 
-
+      sizes:
+        - 0.0162
+        - 0.0162
+        - 0.0162
+        - 0.0162
+        - 0.0162
+        - 0.0162

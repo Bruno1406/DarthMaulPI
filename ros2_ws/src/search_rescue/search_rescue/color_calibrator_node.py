@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 
 from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 from apriltag_msgs.msg import AprilTagDetectionArray
@@ -22,9 +23,9 @@ class ColorCalibratorNode(Node):
 
         self.image_subscriber = self.create_subscription(
             Image,
-            "/ascamera/camera_publisher/rgb0/image",
+            "/ascamera/camera_publisher/rgb0/image_rect",
             self.callback_image,
-            10
+            qos_profile_sensor_data,
         )
 
         self.apriltag_subscriber = self.create_subscription(
