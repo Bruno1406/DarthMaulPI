@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 281
-Skipped files: 6212
+Skipped files: 6287
 
 # Included File Index
 
@@ -293,7 +293,7 @@ Skipped files: 6212
 - binary, media, generated, or not useful as text: 59
 - not UTF-8 text: 2
 - previous merged output: 1
-- skipped directory: 6150
+- skipped directory: 6225
 
 # File Contents
 
@@ -27391,9 +27391,9 @@ def generate_launch_description():
         # Default false now: camera should be positioned separately before task.
         DeclareLaunchArgument('camera_face_down', default_value='false'),
         DeclareLaunchArgument('camera_vertical_servo_id', default_value='1'),
-        DeclareLaunchArgument('camera_down_position', default_value='2500'),
+        DeclareLaunchArgument('camera_down_position', default_value='2000'),
         DeclareLaunchArgument('camera_horizontal_servo_id', default_value='2'),
-        DeclareLaunchArgument('camera_left_position', default_value='2500'),
+        DeclareLaunchArgument('camera_left_position', default_value='2000'),
 
         Node(
             package='maze_solver',
@@ -27563,9 +27563,9 @@ def generate_launch_description():
 
         DeclareLaunchArgument('camera_face_down', default_value='false'),
         DeclareLaunchArgument('camera_vertical_servo_id', default_value='1'),
-        DeclareLaunchArgument('camera_down_position', default_value='2500'),
+        DeclareLaunchArgument('camera_down_position', default_value='2000'),
         DeclareLaunchArgument('camera_horizontal_servo_id', default_value='2'),
-        DeclareLaunchArgument('camera_left_position', default_value='2500'),
+        DeclareLaunchArgument('camera_left_position', default_value='2000'),
 
         Node(
             package='maze_solver',
@@ -28298,12 +28298,18 @@ projection_matrix:
 
 # ================== FILE 223: ros2_ws/src/peripherals/launch/apriltag.launch.py ==================
 
-import os
 from launch import LaunchDescription
+from launch.substitutions import PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
+
 
 def generate_launch_description():
-    apriltag_package_path = os.path.join(os.environ['HOME'], 'workspace/ros2_ws/src/peripherals/config')
+    apriltag_parameters = PathJoinSubstitution([
+        FindPackageShare('peripherals'),
+        'config',
+        'apriltag_config.yaml',
+    ])
 
     return LaunchDescription([
         Node(
@@ -28312,47 +28318,83 @@ def generate_launch_description():
             name='apriltag_detector',
             output='screen',
             parameters=[
-                os.path.join(apriltag_package_path, 'apriltag_config.yaml'),  # Camera settings
+                apriltag_parameters
             ],
             remappings=[
-                ('/image_rect', '/ascamera/camera_publisher/rgb0/image_rect'),
-                ('/camera_info', '/ascamera/camera_publisher/rgb0/camera_info'),
-                ('/detections', '/apriltag_detections'),
-            ]
-        )
+                (
+                    '/image_rect',
+                    '/ascamera/camera_publisher/'
+                    'rgb0/image_rect',
+                ),
+                (
+                    '/camera_info',
+                    '/ascamera/camera_publisher/'
+                    'rgb0/camera_info',
+                ),
+                (
+                    '/detections',
+                    '/apriltag_detections',
+                ),
+            ],
+        ),
     ])
-
 
 
 # ================== FILE 224: ros2_ws/src/peripherals/launch/image_pipeline.launch.py ==================
 
-import os
 from launch import LaunchDescription
-from launch_ros.actions import Node, ComposableNodeContainer
+from launch.substitutions import PathJoinSubstitution
+from launch_ros.actions import (
+    ComposableNodeContainer,
+    Node,
+)
 from launch_ros.descriptions import ComposableNode
-from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from launch_ros.substitutions import FindPackageShare
+
 
 def generate_launch_description():
-    peripherals_package_path = os.path.join(os.environ['HOME'], 'workspace/ros2_ws/src/peripherals')
+    usb_camera_parameters = PathJoinSubstitution([
+        FindPackageShare('peripherals'),
+        'config',
+        'usb_cam_param.yaml',
+    ])
 
-    # USB Camera Node
     camera_node = Node(
         package='usb_cam',
         executable='usb_cam_node_exe',
         output='screen',
         name='usb_cam',
-        parameters=[os.path.join(peripherals_package_path, 'config', 'usb_cam_param.yaml')],
+        parameters=[
+            usb_camera_parameters
+        ],
         remappings=[
-            ('image_raw', '/ascamera/camera_publisher/rgb0/image'),
-            ('image_raw/compressed', '/ascamera/camera_publisher/rgb0/image_compressed'),
-            ('image_raw/compressedDepth', '/ascamera/camera_publisher/rgb0/compressedDepth'),
-            ('image_raw/theora', '/ascamera/camera_publisher/rgb0/image_raw/theora'),
-            ('camera_info', '/ascamera/camera_publisher/rgb0/camera_info'),
-        ]
+            (
+                'image_raw',
+                '/ascamera/camera_publisher/rgb0/image',
+            ),
+            (
+                'image_raw/compressed',
+                '/ascamera/camera_publisher/'
+                'rgb0/image_compressed',
+            ),
+            (
+                'image_raw/compressedDepth',
+                '/ascamera/camera_publisher/'
+                'rgb0/compressedDepth',
+            ),
+            (
+                'image_raw/theora',
+                '/ascamera/camera_publisher/'
+                'rgb0/image_raw/theora',
+            ),
+            (
+                'camera_info',
+                '/ascamera/camera_publisher/'
+                'rgb0/camera_info',
+            ),
+        ],
     )
 
-    # Image Processing as a Composable Node
     image_proc_container = ComposableNodeContainer(
         name='image_proc_container',
         namespace='ascamera/camera_publisher/rgb0',
@@ -28365,16 +28407,30 @@ def generate_launch_description():
                 plugin='image_proc::RectifyNode',
                 name='rectify_color_node',
                 remappings=[
-                    ('image', '/ascamera/camera_publisher/rgb0/image'),
-                    ('camera_info', '/ascamera/camera_publisher/rgb0/camera_info'),
-                    ('image_rect', '/ascamera/camera_publisher/rgb0/image_rect'),
+                    (
+                        'image',
+                        '/ascamera/camera_publisher/'
+                        'rgb0/image',
+                    ),
+                    (
+                        'camera_info',
+                        '/ascamera/camera_publisher/'
+                        'rgb0/camera_info',
+                    ),
+                    (
+                        'image_rect',
+                        '/ascamera/camera_publisher/'
+                        'rgb0/image_rect',
+                    ),
                 ],
             ),
         ],
     )
 
-    return LaunchDescription([camera_node, image_proc_container])
-
+    return LaunchDescription([
+        camera_node,
+        image_proc_container,
+    ])
 
 
 # ================== FILE 225: ros2_ws/src/peripherals/launch/imu_filter.launch.py ==================
@@ -30195,6 +30251,7 @@ from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     IncludeLaunchDescription,
+    TimerAction,
 )
 from launch.conditions import IfCondition
 from launch.launch_description_sources import (
@@ -30214,6 +30271,29 @@ def generate_launch_description():
     )
     launch_apriltag = LaunchConfiguration(
         'launch_apriltag'
+    )
+    set_camera_pose = LaunchConfiguration(
+        'set_camera_pose'
+    )
+
+    camera_vertical_servo_id = LaunchConfiguration(
+        'camera_vertical_servo_id'
+    )
+
+    camera_vertical_position = LaunchConfiguration(
+        'camera_vertical_position'
+    )
+
+    camera_horizontal_servo_id = LaunchConfiguration(
+        'camera_horizontal_servo_id'
+    )
+
+    camera_horizontal_position = LaunchConfiguration(
+        'camera_horizontal_position'
+    )
+
+    camera_settle_delay_s = LaunchConfiguration(
+        'camera_settle_delay_s'
     )
 
     scan_topic = LaunchConfiguration(
@@ -30311,9 +30391,6 @@ def generate_launch_description():
     rect_image_topic = LaunchConfiguration(
         'rect_image_topic'
     )
-    raw_image_topic = LaunchConfiguration(
-        'raw_image_topic'
-    )
     camera_info_topic = LaunchConfiguration(
         'camera_info_topic'
     )
@@ -30337,6 +30414,17 @@ def generate_launch_description():
     )
     camera_data_timeout_s = LaunchConfiguration(
         'camera_data_timeout_s'
+    )
+    perception_startup_timeout_s = LaunchConfiguration(
+        'perception_startup_timeout_s'
+    )
+
+    observation_timeout_s = LaunchConfiguration(
+        'observation_timeout_s'
+    )
+
+    same_frame_merge_distance_cm = LaunchConfiguration(
+        'same_frame_merge_distance_cm'
     )
     distance_scale = LaunchConfiguration(
         'distance_scale'
@@ -30365,6 +30453,9 @@ def generate_launch_description():
     )
     cube_merge_distance_cm = LaunchConfiguration(
         'cube_merge_distance_cm'
+    )
+    max_cube_hypotheses = LaunchConfiguration(
+        'max_cube_hypotheses'
     )
     cube_cell_assignment_tolerance_cm = (
         LaunchConfiguration(
@@ -30461,7 +30552,6 @@ def generate_launch_description():
         'submit_maze_to_grader': False,
 
         'rect_image_topic': rect_image_topic,
-        'raw_image_topic': raw_image_topic,
         'camera_info_topic': camera_info_topic,
         'apriltag_topic': apriltag_topic,
         'tag_size_m': tag_size_m,
@@ -30470,6 +30560,15 @@ def generate_launch_description():
         'tag_max_aspect_ratio': tag_max_aspect_ratio,
         'cube_crop_scale': cube_crop_scale,
         'camera_data_timeout_s': camera_data_timeout_s,
+        'perception_startup_timeout_s': (
+            perception_startup_timeout_s
+        ),
+        'observation_timeout_s': (
+            observation_timeout_s
+        ),
+        'same_frame_merge_distance_cm': (
+            same_frame_merge_distance_cm
+        ),
         'distance_scale': distance_scale,
         'distance_bias_cm': distance_bias_cm,
         'cube_center_offset_cm': (
@@ -30489,6 +30588,9 @@ def generate_launch_description():
         ),
         'cube_merge_distance_cm': (
             cube_merge_distance_cm
+        ),
+        'max_cube_hypotheses': (
+            max_cube_hypotheses
         ),
         'cube_cell_assignment_tolerance_cm': (
             cube_cell_assignment_tolerance_cm
@@ -30517,6 +30619,30 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'launch_apriltag',
             default_value='true',
+        ),
+        DeclareLaunchArgument(
+            'set_camera_pose',
+            default_value='false',
+        ),
+        DeclareLaunchArgument(
+            'camera_vertical_servo_id',
+            default_value='1',
+        ),
+        DeclareLaunchArgument(
+            'camera_vertical_position',
+            default_value='2000',
+        ),
+        DeclareLaunchArgument(
+            'camera_horizontal_servo_id',
+            default_value='2',
+        ),
+        DeclareLaunchArgument(
+            'camera_horizontal_position',
+            default_value='2000',
+        ),
+        DeclareLaunchArgument(
+            'camera_settle_delay_s',
+            default_value='1.0',
         ),
 
         # These defaults match the v87 Task 2 launch unless Task 3 requires
@@ -30652,13 +30778,6 @@ def generate_launch_description():
             ),
         ),
         DeclareLaunchArgument(
-            'raw_image_topic',
-            default_value=(
-                '/ascamera/camera_publisher/'
-                'rgb0/image'
-            ),
-        ),
-        DeclareLaunchArgument(
             'camera_info_topic',
             default_value=(
                 '/ascamera/camera_publisher/'
@@ -30692,6 +30811,18 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'camera_data_timeout_s',
             default_value='0.75',
+        ),
+        DeclareLaunchArgument(
+            'perception_startup_timeout_s',
+            default_value='15.0',
+        ),
+        DeclareLaunchArgument(
+            'observation_timeout_s',
+            default_value='1.20',
+        ),
+        DeclareLaunchArgument(
+            'same_frame_merge_distance_cm',
+            default_value='8.0',
         ),
 
         # The newer v1 distance calibration.
@@ -30729,8 +30860,12 @@ def generate_launch_description():
             default_value='20.0',
         ),
         DeclareLaunchArgument(
+            'max_cube_hypotheses',
+            default_value='12',
+        ),
+        DeclareLaunchArgument(
             'cube_cell_assignment_tolerance_cm',
-            default_value='13.0',
+            default_value='10.0',
         ),
         DeclareLaunchArgument(
             'block_cube_cells',
@@ -30785,12 +30920,39 @@ def generate_launch_description():
         ),
 
         Node(
-            package='search_rescue',
-            executable='search_rescue_node',
-            name='search_rescue_node',
+            package='maze_solver',
+            executable='camera_tilt_node',
+            name='task3_camera_pose_node',
             output='screen',
-            parameters=[
-                search_rescue_parameters
+            condition=IfCondition(
+                set_camera_pose
+            ),
+            parameters=[{
+                'servo_id': camera_vertical_servo_id,
+                'position': camera_vertical_position,
+                'horizontal_servo_id': (
+                    camera_horizontal_servo_id
+                ),
+                'left_position': (
+                    camera_horizontal_position
+                ),
+                'duration': 0.5,
+                'publish_for_s': 2.0,
+            }],
+        ),
+
+        TimerAction(
+            period=camera_settle_delay_s,
+            actions=[
+                Node(
+                    package='search_rescue',
+                    executable='search_rescue_node',
+                    name='search_rescue_node',
+                    output='screen',
+                    parameters=[
+                        search_rescue_parameters
+                    ],
+                ),
             ],
         ),
     ])
@@ -30984,6 +31146,7 @@ from typing import Dict, List, Tuple
 
 
 MAX_CUBES = 4
+MAX_HYPOTHESES = 12
 
 ADD_RESULT_ADDED = 'added'
 ADD_RESULT_UPDATED = 'updated'
@@ -31044,22 +31207,44 @@ class Cube:
         self.add_color_vote(color_id)
 
     def get_color_id(self) -> int:
-        return int(max(self.color_votes, key=self.color_votes.get))
+        return int(
+            max(
+                self.color_votes,
+                key=self.color_votes.get,
+            )
+        )
+
+    def dominant_color_votes(self) -> int:
+        return int(max(self.color_votes.values()))
+
+    def color_confidence(self) -> float:
+        if self.seen_count <= 0:
+            return 0.0
+
+        return (
+            self.dominant_color_votes()
+            / float(self.seen_count)
+        )
 
 
 class CubeTracker:
+    """
+    Track extra hypotheses internally, but expose at most four cubes
+    for submission.
+    """
+
     def __init__(
         self,
         limit_distance_cm: float = 20.0,
-        max_cubes: int = MAX_CUBES,
+        max_hypotheses: int = MAX_HYPOTHESES,
     ) -> None:
         self.cubes: List[Cube] = []
-        self.limit_distance_cm = float(limit_distance_cm)
-
-        # This is deliberately capped at four, regardless of caller input.
-        self.max_cubes = min(
+        self.limit_distance_cm = float(
+            limit_distance_cm
+        )
+        self.max_hypotheses = max(
             MAX_CUBES,
-            max(1, int(max_cubes)),
+            int(max_hypotheses),
         )
 
     def add_cube(
@@ -31072,7 +31257,10 @@ class CubeTracker:
         nearest_distance = float('inf')
 
         for cube in self.cubes:
-            distance = cube.distance_to(x_cm, y_cm)
+            distance = cube.distance_to(
+                x_cm,
+                y_cm,
+            )
 
             if distance < nearest_distance:
                 nearest_cube = cube
@@ -31080,7 +31268,8 @@ class CubeTracker:
 
         if (
             nearest_cube is not None
-            and nearest_distance <= self.limit_distance_cm
+            and nearest_distance
+            <= self.limit_distance_cm
         ):
             nearest_cube.update(
                 x_cm,
@@ -31089,7 +31278,7 @@ class CubeTracker:
             )
             return ADD_RESULT_UPDATED
 
-        if len(self.cubes) >= self.max_cubes:
+        if len(self.cubes) >= self.max_hypotheses:
             return ADD_RESULT_CAPACITY
 
         self.cubes.append(
@@ -31101,40 +31290,42 @@ class CubeTracker:
         )
         return ADD_RESULT_ADDED
 
-    def snapshot(
+    def ranked_snapshot(
         self,
-    ) -> List[Tuple[float, float, int, int]]:
+        limit: int = MAX_CUBES,
+    ) -> List[
+        Tuple[float, float, int, int, float]
+    ]:
+        requested_limit = min(
+            MAX_CUBES,
+            max(0, int(limit)),
+        )
+
+        ranked = sorted(
+            self.cubes,
+            key=lambda cube: (
+                cube.seen_count,
+                cube.dominant_color_votes(),
+                cube.color_confidence(),
+            ),
+            reverse=True,
+        )
+
         return [
             (
                 float(cube.x_cm),
                 float(cube.y_cm),
                 int(cube.get_color_id()),
                 int(cube.seen_count),
+                float(cube.color_confidence()),
             )
-            for cube in self.cubes[:MAX_CUBES]
+            for cube in ranked[:requested_limit]
         ]
 
-    def export_for_service(
-        self,
-    ) -> Tuple[int, List[int], List[int], List[int]]:
-        cubes = self.snapshot()
+    def get_hypothesis_count(self) -> int:
+        return len(self.cubes)
 
-        xs = [
-            int(round(cube[0]))
-            for cube in cubes
-        ]
-        ys = [
-            int(round(cube[1]))
-            for cube in cubes
-        ]
-        colors = [
-            int(cube[2])
-            for cube in cubes
-        ]
-
-        return len(cubes), xs, ys, colors
-
-    def get_cube_count(self) -> int:
+    def get_submission_count(self) -> int:
         return min(
             len(self.cubes),
             MAX_CUBES,
@@ -31244,10 +31435,6 @@ class SearchRescueNode(MazeExplorerNode):
             '/ascamera/camera_publisher/rgb0/image_rect',
         )
         self.declare_parameter(
-            'raw_image_topic',
-            '/ascamera/camera_publisher/rgb0/image',
-        )
-        self.declare_parameter(
             'camera_info_topic',
             '/ascamera/camera_publisher/rgb0/camera_info',
         )
@@ -31279,6 +31466,18 @@ class SearchRescueNode(MazeExplorerNode):
         self.declare_parameter(
             'camera_data_timeout_s',
             0.75,
+        )
+        self.declare_parameter(
+            'perception_startup_timeout_s',
+            15.0,
+        )
+        self.declare_parameter(
+            'observation_timeout_s',
+            1.20,
+        )
+        self.declare_parameter(
+            'same_frame_merge_distance_cm',
+            8.0,
         )
 
         # These are the newer physical corrections from v1.
@@ -31316,8 +31515,12 @@ class SearchRescueNode(MazeExplorerNode):
             20.0,
         )
         self.declare_parameter(
+            'max_cube_hypotheses',
+            12,
+        )
+        self.declare_parameter(
             'cube_cell_assignment_tolerance_cm',
-            13.0,
+            10.0,
         )
         self.declare_parameter(
             'block_cube_cells',
@@ -31348,12 +31551,6 @@ class SearchRescueNode(MazeExplorerNode):
         self.rect_image_topic = str(
             self.get_parameter(
                 'rect_image_topic'
-            ).value
-        ).strip()
-
-        self.raw_image_topic = str(
-            self.get_parameter(
-                'raw_image_topic'
             ).value
         ).strip()
 
@@ -31405,6 +31602,24 @@ class SearchRescueNode(MazeExplorerNode):
             ).value
         )
 
+        self.perception_startup_timeout_s = float(
+            self.get_parameter(
+                'perception_startup_timeout_s'
+            ).value
+        )
+
+        self.observation_timeout_s = float(
+            self.get_parameter(
+                'observation_timeout_s'
+            ).value
+        )
+
+        self.same_frame_merge_distance_cm = float(
+            self.get_parameter(
+                'same_frame_merge_distance_cm'
+            ).value
+        )
+
         self.distance_scale = float(
             self.get_parameter(
                 'distance_scale'
@@ -31450,6 +31665,12 @@ class SearchRescueNode(MazeExplorerNode):
         self.cube_merge_distance_cm = float(
             self.get_parameter(
                 'cube_merge_distance_cm'
+            ).value
+        )
+
+        self.max_cube_hypotheses = int(
+            self.get_parameter(
+                'max_cube_hypotheses'
             ).value
         )
 
@@ -31514,34 +31735,35 @@ class SearchRescueNode(MazeExplorerNode):
 
         self.tracker = CubeTracker(
             limit_distance_cm=self.cube_merge_distance_cm,
-            max_cubes=MAX_CUBES,
+            max_hypotheses=self.max_cube_hypotheses,
         )
 
         self.bridge = CvBridge()
 
         self.latest_rect_image = None
-        self.latest_raw_image = None
         self.latest_rect_image_monotonic = 0.0
-        self.latest_raw_image_monotonic = 0.0
+        self.last_apriltag_message_monotonic = 0.0
         self.camera_info: Optional[CameraInfo] = None
 
-        # Allow camera observations before the first motion.
+        now = time.monotonic()
+
+        self.perception_unready_since_monotonic: Optional[
+            float
+        ] = now
+
+        self.observation_required_after_monotonic = now
         self.observation_hold_until_monotonic = (
-            time.monotonic()
-            + self.observation_hold_s
+            now + self.observation_hold_s
         )
+        self.observation_timeout_at_monotonic = (
+            now + self.observation_timeout_s
+        )
+        self.observation_timeout_warned = False
 
         self.rect_image_subscriber = self.create_subscription(
             Image,
             self.rect_image_topic,
             self.callback_rect_image,
-            10,
-        )
-
-        self.raw_image_subscriber = self.create_subscription(
-            Image,
-            self.raw_image_topic,
-            self.callback_raw_image,
             10,
         )
 
@@ -31584,7 +31806,6 @@ class SearchRescueNode(MazeExplorerNode):
 
         topic_parameters = {
             'rect_image_topic': self.rect_image_topic,
-            'raw_image_topic': self.raw_image_topic,
             'camera_info_topic': self.camera_info_topic,
             'apriltag_topic': self.apriltag_topic,
         }
@@ -31601,6 +31822,15 @@ class SearchRescueNode(MazeExplorerNode):
             'cube_crop_scale': self.cube_crop_scale,
             'camera_data_timeout_s': (
                 self.camera_data_timeout_s
+            ),
+            'perception_startup_timeout_s': (
+                self.perception_startup_timeout_s
+            ),
+            'observation_timeout_s': (
+                self.observation_timeout_s
+            ),
+            'same_frame_merge_distance_cm': (
+                self.same_frame_merge_distance_cm
             ),
             'minimum_detection_distance_cm': (
                 self.minimum_detection_distance_cm
@@ -31693,6 +31923,37 @@ class SearchRescueNode(MazeExplorerNode):
             )
 
         if (
+            self.observation_timeout_s
+            < self.observation_hold_s
+        ):
+            errors.append(
+                'observation_timeout_s must be '
+                '>= observation_hold_s'
+            )
+
+        if self.max_cube_hypotheses < MAX_CUBES:
+            errors.append(
+                f'max_cube_hypotheses must be '
+                f'>= {MAX_CUBES}'
+            )
+
+        half_cell_cm = (
+            0.5
+            * self.cell_length_m
+            * 100.0
+        )
+
+        if (
+            self.cube_cell_assignment_tolerance_cm
+            >= half_cell_cm
+        ):
+            errors.append(
+                'cube_cell_assignment_tolerance_cm '
+                'must be < half a cell '
+                f'({half_cell_cm:.2f} cm)'
+            )
+
+        if (
             self.submit_cubes_to_grader
             and not self.cube_grade_service_name
         ):
@@ -31728,28 +31989,6 @@ class SearchRescueNode(MazeExplorerNode):
             time.monotonic()
         )
 
-    def callback_raw_image(
-        self,
-        msg: Image,
-    ) -> None:
-        try:
-            self.latest_raw_image = (
-                self.bridge.imgmsg_to_cv2(
-                    msg,
-                    desired_encoding='bgr8',
-                )
-            )
-        except Exception as exc:
-            self.get_logger().warn(
-                f'Failed to convert raw image: {exc}',
-                throttle_duration_sec=2.0,
-            )
-            return
-
-        self.latest_raw_image_monotonic = (
-            time.monotonic()
-        )
-
     def callback_camera_info(
         self,
         msg: CameraInfo,
@@ -31769,14 +32008,18 @@ class SearchRescueNode(MazeExplorerNode):
         self,
         msg: AprilTagDetectionArray,
     ) -> None:
+        now = time.monotonic()
+
+        # Record empty arrays as well. This tells the motion integration
+        # that the detector processed a stationary camera frame.
+        self.last_apriltag_message_monotonic = now
+
         if (
             self.completed
             or self.motion_in_flight
             or not msg.detections
         ):
             return
-
-        now = time.monotonic()
 
         if (
             self.latest_rect_image is None
@@ -31789,20 +32032,6 @@ class SearchRescueNode(MazeExplorerNode):
             self.get_logger().debug(
                 'Ignoring tag detection without '
                 'a fresh rectified image.'
-            )
-            return
-
-        if (
-            self.latest_raw_image is None
-            or (
-                now
-                - self.latest_raw_image_monotonic
-                > self.camera_data_timeout_s
-            )
-        ):
-            self.get_logger().debug(
-                'Ignoring tag detection without '
-                'a fresh raw image.'
             )
             return
 
@@ -31854,11 +32083,70 @@ class SearchRescueNode(MazeExplorerNode):
         if not valid_detections:
             return
 
-        detection, _ = max(
-            valid_detections,
+        # Do not process only the largest tag. Process every spatially
+        # distinct cube visible in the frame.
+        valid_detections.sort(
             key=lambda item: item[1],
+            reverse=True,
         )
 
+        accepted_positions: List[
+            Tuple[float, float]
+        ] = []
+
+        for detection, _ in valid_detections:
+            position = (
+                self._calibrated_cube_position(
+                    detection
+                )
+            )
+
+            if position is None:
+                continue
+
+            (
+                forward_cm,
+                left_cm,
+                local_x_cm,
+                local_y_cm,
+            ) = position
+
+            duplicate_in_frame = any(
+                math.hypot(
+                    local_x_cm - accepted_x_cm,
+                    local_y_cm - accepted_y_cm,
+                )
+                <= self.same_frame_merge_distance_cm
+                for (
+                    accepted_x_cm,
+                    accepted_y_cm,
+                ) in accepted_positions
+            )
+
+            if duplicate_in_frame:
+                continue
+
+            accepted_positions.append(
+                (
+                    local_x_cm,
+                    local_y_cm,
+                )
+            )
+
+            self._process_cube_detection(
+                detection=detection,
+                forward_cm=forward_cm,
+                left_cm=left_cm,
+                local_x_cm=local_x_cm,
+                local_y_cm=local_y_cm,
+            )
+
+    def _calibrated_cube_position(
+        self,
+        detection,
+    ) -> Optional[
+        Tuple[float, float, float, float]
+    ]:
         relative_position = (
             self.estimate_cube_relative_position(
                 detection
@@ -31866,17 +32154,17 @@ class SearchRescueNode(MazeExplorerNode):
         )
 
         if relative_position is None:
-            return
+            return None
 
         forward_cm, left_cm = relative_position
 
-        # Preserve the newer v1 physical calibration.
+        # Preserve the newer physical calibration from v1.
         forward_cm = (
             self.distance_scale * forward_cm
             + self.distance_bias_cm
         )
 
-        # Convert tag/front-face distance to cube-center distance.
+        # Convert front-face distance to cube-center distance.
         forward_cm += self.cube_center_offset_cm
 
         if (
@@ -31885,7 +32173,7 @@ class SearchRescueNode(MazeExplorerNode):
             or forward_cm
             > self.maximum_detection_distance_cm
         ):
-            return
+            return None
 
         local_x_cm, local_y_cm = (
             self.cube_camera_to_local(
@@ -31894,39 +32182,56 @@ class SearchRescueNode(MazeExplorerNode):
             )
         )
 
-        # The AprilTag itself is enough to identify a cube obstacle.
-        # Color detection is not required before avoiding its cell.
-        if self.block_cube_cells:
-            cube_cell = self.infer_cube_cell(
-                local_x_cm,
-                local_y_cm,
-            )
+        return (
+            forward_cm,
+            left_cm,
+            local_x_cm,
+            local_y_cm,
+        )
 
-            if (
-                cube_cell is not None
-                and cube_cell != self.current_cell
-            ):
-                if self.maze.block_cell(cube_cell):
-                    # A previously queued route may pass through this cell.
-                    self.motion_queue.clear()
+    def _process_cube_detection(
+        self,
+        *,
+        detection,
+        forward_cm: float,
+        left_cm: float,
+        local_x_cm: float,
+        local_y_cm: float,
+    ) -> None:
+        cube_cell = self.infer_cube_cell(
+            local_x_cm,
+            local_y_cm,
+        )
 
-                    self.get_logger().warn(
-                        f'Cube obstacle added at '
-                        f'cell={cube_cell}; '
-                        'discarded queued route and will replan.'
-                    )
+        # A valid AprilTag is sufficient to avoid the obstacle.
+        # Color classification may fail without risking a collision.
+        if (
+            self.block_cube_cells
+            and cube_cell is not None
+            and cube_cell != self.current_cell
+        ):
+            if self.maze.block_cell(cube_cell):
+                self.motion_queue.clear()
 
-                    self._publish_current_maze()
+                self.get_logger().warn(
+                    f'Cube obstacle added at '
+                    f'cell={cube_cell}; '
+                    'discarded queued route and will replan.'
+                )
 
-        raw_crop = self.crop_cube_from_detection(
-            self.latest_raw_image,
+                self._publish_current_maze()
+
+        # Detection coordinates refer to image_rect, so color must be
+        # cropped from image_rect as well.
+        cube_crop = self.crop_cube_from_detection(
+            self.latest_rect_image,
             detection,
         )
 
-        if raw_crop is None:
+        if cube_crop is None:
             return
 
-        color_id = detect_color(raw_crop)
+        color_id = detect_color(cube_crop)
 
         if color_id is None:
             return
@@ -31939,9 +32244,14 @@ class SearchRescueNode(MazeExplorerNode):
 
         if add_result == ADD_RESULT_ADDED:
             self.get_logger().info(
-                f'New cube accepted: '
-                f'count={self.tracker.get_cube_count()}'
+                f'New cube hypothesis accepted: '
+                f'hypotheses='
+                f'{self.tracker.get_hypothesis_count()}, '
+                f'submission_slots='
+                f'{self.tracker.get_submission_count()}'
                 f'/{MAX_CUBES}, '
+                f'forward={forward_cm:.1f} cm, '
+                f'left={left_cm:.1f} cm, '
                 f'local_x={local_x_cm:.1f} cm, '
                 f'local_y={local_y_cm:.1f} cm, '
                 f'color={int(color_id)}'
@@ -31949,9 +32259,8 @@ class SearchRescueNode(MazeExplorerNode):
 
         elif add_result == ADD_RESULT_CAPACITY:
             self.get_logger().warn(
-                'Rejected a fifth distinct cube hypothesis. '
-                'The Task 3 request is strictly capped '
-                'at four cubes.',
+                'Cube hypothesis capacity reached. '
+                'Ignoring a new distinct hypothesis.',
                 throttle_duration_sec=2.0,
             )
 
@@ -32281,6 +32590,99 @@ class SearchRescueNode(MazeExplorerNode):
 
         return None
 
+    def _begin_observation_window(self) -> None:
+        now = time.monotonic()
+
+        self.observation_required_after_monotonic = now
+
+        self.observation_hold_until_monotonic = (
+            now + self.observation_hold_s
+        )
+
+        self.observation_timeout_at_monotonic = (
+            now + self.observation_timeout_s
+        )
+
+        self.observation_timeout_warned = False
+
+    def _perception_streams_ready(
+        self,
+        now: float,
+    ) -> Tuple[bool, str]:
+        if self.camera_info is None:
+            return (
+                False,
+                'camera_info has not been received',
+            )
+
+        if self.latest_rect_image is None:
+            return (
+                False,
+                'rectified camera image has not been received',
+            )
+
+        image_age_s = (
+            now
+            - self.latest_rect_image_monotonic
+        )
+
+        if image_age_s > self.camera_data_timeout_s:
+            return (
+                False,
+                f'rectified image is stale '
+                f'({image_age_s:.2f} s)',
+            )
+
+        if self.count_publishers(
+            self.apriltag_topic
+        ) < 1:
+            return (
+                False,
+                'AprilTag detector has no publisher',
+            )
+
+        return True, 'ready'
+
+    def _observation_window_complete(
+        self,
+        now: float,
+    ) -> bool:
+        if now < self.observation_hold_until_monotonic:
+            return False
+
+        rect_frame_seen = (
+            self.latest_rect_image_monotonic
+            >= self.observation_required_after_monotonic
+        )
+
+        tag_message_seen = (
+            self.last_apriltag_message_monotonic
+            >= self.observation_required_after_monotonic
+        )
+
+        if rect_frame_seen and tag_message_seen:
+            return True
+
+        if now < self.observation_timeout_at_monotonic:
+            return False
+
+        # Some detector implementations may not publish empty arrays.
+        # A post-motion rectified frame is therefore accepted after the
+        # timeout, but this condition is explicitly logged.
+        if rect_frame_seen:
+            if not self.observation_timeout_warned:
+                self.get_logger().warn(
+                    'Observation window timed out without '
+                    'a post-motion AprilTag message; '
+                    'continuing because a fresh rectified '
+                    'frame was received.'
+                )
+                self.observation_timeout_warned = True
+
+            return True
+
+        return False
+
     def _handle_motion_result(
         self,
         future,
@@ -32289,7 +32691,7 @@ class SearchRescueNode(MazeExplorerNode):
             self.active_step
         )
 
-        # This performs all normal v87 result validation and pose updates.
+        # Preserve the complete v87 result handling and pose update.
         super()._handle_motion_result(
             future
         )
@@ -32300,12 +32702,7 @@ class SearchRescueNode(MazeExplorerNode):
             and not self.motion_in_flight
             and self.active_step is None
         ):
-            # Delay the next dispatch so the stationary camera receives several
-            # image and AprilTag messages at the newly updated robot pose.
-            self.observation_hold_until_monotonic = (
-                time.monotonic()
-                + self.observation_hold_s
-            )
+            self._begin_observation_window()
 
     def _tick(self) -> None:
         self._check_cube_grade_timeout()
@@ -32313,14 +32710,53 @@ class SearchRescueNode(MazeExplorerNode):
         if (
             not self.completed
             and not self.motion_in_flight
-            and (
-                time.monotonic()
-                < self.observation_hold_until_monotonic
-            )
         ):
-            return
+            now = time.monotonic()
 
-        # All exploration, planning and motion dispatch remain v87 behavior.
+            ready, reason = (
+                self._perception_streams_ready(
+                    now
+                )
+            )
+
+            if not ready:
+                if (
+                    self.perception_unready_since_monotonic
+                    is None
+                ):
+                    self.perception_unready_since_monotonic = (
+                        now
+                    )
+
+                unavailable_s = (
+                    now
+                    - self.perception_unready_since_monotonic
+                )
+
+                if (
+                    unavailable_s
+                    > self.perception_startup_timeout_s
+                ):
+                    self._fatal(
+                        'Task 3 perception unavailable for '
+                        f'{unavailable_s:.1f} s: {reason}'
+                    )
+                    return
+
+                self.get_logger().warn(
+                    f'Waiting for Task 3 perception: {reason}',
+                    throttle_duration_sec=2.0,
+                )
+                return
+
+            self.perception_unready_since_monotonic = None
+
+            if not self._observation_window_complete(
+                now
+            ):
+                return
+
+        # Preserve v87 exploration, planning and motion dispatch.
         super()._tick()
 
         self._maybe_request_task3_shutdown()
@@ -32349,18 +32785,26 @@ class SearchRescueNode(MazeExplorerNode):
     def _maze_origin_in_local_cm(
         self,
     ) -> Tuple[float, float]:
-        if not self.maze.cells:
-            self.maze.ensure_cell(
+        coordinate_cells = set(
+            self.maze.cells
+        )
+
+        coordinate_cells.update(
+            self.maze.blocked_cells
+        )
+
+        if not coordinate_cells:
+            coordinate_cells.add(
                 self.start_cell
             )
 
         minimum_x = min(
             cell[0]
-            for cell in self.maze.cells
+            for cell in coordinate_cells
         )
         minimum_y = min(
             cell[1]
-            for cell in self.maze.cells
+            for cell in coordinate_cells
         )
 
         cell_cm = (
@@ -32368,8 +32812,8 @@ class SearchRescueNode(MazeExplorerNode):
             * 100.0
         )
 
-        # Integer coordinates represent cell centers. The origin lies half a
-        # cell before the minimum-coordinate center on each maze axis.
+        # Integer coordinates represent cell centers. The maze origin is
+        # half a cell before the minimum cell center on each axis.
         origin_x_cm = (
             float(minimum_x) - 0.5
         ) * cell_cm
@@ -32395,12 +32839,20 @@ class SearchRescueNode(MazeExplorerNode):
             self._maze_origin_in_local_cm()
         )
 
-        # This slice is a second independent four-cube safety guard.
-        cubes = (
-            self.tracker.snapshot()[
-                :MAX_CUBES
-            ]
+        cubes = self.tracker.ranked_snapshot(
+            MAX_CUBES
         )
+
+        hypothesis_count = (
+            self.tracker.get_hypothesis_count()
+        )
+
+        if hypothesis_count > len(cubes):
+            self.get_logger().warn(
+                f'Selecting the best {len(cubes)} '
+                f'of {hypothesis_count} cube hypotheses '
+                'for the grader.'
+            )
 
         xs = [
             int(

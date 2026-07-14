@@ -2,6 +2,7 @@ from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
     IncludeLaunchDescription,
+    TimerAction,
 )
 from launch.conditions import IfCondition
 from launch.launch_description_sources import (
@@ -21,6 +22,29 @@ def generate_launch_description():
     )
     launch_apriltag = LaunchConfiguration(
         'launch_apriltag'
+    )
+    set_camera_pose = LaunchConfiguration(
+        'set_camera_pose'
+    )
+
+    camera_vertical_servo_id = LaunchConfiguration(
+        'camera_vertical_servo_id'
+    )
+
+    camera_vertical_position = LaunchConfiguration(
+        'camera_vertical_position'
+    )
+
+    camera_horizontal_servo_id = LaunchConfiguration(
+        'camera_horizontal_servo_id'
+    )
+
+    camera_horizontal_position = LaunchConfiguration(
+        'camera_horizontal_position'
+    )
+
+    camera_settle_delay_s = LaunchConfiguration(
+        'camera_settle_delay_s'
     )
 
     scan_topic = LaunchConfiguration(
@@ -118,9 +142,6 @@ def generate_launch_description():
     rect_image_topic = LaunchConfiguration(
         'rect_image_topic'
     )
-    raw_image_topic = LaunchConfiguration(
-        'raw_image_topic'
-    )
     camera_info_topic = LaunchConfiguration(
         'camera_info_topic'
     )
@@ -144,6 +165,17 @@ def generate_launch_description():
     )
     camera_data_timeout_s = LaunchConfiguration(
         'camera_data_timeout_s'
+    )
+    perception_startup_timeout_s = LaunchConfiguration(
+        'perception_startup_timeout_s'
+    )
+
+    observation_timeout_s = LaunchConfiguration(
+        'observation_timeout_s'
+    )
+
+    same_frame_merge_distance_cm = LaunchConfiguration(
+        'same_frame_merge_distance_cm'
     )
     distance_scale = LaunchConfiguration(
         'distance_scale'
@@ -172,6 +204,9 @@ def generate_launch_description():
     )
     cube_merge_distance_cm = LaunchConfiguration(
         'cube_merge_distance_cm'
+    )
+    max_cube_hypotheses = LaunchConfiguration(
+        'max_cube_hypotheses'
     )
     cube_cell_assignment_tolerance_cm = (
         LaunchConfiguration(
@@ -268,7 +303,6 @@ def generate_launch_description():
         'submit_maze_to_grader': False,
 
         'rect_image_topic': rect_image_topic,
-        'raw_image_topic': raw_image_topic,
         'camera_info_topic': camera_info_topic,
         'apriltag_topic': apriltag_topic,
         'tag_size_m': tag_size_m,
@@ -277,6 +311,15 @@ def generate_launch_description():
         'tag_max_aspect_ratio': tag_max_aspect_ratio,
         'cube_crop_scale': cube_crop_scale,
         'camera_data_timeout_s': camera_data_timeout_s,
+        'perception_startup_timeout_s': (
+            perception_startup_timeout_s
+        ),
+        'observation_timeout_s': (
+            observation_timeout_s
+        ),
+        'same_frame_merge_distance_cm': (
+            same_frame_merge_distance_cm
+        ),
         'distance_scale': distance_scale,
         'distance_bias_cm': distance_bias_cm,
         'cube_center_offset_cm': (
@@ -296,6 +339,9 @@ def generate_launch_description():
         ),
         'cube_merge_distance_cm': (
             cube_merge_distance_cm
+        ),
+        'max_cube_hypotheses': (
+            max_cube_hypotheses
         ),
         'cube_cell_assignment_tolerance_cm': (
             cube_cell_assignment_tolerance_cm
@@ -324,6 +370,30 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'launch_apriltag',
             default_value='true',
+        ),
+        DeclareLaunchArgument(
+            'set_camera_pose',
+            default_value='false',
+        ),
+        DeclareLaunchArgument(
+            'camera_vertical_servo_id',
+            default_value='1',
+        ),
+        DeclareLaunchArgument(
+            'camera_vertical_position',
+            default_value='2000',
+        ),
+        DeclareLaunchArgument(
+            'camera_horizontal_servo_id',
+            default_value='2',
+        ),
+        DeclareLaunchArgument(
+            'camera_horizontal_position',
+            default_value='2000',
+        ),
+        DeclareLaunchArgument(
+            'camera_settle_delay_s',
+            default_value='1.0',
         ),
 
         # These defaults match the v87 Task 2 launch unless Task 3 requires
@@ -459,13 +529,6 @@ def generate_launch_description():
             ),
         ),
         DeclareLaunchArgument(
-            'raw_image_topic',
-            default_value=(
-                '/ascamera/camera_publisher/'
-                'rgb0/image'
-            ),
-        ),
-        DeclareLaunchArgument(
             'camera_info_topic',
             default_value=(
                 '/ascamera/camera_publisher/'
@@ -499,6 +562,18 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'camera_data_timeout_s',
             default_value='0.75',
+        ),
+        DeclareLaunchArgument(
+            'perception_startup_timeout_s',
+            default_value='15.0',
+        ),
+        DeclareLaunchArgument(
+            'observation_timeout_s',
+            default_value='1.20',
+        ),
+        DeclareLaunchArgument(
+            'same_frame_merge_distance_cm',
+            default_value='8.0',
         ),
 
         # The newer v1 distance calibration.
@@ -536,8 +611,12 @@ def generate_launch_description():
             default_value='20.0',
         ),
         DeclareLaunchArgument(
+            'max_cube_hypotheses',
+            default_value='12',
+        ),
+        DeclareLaunchArgument(
             'cube_cell_assignment_tolerance_cm',
-            default_value='13.0',
+            default_value='10.0',
         ),
         DeclareLaunchArgument(
             'block_cube_cells',
@@ -592,12 +671,39 @@ def generate_launch_description():
         ),
 
         Node(
-            package='search_rescue',
-            executable='search_rescue_node',
-            name='search_rescue_node',
+            package='maze_solver',
+            executable='camera_tilt_node',
+            name='task3_camera_pose_node',
             output='screen',
-            parameters=[
-                search_rescue_parameters
+            condition=IfCondition(
+                set_camera_pose
+            ),
+            parameters=[{
+                'servo_id': camera_vertical_servo_id,
+                'position': camera_vertical_position,
+                'horizontal_servo_id': (
+                    camera_horizontal_servo_id
+                ),
+                'left_position': (
+                    camera_horizontal_position
+                ),
+                'duration': 0.5,
+                'publish_for_s': 2.0,
+            }],
+        ),
+
+        TimerAction(
+            period=camera_settle_delay_s,
+            actions=[
+                Node(
+                    package='search_rescue',
+                    executable='search_rescue_node',
+                    name='search_rescue_node',
+                    output='screen',
+                    parameters=[
+                        search_rescue_parameters
+                    ],
+                ),
             ],
         ),
     ])

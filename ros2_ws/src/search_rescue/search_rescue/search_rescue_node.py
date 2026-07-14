@@ -94,10 +94,6 @@ class SearchRescueNode(MazeExplorerNode):
             '/ascamera/camera_publisher/rgb0/image_rect',
         )
         self.declare_parameter(
-            'raw_image_topic',
-            '/ascamera/camera_publisher/rgb0/image',
-        )
-        self.declare_parameter(
             'camera_info_topic',
             '/ascamera/camera_publisher/rgb0/camera_info',
         )
@@ -129,6 +125,18 @@ class SearchRescueNode(MazeExplorerNode):
         self.declare_parameter(
             'camera_data_timeout_s',
             0.75,
+        )
+        self.declare_parameter(
+            'perception_startup_timeout_s',
+            15.0,
+        )
+        self.declare_parameter(
+            'observation_timeout_s',
+            1.20,
+        )
+        self.declare_parameter(
+            'same_frame_merge_distance_cm',
+            8.0,
         )
 
         # These are the newer physical corrections from v1.
@@ -166,8 +174,12 @@ class SearchRescueNode(MazeExplorerNode):
             20.0,
         )
         self.declare_parameter(
+            'max_cube_hypotheses',
+            12,
+        )
+        self.declare_parameter(
             'cube_cell_assignment_tolerance_cm',
-            13.0,
+            10.0,
         )
         self.declare_parameter(
             'block_cube_cells',
@@ -198,12 +210,6 @@ class SearchRescueNode(MazeExplorerNode):
         self.rect_image_topic = str(
             self.get_parameter(
                 'rect_image_topic'
-            ).value
-        ).strip()
-
-        self.raw_image_topic = str(
-            self.get_parameter(
-                'raw_image_topic'
             ).value
         ).strip()
 
@@ -255,6 +261,24 @@ class SearchRescueNode(MazeExplorerNode):
             ).value
         )
 
+        self.perception_startup_timeout_s = float(
+            self.get_parameter(
+                'perception_startup_timeout_s'
+            ).value
+        )
+
+        self.observation_timeout_s = float(
+            self.get_parameter(
+                'observation_timeout_s'
+            ).value
+        )
+
+        self.same_frame_merge_distance_cm = float(
+            self.get_parameter(
+                'same_frame_merge_distance_cm'
+            ).value
+        )
+
         self.distance_scale = float(
             self.get_parameter(
                 'distance_scale'
@@ -300,6 +324,12 @@ class SearchRescueNode(MazeExplorerNode):
         self.cube_merge_distance_cm = float(
             self.get_parameter(
                 'cube_merge_distance_cm'
+            ).value
+        )
+
+        self.max_cube_hypotheses = int(
+            self.get_parameter(
+                'max_cube_hypotheses'
             ).value
         )
 
@@ -364,34 +394,35 @@ class SearchRescueNode(MazeExplorerNode):
 
         self.tracker = CubeTracker(
             limit_distance_cm=self.cube_merge_distance_cm,
-            max_cubes=MAX_CUBES,
+            max_hypotheses=self.max_cube_hypotheses,
         )
 
         self.bridge = CvBridge()
 
         self.latest_rect_image = None
-        self.latest_raw_image = None
         self.latest_rect_image_monotonic = 0.0
-        self.latest_raw_image_monotonic = 0.0
+        self.last_apriltag_message_monotonic = 0.0
         self.camera_info: Optional[CameraInfo] = None
 
-        # Allow camera observations before the first motion.
+        now = time.monotonic()
+
+        self.perception_unready_since_monotonic: Optional[
+            float
+        ] = now
+
+        self.observation_required_after_monotonic = now
         self.observation_hold_until_monotonic = (
-            time.monotonic()
-            + self.observation_hold_s
+            now + self.observation_hold_s
         )
+        self.observation_timeout_at_monotonic = (
+            now + self.observation_timeout_s
+        )
+        self.observation_timeout_warned = False
 
         self.rect_image_subscriber = self.create_subscription(
             Image,
             self.rect_image_topic,
             self.callback_rect_image,
-            10,
-        )
-
-        self.raw_image_subscriber = self.create_subscription(
-            Image,
-            self.raw_image_topic,
-            self.callback_raw_image,
             10,
         )
 
@@ -434,7 +465,6 @@ class SearchRescueNode(MazeExplorerNode):
 
         topic_parameters = {
             'rect_image_topic': self.rect_image_topic,
-            'raw_image_topic': self.raw_image_topic,
             'camera_info_topic': self.camera_info_topic,
             'apriltag_topic': self.apriltag_topic,
         }
@@ -451,6 +481,15 @@ class SearchRescueNode(MazeExplorerNode):
             'cube_crop_scale': self.cube_crop_scale,
             'camera_data_timeout_s': (
                 self.camera_data_timeout_s
+            ),
+            'perception_startup_timeout_s': (
+                self.perception_startup_timeout_s
+            ),
+            'observation_timeout_s': (
+                self.observation_timeout_s
+            ),
+            'same_frame_merge_distance_cm': (
+                self.same_frame_merge_distance_cm
             ),
             'minimum_detection_distance_cm': (
                 self.minimum_detection_distance_cm
@@ -543,6 +582,37 @@ class SearchRescueNode(MazeExplorerNode):
             )
 
         if (
+            self.observation_timeout_s
+            < self.observation_hold_s
+        ):
+            errors.append(
+                'observation_timeout_s must be '
+                '>= observation_hold_s'
+            )
+
+        if self.max_cube_hypotheses < MAX_CUBES:
+            errors.append(
+                f'max_cube_hypotheses must be '
+                f'>= {MAX_CUBES}'
+            )
+
+        half_cell_cm = (
+            0.5
+            * self.cell_length_m
+            * 100.0
+        )
+
+        if (
+            self.cube_cell_assignment_tolerance_cm
+            >= half_cell_cm
+        ):
+            errors.append(
+                'cube_cell_assignment_tolerance_cm '
+                'must be < half a cell '
+                f'({half_cell_cm:.2f} cm)'
+            )
+
+        if (
             self.submit_cubes_to_grader
             and not self.cube_grade_service_name
         ):
@@ -578,28 +648,6 @@ class SearchRescueNode(MazeExplorerNode):
             time.monotonic()
         )
 
-    def callback_raw_image(
-        self,
-        msg: Image,
-    ) -> None:
-        try:
-            self.latest_raw_image = (
-                self.bridge.imgmsg_to_cv2(
-                    msg,
-                    desired_encoding='bgr8',
-                )
-            )
-        except Exception as exc:
-            self.get_logger().warn(
-                f'Failed to convert raw image: {exc}',
-                throttle_duration_sec=2.0,
-            )
-            return
-
-        self.latest_raw_image_monotonic = (
-            time.monotonic()
-        )
-
     def callback_camera_info(
         self,
         msg: CameraInfo,
@@ -619,14 +667,18 @@ class SearchRescueNode(MazeExplorerNode):
         self,
         msg: AprilTagDetectionArray,
     ) -> None:
+        now = time.monotonic()
+
+        # Record empty arrays as well. This tells the motion integration
+        # that the detector processed a stationary camera frame.
+        self.last_apriltag_message_monotonic = now
+
         if (
             self.completed
             or self.motion_in_flight
             or not msg.detections
         ):
             return
-
-        now = time.monotonic()
 
         if (
             self.latest_rect_image is None
@@ -639,20 +691,6 @@ class SearchRescueNode(MazeExplorerNode):
             self.get_logger().debug(
                 'Ignoring tag detection without '
                 'a fresh rectified image.'
-            )
-            return
-
-        if (
-            self.latest_raw_image is None
-            or (
-                now
-                - self.latest_raw_image_monotonic
-                > self.camera_data_timeout_s
-            )
-        ):
-            self.get_logger().debug(
-                'Ignoring tag detection without '
-                'a fresh raw image.'
             )
             return
 
@@ -704,11 +742,70 @@ class SearchRescueNode(MazeExplorerNode):
         if not valid_detections:
             return
 
-        detection, _ = max(
-            valid_detections,
+        # Do not process only the largest tag. Process every spatially
+        # distinct cube visible in the frame.
+        valid_detections.sort(
             key=lambda item: item[1],
+            reverse=True,
         )
 
+        accepted_positions: List[
+            Tuple[float, float]
+        ] = []
+
+        for detection, _ in valid_detections:
+            position = (
+                self._calibrated_cube_position(
+                    detection
+                )
+            )
+
+            if position is None:
+                continue
+
+            (
+                forward_cm,
+                left_cm,
+                local_x_cm,
+                local_y_cm,
+            ) = position
+
+            duplicate_in_frame = any(
+                math.hypot(
+                    local_x_cm - accepted_x_cm,
+                    local_y_cm - accepted_y_cm,
+                )
+                <= self.same_frame_merge_distance_cm
+                for (
+                    accepted_x_cm,
+                    accepted_y_cm,
+                ) in accepted_positions
+            )
+
+            if duplicate_in_frame:
+                continue
+
+            accepted_positions.append(
+                (
+                    local_x_cm,
+                    local_y_cm,
+                )
+            )
+
+            self._process_cube_detection(
+                detection=detection,
+                forward_cm=forward_cm,
+                left_cm=left_cm,
+                local_x_cm=local_x_cm,
+                local_y_cm=local_y_cm,
+            )
+
+    def _calibrated_cube_position(
+        self,
+        detection,
+    ) -> Optional[
+        Tuple[float, float, float, float]
+    ]:
         relative_position = (
             self.estimate_cube_relative_position(
                 detection
@@ -716,17 +813,17 @@ class SearchRescueNode(MazeExplorerNode):
         )
 
         if relative_position is None:
-            return
+            return None
 
         forward_cm, left_cm = relative_position
 
-        # Preserve the newer v1 physical calibration.
+        # Preserve the newer physical calibration from v1.
         forward_cm = (
             self.distance_scale * forward_cm
             + self.distance_bias_cm
         )
 
-        # Convert tag/front-face distance to cube-center distance.
+        # Convert front-face distance to cube-center distance.
         forward_cm += self.cube_center_offset_cm
 
         if (
@@ -735,7 +832,7 @@ class SearchRescueNode(MazeExplorerNode):
             or forward_cm
             > self.maximum_detection_distance_cm
         ):
-            return
+            return None
 
         local_x_cm, local_y_cm = (
             self.cube_camera_to_local(
@@ -744,39 +841,56 @@ class SearchRescueNode(MazeExplorerNode):
             )
         )
 
-        # The AprilTag itself is enough to identify a cube obstacle.
-        # Color detection is not required before avoiding its cell.
-        if self.block_cube_cells:
-            cube_cell = self.infer_cube_cell(
-                local_x_cm,
-                local_y_cm,
-            )
+        return (
+            forward_cm,
+            left_cm,
+            local_x_cm,
+            local_y_cm,
+        )
 
-            if (
-                cube_cell is not None
-                and cube_cell != self.current_cell
-            ):
-                if self.maze.block_cell(cube_cell):
-                    # A previously queued route may pass through this cell.
-                    self.motion_queue.clear()
+    def _process_cube_detection(
+        self,
+        *,
+        detection,
+        forward_cm: float,
+        left_cm: float,
+        local_x_cm: float,
+        local_y_cm: float,
+    ) -> None:
+        cube_cell = self.infer_cube_cell(
+            local_x_cm,
+            local_y_cm,
+        )
 
-                    self.get_logger().warn(
-                        f'Cube obstacle added at '
-                        f'cell={cube_cell}; '
-                        'discarded queued route and will replan.'
-                    )
+        # A valid AprilTag is sufficient to avoid the obstacle.
+        # Color classification may fail without risking a collision.
+        if (
+            self.block_cube_cells
+            and cube_cell is not None
+            and cube_cell != self.current_cell
+        ):
+            if self.maze.block_cell(cube_cell):
+                self.motion_queue.clear()
 
-                    self._publish_current_maze()
+                self.get_logger().warn(
+                    f'Cube obstacle added at '
+                    f'cell={cube_cell}; '
+                    'discarded queued route and will replan.'
+                )
 
-        raw_crop = self.crop_cube_from_detection(
-            self.latest_raw_image,
+                self._publish_current_maze()
+
+        # Detection coordinates refer to image_rect, so color must be
+        # cropped from image_rect as well.
+        cube_crop = self.crop_cube_from_detection(
+            self.latest_rect_image,
             detection,
         )
 
-        if raw_crop is None:
+        if cube_crop is None:
             return
 
-        color_id = detect_color(raw_crop)
+        color_id = detect_color(cube_crop)
 
         if color_id is None:
             return
@@ -789,9 +903,14 @@ class SearchRescueNode(MazeExplorerNode):
 
         if add_result == ADD_RESULT_ADDED:
             self.get_logger().info(
-                f'New cube accepted: '
-                f'count={self.tracker.get_cube_count()}'
+                f'New cube hypothesis accepted: '
+                f'hypotheses='
+                f'{self.tracker.get_hypothesis_count()}, '
+                f'submission_slots='
+                f'{self.tracker.get_submission_count()}'
                 f'/{MAX_CUBES}, '
+                f'forward={forward_cm:.1f} cm, '
+                f'left={left_cm:.1f} cm, '
                 f'local_x={local_x_cm:.1f} cm, '
                 f'local_y={local_y_cm:.1f} cm, '
                 f'color={int(color_id)}'
@@ -799,9 +918,8 @@ class SearchRescueNode(MazeExplorerNode):
 
         elif add_result == ADD_RESULT_CAPACITY:
             self.get_logger().warn(
-                'Rejected a fifth distinct cube hypothesis. '
-                'The Task 3 request is strictly capped '
-                'at four cubes.',
+                'Cube hypothesis capacity reached. '
+                'Ignoring a new distinct hypothesis.',
                 throttle_duration_sec=2.0,
             )
 
@@ -1131,6 +1249,99 @@ class SearchRescueNode(MazeExplorerNode):
 
         return None
 
+    def _begin_observation_window(self) -> None:
+        now = time.monotonic()
+
+        self.observation_required_after_monotonic = now
+
+        self.observation_hold_until_monotonic = (
+            now + self.observation_hold_s
+        )
+
+        self.observation_timeout_at_monotonic = (
+            now + self.observation_timeout_s
+        )
+
+        self.observation_timeout_warned = False
+
+    def _perception_streams_ready(
+        self,
+        now: float,
+    ) -> Tuple[bool, str]:
+        if self.camera_info is None:
+            return (
+                False,
+                'camera_info has not been received',
+            )
+
+        if self.latest_rect_image is None:
+            return (
+                False,
+                'rectified camera image has not been received',
+            )
+
+        image_age_s = (
+            now
+            - self.latest_rect_image_monotonic
+        )
+
+        if image_age_s > self.camera_data_timeout_s:
+            return (
+                False,
+                f'rectified image is stale '
+                f'({image_age_s:.2f} s)',
+            )
+
+        if self.count_publishers(
+            self.apriltag_topic
+        ) < 1:
+            return (
+                False,
+                'AprilTag detector has no publisher',
+            )
+
+        return True, 'ready'
+
+    def _observation_window_complete(
+        self,
+        now: float,
+    ) -> bool:
+        if now < self.observation_hold_until_monotonic:
+            return False
+
+        rect_frame_seen = (
+            self.latest_rect_image_monotonic
+            >= self.observation_required_after_monotonic
+        )
+
+        tag_message_seen = (
+            self.last_apriltag_message_monotonic
+            >= self.observation_required_after_monotonic
+        )
+
+        if rect_frame_seen and tag_message_seen:
+            return True
+
+        if now < self.observation_timeout_at_monotonic:
+            return False
+
+        # Some detector implementations may not publish empty arrays.
+        # A post-motion rectified frame is therefore accepted after the
+        # timeout, but this condition is explicitly logged.
+        if rect_frame_seen:
+            if not self.observation_timeout_warned:
+                self.get_logger().warn(
+                    'Observation window timed out without '
+                    'a post-motion AprilTag message; '
+                    'continuing because a fresh rectified '
+                    'frame was received.'
+                )
+                self.observation_timeout_warned = True
+
+            return True
+
+        return False
+
     def _handle_motion_result(
         self,
         future,
@@ -1139,7 +1350,7 @@ class SearchRescueNode(MazeExplorerNode):
             self.active_step
         )
 
-        # This performs all normal v87 result validation and pose updates.
+        # Preserve the complete v87 result handling and pose update.
         super()._handle_motion_result(
             future
         )
@@ -1150,12 +1361,7 @@ class SearchRescueNode(MazeExplorerNode):
             and not self.motion_in_flight
             and self.active_step is None
         ):
-            # Delay the next dispatch so the stationary camera receives several
-            # image and AprilTag messages at the newly updated robot pose.
-            self.observation_hold_until_monotonic = (
-                time.monotonic()
-                + self.observation_hold_s
-            )
+            self._begin_observation_window()
 
     def _tick(self) -> None:
         self._check_cube_grade_timeout()
@@ -1163,14 +1369,53 @@ class SearchRescueNode(MazeExplorerNode):
         if (
             not self.completed
             and not self.motion_in_flight
-            and (
-                time.monotonic()
-                < self.observation_hold_until_monotonic
-            )
         ):
-            return
+            now = time.monotonic()
 
-        # All exploration, planning and motion dispatch remain v87 behavior.
+            ready, reason = (
+                self._perception_streams_ready(
+                    now
+                )
+            )
+
+            if not ready:
+                if (
+                    self.perception_unready_since_monotonic
+                    is None
+                ):
+                    self.perception_unready_since_monotonic = (
+                        now
+                    )
+
+                unavailable_s = (
+                    now
+                    - self.perception_unready_since_monotonic
+                )
+
+                if (
+                    unavailable_s
+                    > self.perception_startup_timeout_s
+                ):
+                    self._fatal(
+                        'Task 3 perception unavailable for '
+                        f'{unavailable_s:.1f} s: {reason}'
+                    )
+                    return
+
+                self.get_logger().warn(
+                    f'Waiting for Task 3 perception: {reason}',
+                    throttle_duration_sec=2.0,
+                )
+                return
+
+            self.perception_unready_since_monotonic = None
+
+            if not self._observation_window_complete(
+                now
+            ):
+                return
+
+        # Preserve v87 exploration, planning and motion dispatch.
         super()._tick()
 
         self._maybe_request_task3_shutdown()
@@ -1199,18 +1444,26 @@ class SearchRescueNode(MazeExplorerNode):
     def _maze_origin_in_local_cm(
         self,
     ) -> Tuple[float, float]:
-        if not self.maze.cells:
-            self.maze.ensure_cell(
+        coordinate_cells = set(
+            self.maze.cells
+        )
+
+        coordinate_cells.update(
+            self.maze.blocked_cells
+        )
+
+        if not coordinate_cells:
+            coordinate_cells.add(
                 self.start_cell
             )
 
         minimum_x = min(
             cell[0]
-            for cell in self.maze.cells
+            for cell in coordinate_cells
         )
         minimum_y = min(
             cell[1]
-            for cell in self.maze.cells
+            for cell in coordinate_cells
         )
 
         cell_cm = (
@@ -1218,8 +1471,8 @@ class SearchRescueNode(MazeExplorerNode):
             * 100.0
         )
 
-        # Integer coordinates represent cell centers. The origin lies half a
-        # cell before the minimum-coordinate center on each maze axis.
+        # Integer coordinates represent cell centers. The maze origin is
+        # half a cell before the minimum cell center on each axis.
         origin_x_cm = (
             float(minimum_x) - 0.5
         ) * cell_cm
@@ -1245,12 +1498,20 @@ class SearchRescueNode(MazeExplorerNode):
             self._maze_origin_in_local_cm()
         )
 
-        # This slice is a second independent four-cube safety guard.
-        cubes = (
-            self.tracker.snapshot()[
-                :MAX_CUBES
-            ]
+        cubes = self.tracker.ranked_snapshot(
+            MAX_CUBES
         )
+
+        hypothesis_count = (
+            self.tracker.get_hypothesis_count()
+        )
+
+        if hypothesis_count > len(cubes):
+            self.get_logger().warn(
+                f'Selecting the best {len(cubes)} '
+                f'of {hypothesis_count} cube hypotheses '
+                'for the grader.'
+            )
 
         xs = [
             int(

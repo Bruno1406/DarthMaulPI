@@ -5,6 +5,7 @@ from typing import Dict, List, Tuple
 
 
 MAX_CUBES = 4
+MAX_HYPOTHESES = 12
 
 ADD_RESULT_ADDED = 'added'
 ADD_RESULT_UPDATED = 'updated'
@@ -65,22 +66,44 @@ class Cube:
         self.add_color_vote(color_id)
 
     def get_color_id(self) -> int:
-        return int(max(self.color_votes, key=self.color_votes.get))
+        return int(
+            max(
+                self.color_votes,
+                key=self.color_votes.get,
+            )
+        )
+
+    def dominant_color_votes(self) -> int:
+        return int(max(self.color_votes.values()))
+
+    def color_confidence(self) -> float:
+        if self.seen_count <= 0:
+            return 0.0
+
+        return (
+            self.dominant_color_votes()
+            / float(self.seen_count)
+        )
 
 
 class CubeTracker:
+    """
+    Track extra hypotheses internally, but expose at most four cubes
+    for submission.
+    """
+
     def __init__(
         self,
         limit_distance_cm: float = 20.0,
-        max_cubes: int = MAX_CUBES,
+        max_hypotheses: int = MAX_HYPOTHESES,
     ) -> None:
         self.cubes: List[Cube] = []
-        self.limit_distance_cm = float(limit_distance_cm)
-
-        # This is deliberately capped at four, regardless of caller input.
-        self.max_cubes = min(
+        self.limit_distance_cm = float(
+            limit_distance_cm
+        )
+        self.max_hypotheses = max(
             MAX_CUBES,
-            max(1, int(max_cubes)),
+            int(max_hypotheses),
         )
 
     def add_cube(
@@ -93,7 +116,10 @@ class CubeTracker:
         nearest_distance = float('inf')
 
         for cube in self.cubes:
-            distance = cube.distance_to(x_cm, y_cm)
+            distance = cube.distance_to(
+                x_cm,
+                y_cm,
+            )
 
             if distance < nearest_distance:
                 nearest_cube = cube
@@ -101,7 +127,8 @@ class CubeTracker:
 
         if (
             nearest_cube is not None
-            and nearest_distance <= self.limit_distance_cm
+            and nearest_distance
+            <= self.limit_distance_cm
         ):
             nearest_cube.update(
                 x_cm,
@@ -110,7 +137,7 @@ class CubeTracker:
             )
             return ADD_RESULT_UPDATED
 
-        if len(self.cubes) >= self.max_cubes:
+        if len(self.cubes) >= self.max_hypotheses:
             return ADD_RESULT_CAPACITY
 
         self.cubes.append(
@@ -122,40 +149,42 @@ class CubeTracker:
         )
         return ADD_RESULT_ADDED
 
-    def snapshot(
+    def ranked_snapshot(
         self,
-    ) -> List[Tuple[float, float, int, int]]:
+        limit: int = MAX_CUBES,
+    ) -> List[
+        Tuple[float, float, int, int, float]
+    ]:
+        requested_limit = min(
+            MAX_CUBES,
+            max(0, int(limit)),
+        )
+
+        ranked = sorted(
+            self.cubes,
+            key=lambda cube: (
+                cube.seen_count,
+                cube.dominant_color_votes(),
+                cube.color_confidence(),
+            ),
+            reverse=True,
+        )
+
         return [
             (
                 float(cube.x_cm),
                 float(cube.y_cm),
                 int(cube.get_color_id()),
                 int(cube.seen_count),
+                float(cube.color_confidence()),
             )
-            for cube in self.cubes[:MAX_CUBES]
+            for cube in ranked[:requested_limit]
         ]
 
-    def export_for_service(
-        self,
-    ) -> Tuple[int, List[int], List[int], List[int]]:
-        cubes = self.snapshot()
+    def get_hypothesis_count(self) -> int:
+        return len(self.cubes)
 
-        xs = [
-            int(round(cube[0]))
-            for cube in cubes
-        ]
-        ys = [
-            int(round(cube[1]))
-            for cube in cubes
-        ]
-        colors = [
-            int(cube[2])
-            for cube in cubes
-        ]
-
-        return len(cubes), xs, ys, colors
-
-    def get_cube_count(self) -> int:
+    def get_submission_count(self) -> int:
         return min(
             len(self.cubes),
             MAX_CUBES,
