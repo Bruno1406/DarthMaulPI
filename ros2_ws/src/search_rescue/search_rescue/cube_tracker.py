@@ -1,59 +1,162 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Dict, List, Tuple
+
+
+MAX_CUBES = 4
+
+ADD_RESULT_ADDED = 'added'
+ADD_RESULT_UPDATED = 'updated'
+ADD_RESULT_CAPACITY = 'capacity'
+
+
+@dataclass
 class Cube:
-    def __init__(self, x_cm, y_cm, color_id):
-        self.x_cm = round(x_cm)
-        self.y_cm = round(y_cm)
-        self.seen_count = 1
+    x_cm: float
+    y_cm: float
+    color_votes: Dict[int, int] = field(default_factory=dict)
+    seen_count: int = 0
+
+    def __init__(
+        self,
+        x_cm: float,
+        y_cm: float,
+        color_id: int,
+    ) -> None:
+        self.x_cm = float(x_cm)
+        self.y_cm = float(y_cm)
         self.color_votes = {}
+        self.seen_count = 1
         self.add_color_vote(color_id)
 
-    def add_color_vote(self, color_id):
-        if color_id not in self.color_votes:
-            self.color_votes[color_id] = 0
-        self.color_votes[color_id] += 1
+    def add_color_vote(self, color_id: int) -> None:
+        normalized_color = int(color_id)
+        self.color_votes[normalized_color] = (
+            self.color_votes.get(normalized_color, 0) + 1
+        )
 
-    def distance_to(self, x_cm, y_cm):
-        dx = self.x_cm - x_cm
-        dy = self.y_cm - y_cm
+    def distance_to(
+        self,
+        x_cm: float,
+        y_cm: float,
+    ) -> float:
+        dx = self.x_cm - float(x_cm)
+        dy = self.y_cm - float(y_cm)
         return (dx * dx + dy * dy) ** 0.5
 
-    def update(self, x_cm, y_cm, color_id):
+    def update(
+        self,
+        x_cm: float,
+        y_cm: float,
+        color_id: int,
+    ) -> None:
+        old_count = self.seen_count
         self.seen_count += 1
-        self.x_cm = round((self.x_cm * (self.seen_count - 1) + x_cm) / self.seen_count)
-        self.y_cm = round((self.y_cm * (self.seen_count - 1) + y_cm) / self.seen_count)
+
+        self.x_cm = (
+            self.x_cm * old_count + float(x_cm)
+        ) / self.seen_count
+
+        self.y_cm = (
+            self.y_cm * old_count + float(y_cm)
+        ) / self.seen_count
+
         self.add_color_vote(color_id)
 
-    def get_color_id(self):
-        return max(self.color_votes, key=self.color_votes.get)
-
+    def get_color_id(self) -> int:
+        return int(max(self.color_votes, key=self.color_votes.get))
 
 
 class CubeTracker:
-    def __init__(self, limit_distance_cm=20):
-        self.cubes = []
-        self.limit_distance_cm = limit_distance_cm
+    def __init__(
+        self,
+        limit_distance_cm: float = 20.0,
+        max_cubes: int = MAX_CUBES,
+    ) -> None:
+        self.cubes: List[Cube] = []
+        self.limit_distance_cm = float(limit_distance_cm)
 
-    def add_cube(self, x_cm, y_cm, color_id):
+        # This is deliberately capped at four, regardless of caller input.
+        self.max_cubes = min(
+            MAX_CUBES,
+            max(1, int(max_cubes)),
+        )
+
+    def add_cube(
+        self,
+        x_cm: float,
+        y_cm: float,
+        color_id: int,
+    ) -> str:
+        nearest_cube = None
+        nearest_distance = float('inf')
+
         for cube in self.cubes:
-            if cube.distance_to(x_cm, y_cm) <= self.limit_distance_cm:
-                cube.update(x_cm, y_cm, color_id)
-                return False
+            distance = cube.distance_to(x_cm, y_cm)
 
-        cube = Cube(x_cm, y_cm, color_id)
-        self.cubes.append(cube)
-        return True
+            if distance < nearest_distance:
+                nearest_cube = cube
+                nearest_distance = distance
 
-    def export_for_service(self):
-        n = len(self.cubes)
-        xs = []
-        ys = []
-        colors = []
+        if (
+            nearest_cube is not None
+            and nearest_distance <= self.limit_distance_cm
+        ):
+            nearest_cube.update(
+                x_cm,
+                y_cm,
+                color_id,
+            )
+            return ADD_RESULT_UPDATED
 
-        for cube in self.cubes:
-            xs.append(cube.x_cm)
-            ys.append(cube.y_cm)
-            colors.append(cube.get_color_id())
+        if len(self.cubes) >= self.max_cubes:
+            return ADD_RESULT_CAPACITY
 
-        return n,xs,ys,colors
-    
-    def get_cube_count(self):
-        return len(self.cubes)
+        self.cubes.append(
+            Cube(
+                x_cm,
+                y_cm,
+                color_id,
+            )
+        )
+        return ADD_RESULT_ADDED
+
+    def snapshot(
+        self,
+    ) -> List[Tuple[float, float, int, int]]:
+        return [
+            (
+                float(cube.x_cm),
+                float(cube.y_cm),
+                int(cube.get_color_id()),
+                int(cube.seen_count),
+            )
+            for cube in self.cubes[:MAX_CUBES]
+        ]
+
+    def export_for_service(
+        self,
+    ) -> Tuple[int, List[int], List[int], List[int]]:
+        cubes = self.snapshot()
+
+        xs = [
+            int(round(cube[0]))
+            for cube in cubes
+        ]
+        ys = [
+            int(round(cube[1]))
+            for cube in cubes
+        ]
+        colors = [
+            int(cube[2])
+            for cube in cubes
+        ]
+
+        return len(cubes), xs, ys, colors
+
+    def get_cube_count(self) -> int:
+        return min(
+            len(self.cubes),
+            MAX_CUBES,
+        )

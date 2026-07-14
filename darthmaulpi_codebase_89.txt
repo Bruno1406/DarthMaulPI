@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 281
-Skipped files: 5984
+Skipped files: 6212
 
 # Included File Index
 
@@ -257,7 +257,7 @@ Skipped files: 5984
 249. ros2_ws/src/search_rescue/setup.cfg
 250. ros2_ws/src/search_rescue/setup.py
 251. ros2_ws/src/search_rescue/launch/color_calibrator.launch.xml
-252. ros2_ws/src/search_rescue/launch/search_rescue.launch.xml
+252. ros2_ws/src/search_rescue/launch/exam_task3.launch.py
 253. ros2_ws/src/search_rescue/resource/search_rescue
 254. ros2_ws/src/search_rescue/search_rescue/__init__.py
 255. ros2_ws/src/search_rescue/search_rescue/color_calibrator_node.py
@@ -293,7 +293,7 @@ Skipped files: 5984
 - binary, media, generated, or not useful as text: 59
 - not UTF-8 text: 2
 - previous merged output: 1
-- skipped directory: 5922
+- skipped directory: 6150
 
 # File Contents
 
@@ -30095,9 +30095,12 @@ def test_pep257():
 <package format="3">
   <name>search_rescue</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Task 3 maze exploration, AprilTag cube localization, color detection, and cube grading.</description>
+
   <maintainer email="yuweinan0415@gmail.com">yuweinan</maintainer>
-  <license>TODO: License declaration</license>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
 
   <depend>rclpy</depend>
   <depend>sensor_msgs</depend>
@@ -30105,7 +30108,12 @@ def test_pep257():
   <depend>cv_bridge</depend>
   <depend>apriltag_msgs</depend>
   <depend>maze_interface</depend>
+  <depend>maze_solver</depend>
+  <depend>darth_maul_control_interfaces</depend>
 
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>peripherals</exec_depend>
   <exec_depend>python3-opencv</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
 
@@ -30113,7 +30121,6 @@ def test_pep257():
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
-  
 
   <export>
     <build_type>ament_python</build_type>
@@ -30182,18 +30189,611 @@ setup(
 </launch>
 
 
-# ================== FILE 252: ros2_ws/src/search_rescue/launch/search_rescue.launch.xml ==================
+# ================== FILE 252: ros2_ws/src/search_rescue/launch/exam_task3.launch.py ==================
 
-<launch>
+from launch import LaunchDescription
+from launch.actions import (
+    DeclareLaunchArgument,
+    IncludeLaunchDescription,
+)
+from launch.conditions import IfCondition
+from launch.launch_description_sources import (
+    PythonLaunchDescriptionSource,
+)
+from launch.substitutions import (
+    LaunchConfiguration,
+    PathJoinSubstitution,
+)
+from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
 
-  <include file="$(find-pkg-share peripherals)/launch/image_pipeline.launch.py" />
 
-  <include file="$(find-pkg-share peripherals)/launch/apriltag.launch.py" />
+def generate_launch_description():
+    launch_camera_pipeline = LaunchConfiguration(
+        'launch_camera_pipeline'
+    )
+    launch_apriltag = LaunchConfiguration(
+        'launch_apriltag'
+    )
 
-  <node pkg="search_rescue" exec="search_rescue_node" 
-        output="screen" />
+    scan_topic = LaunchConfiguration(
+        'scan_topic'
+    )
+    motion_action_name = LaunchConfiguration(
+        'motion_action_name'
+    )
+    cell_length_m = LaunchConfiguration(
+        'cell_length_m'
+    )
+    start_heading = LaunchConfiguration(
+        'start_heading'
+    )
+    wall_threshold_m = LaunchConfiguration(
+        'wall_threshold_m'
+    )
+    open_threshold_m = LaunchConfiguration(
+        'open_threshold_m'
+    )
+    drive_max_linear_x_mps = LaunchConfiguration(
+        'drive_max_linear_x_mps'
+    )
+    reverse_max_linear_x_mps = LaunchConfiguration(
+        'reverse_max_linear_x_mps'
+    )
+    reverse_backtracking_enabled = LaunchConfiguration(
+        'reverse_backtracking_enabled'
+    )
+    reverse_backtracking_max_consecutive_cells = (
+        LaunchConfiguration(
+            'reverse_backtracking_max_consecutive_cells'
+        )
+    )
+    reverse_position_tolerance_m = LaunchConfiguration(
+        'reverse_position_tolerance_m'
+    )
+    reverse_heading_tolerance_rad = LaunchConfiguration(
+        'reverse_heading_tolerance_rad'
+    )
+    rotate_max_angular_z_radps = LaunchConfiguration(
+        'rotate_max_angular_z_radps'
+    )
+    rotate_heading_tolerance_rad = LaunchConfiguration(
+        'rotate_heading_tolerance_rad'
+    )
+    max_cells_to_visit = LaunchConfiguration(
+        'max_cells_to_visit'
+    )
+    output_maze_file = LaunchConfiguration(
+        'output_maze_file'
+    )
+    shutdown_on_complete = LaunchConfiguration(
+        'shutdown_on_complete'
+    )
+    direction_priority = LaunchConfiguration(
+        'direction_priority'
+    )
+    race_planner_enabled = LaunchConfiguration(
+        'race_planner_enabled'
+    )
+    race_compact_known_transit = LaunchConfiguration(
+        'race_compact_known_transit'
+    )
+    race_turn_reverse_at_safe_junction = (
+        LaunchConfiguration(
+            'race_turn_reverse_at_safe_junction'
+        )
+    )
+    race_reverse_into_new_cells = LaunchConfiguration(
+        'race_reverse_into_new_cells'
+    )
+    race_cost_drive_forward = LaunchConfiguration(
+        'race_cost_drive_forward'
+    )
+    race_cost_drive_backward = LaunchConfiguration(
+        'race_cost_drive_backward'
+    )
+    race_cost_turn_90 = LaunchConfiguration(
+        'race_cost_turn_90'
+    )
+    race_cost_turn_180 = LaunchConfiguration(
+        'race_cost_turn_180'
+    )
+    race_cost_unvisited_info_bonus = LaunchConfiguration(
+        'race_cost_unvisited_info_bonus'
+    )
+    race_cost_straight_bonus = LaunchConfiguration(
+        'race_cost_straight_bonus'
+    )
+    race_lidar_lookahead_bonus = LaunchConfiguration(
+        'race_lidar_lookahead_bonus'
+    )
 
-</launch>
+    rect_image_topic = LaunchConfiguration(
+        'rect_image_topic'
+    )
+    raw_image_topic = LaunchConfiguration(
+        'raw_image_topic'
+    )
+    camera_info_topic = LaunchConfiguration(
+        'camera_info_topic'
+    )
+    apriltag_topic = LaunchConfiguration(
+        'apriltag_topic'
+    )
+    tag_size_m = LaunchConfiguration(
+        'tag_size_m'
+    )
+    tag_min_side_px = LaunchConfiguration(
+        'tag_min_side_px'
+    )
+    tag_min_aspect_ratio = LaunchConfiguration(
+        'tag_min_aspect_ratio'
+    )
+    tag_max_aspect_ratio = LaunchConfiguration(
+        'tag_max_aspect_ratio'
+    )
+    cube_crop_scale = LaunchConfiguration(
+        'cube_crop_scale'
+    )
+    camera_data_timeout_s = LaunchConfiguration(
+        'camera_data_timeout_s'
+    )
+    distance_scale = LaunchConfiguration(
+        'distance_scale'
+    )
+    distance_bias_cm = LaunchConfiguration(
+        'distance_bias_cm'
+    )
+    cube_center_offset_cm = LaunchConfiguration(
+        'cube_center_offset_cm'
+    )
+    minimum_detection_distance_cm = (
+        LaunchConfiguration(
+            'minimum_detection_distance_cm'
+        )
+    )
+    maximum_detection_distance_cm = (
+        LaunchConfiguration(
+            'maximum_detection_distance_cm'
+        )
+    )
+    camera_forward_offset_cm = LaunchConfiguration(
+        'camera_forward_offset_cm'
+    )
+    camera_left_offset_cm = LaunchConfiguration(
+        'camera_left_offset_cm'
+    )
+    cube_merge_distance_cm = LaunchConfiguration(
+        'cube_merge_distance_cm'
+    )
+    cube_cell_assignment_tolerance_cm = (
+        LaunchConfiguration(
+            'cube_cell_assignment_tolerance_cm'
+        )
+    )
+    block_cube_cells = LaunchConfiguration(
+        'block_cube_cells'
+    )
+    observation_hold_s = LaunchConfiguration(
+        'observation_hold_s'
+    )
+
+    submit_cubes_to_grader = LaunchConfiguration(
+        'submit_cubes_to_grader'
+    )
+    cube_grade_service_name = LaunchConfiguration(
+        'cube_grade_service_name'
+    )
+    cube_grade_service_timeout_s = (
+        LaunchConfiguration(
+            'cube_grade_service_timeout_s'
+        )
+    )
+    cube_grade_result_required = LaunchConfiguration(
+        'cube_grade_result_required'
+    )
+
+    search_rescue_parameters = {
+        # Unchanged v87 Task 2 explorer parameters.
+        'scan_topic': scan_topic,
+        'motion_action_name': motion_action_name,
+        'cell_length_m': cell_length_m,
+        'start_heading': start_heading,
+        'wall_threshold_m': wall_threshold_m,
+        'open_threshold_m': open_threshold_m,
+        'drive_max_linear_x_mps': (
+            drive_max_linear_x_mps
+        ),
+        'reverse_max_linear_x_mps': (
+            reverse_max_linear_x_mps
+        ),
+        'reverse_backtracking_enabled': (
+            reverse_backtracking_enabled
+        ),
+        'reverse_backtracking_max_consecutive_cells': (
+            reverse_backtracking_max_consecutive_cells
+        ),
+        'reverse_position_tolerance_m': (
+            reverse_position_tolerance_m
+        ),
+        'reverse_heading_tolerance_rad': (
+            reverse_heading_tolerance_rad
+        ),
+        'rotate_max_angular_z_radps': (
+            rotate_max_angular_z_radps
+        ),
+        'rotate_heading_tolerance_rad': (
+            rotate_heading_tolerance_rad
+        ),
+        'max_cells_to_visit': max_cells_to_visit,
+        'output_maze_file': output_maze_file,
+        'shutdown_on_complete': shutdown_on_complete,
+        'direction_priority': direction_priority,
+        'race_planner_enabled': race_planner_enabled,
+        'race_compact_known_transit': (
+            race_compact_known_transit
+        ),
+        'race_turn_reverse_at_safe_junction': (
+            race_turn_reverse_at_safe_junction
+        ),
+        'race_reverse_into_new_cells': (
+            race_reverse_into_new_cells
+        ),
+        'race_cost_drive_forward': (
+            race_cost_drive_forward
+        ),
+        'race_cost_drive_backward': (
+            race_cost_drive_backward
+        ),
+        'race_cost_turn_90': race_cost_turn_90,
+        'race_cost_turn_180': race_cost_turn_180,
+        'race_cost_unvisited_info_bonus': (
+            race_cost_unvisited_info_bonus
+        ),
+        'race_cost_straight_bonus': (
+            race_cost_straight_bonus
+        ),
+        'race_lidar_lookahead_bonus': (
+            race_lidar_lookahead_bonus
+        ),
+
+        # Task 3 submits cubes, not the Task 2 maze.
+        'submit_maze_to_grader': False,
+
+        'rect_image_topic': rect_image_topic,
+        'raw_image_topic': raw_image_topic,
+        'camera_info_topic': camera_info_topic,
+        'apriltag_topic': apriltag_topic,
+        'tag_size_m': tag_size_m,
+        'tag_min_side_px': tag_min_side_px,
+        'tag_min_aspect_ratio': tag_min_aspect_ratio,
+        'tag_max_aspect_ratio': tag_max_aspect_ratio,
+        'cube_crop_scale': cube_crop_scale,
+        'camera_data_timeout_s': camera_data_timeout_s,
+        'distance_scale': distance_scale,
+        'distance_bias_cm': distance_bias_cm,
+        'cube_center_offset_cm': (
+            cube_center_offset_cm
+        ),
+        'minimum_detection_distance_cm': (
+            minimum_detection_distance_cm
+        ),
+        'maximum_detection_distance_cm': (
+            maximum_detection_distance_cm
+        ),
+        'camera_forward_offset_cm': (
+            camera_forward_offset_cm
+        ),
+        'camera_left_offset_cm': (
+            camera_left_offset_cm
+        ),
+        'cube_merge_distance_cm': (
+            cube_merge_distance_cm
+        ),
+        'cube_cell_assignment_tolerance_cm': (
+            cube_cell_assignment_tolerance_cm
+        ),
+        'block_cube_cells': block_cube_cells,
+        'observation_hold_s': observation_hold_s,
+        'submit_cubes_to_grader': (
+            submit_cubes_to_grader
+        ),
+        'cube_grade_service_name': (
+            cube_grade_service_name
+        ),
+        'cube_grade_service_timeout_s': (
+            cube_grade_service_timeout_s
+        ),
+        'cube_grade_result_required': (
+            cube_grade_result_required
+        ),
+    }
+
+    return LaunchDescription([
+        DeclareLaunchArgument(
+            'launch_camera_pipeline',
+            default_value='true',
+        ),
+        DeclareLaunchArgument(
+            'launch_apriltag',
+            default_value='true',
+        ),
+
+        # These defaults match the v87 Task 2 launch unless Task 3 requires
+        # stopping at every cell for camera observation.
+        DeclareLaunchArgument(
+            'scan_topic',
+            default_value='/ldlidar_node/scan',
+        ),
+        DeclareLaunchArgument(
+            'motion_action_name',
+            default_value=(
+                '/darth_maul_control/'
+                'execute_motion_primitive'
+            ),
+        ),
+        DeclareLaunchArgument(
+            'cell_length_m',
+            default_value='0.254',
+        ),
+        DeclareLaunchArgument(
+            'start_heading',
+            default_value='1',
+        ),
+        DeclareLaunchArgument(
+            'wall_threshold_m',
+            default_value='0.18',
+        ),
+        DeclareLaunchArgument(
+            'open_threshold_m',
+            default_value='0.30',
+        ),
+        DeclareLaunchArgument(
+            'drive_max_linear_x_mps',
+            default_value='0.25',
+        ),
+        DeclareLaunchArgument(
+            'reverse_max_linear_x_mps',
+            default_value='0.085',
+        ),
+        DeclareLaunchArgument(
+            'reverse_backtracking_enabled',
+            default_value='true',
+        ),
+        DeclareLaunchArgument(
+            'reverse_backtracking_max_consecutive_cells',
+            default_value='0',
+        ),
+        DeclareLaunchArgument(
+            'reverse_position_tolerance_m',
+            default_value='0.020',
+        ),
+        DeclareLaunchArgument(
+            'reverse_heading_tolerance_rad',
+            default_value='0.070',
+        ),
+        DeclareLaunchArgument(
+            'rotate_max_angular_z_radps',
+            default_value='0.70',
+        ),
+        DeclareLaunchArgument(
+            'rotate_heading_tolerance_rad',
+            default_value='0.045',
+        ),
+        DeclareLaunchArgument(
+            'max_cells_to_visit',
+            default_value='0',
+        ),
+        DeclareLaunchArgument(
+            'output_maze_file',
+            default_value='',
+        ),
+        DeclareLaunchArgument(
+            'shutdown_on_complete',
+            default_value='true',
+        ),
+        DeclareLaunchArgument(
+            'direction_priority',
+            default_value='left_straight_right_back',
+        ),
+        DeclareLaunchArgument(
+            'race_planner_enabled',
+            default_value='true',
+        ),
+
+        # Task 3 deliberately disables multi-cell compaction. The robot stops
+        # after each cell so the stationary camera gets an observation period.
+        DeclareLaunchArgument(
+            'race_compact_known_transit',
+            default_value='false',
+        ),
+        DeclareLaunchArgument(
+            'race_turn_reverse_at_safe_junction',
+            default_value='true',
+        ),
+        DeclareLaunchArgument(
+            'race_reverse_into_new_cells',
+            default_value='false',
+        ),
+        DeclareLaunchArgument(
+            'race_cost_drive_forward',
+            default_value='3.4',
+        ),
+        DeclareLaunchArgument(
+            'race_cost_drive_backward',
+            default_value='5.2',
+        ),
+        DeclareLaunchArgument(
+            'race_cost_turn_90',
+            default_value='3.4',
+        ),
+        DeclareLaunchArgument(
+            'race_cost_turn_180',
+            default_value='6.8',
+        ),
+        DeclareLaunchArgument(
+            'race_cost_unvisited_info_bonus',
+            default_value='0.20',
+        ),
+        DeclareLaunchArgument(
+            'race_cost_straight_bonus',
+            default_value='0.25',
+        ),
+        DeclareLaunchArgument(
+            'race_lidar_lookahead_bonus',
+            default_value='0.20',
+        ),
+
+        DeclareLaunchArgument(
+            'rect_image_topic',
+            default_value=(
+                '/ascamera/camera_publisher/'
+                'rgb0/image_rect'
+            ),
+        ),
+        DeclareLaunchArgument(
+            'raw_image_topic',
+            default_value=(
+                '/ascamera/camera_publisher/'
+                'rgb0/image'
+            ),
+        ),
+        DeclareLaunchArgument(
+            'camera_info_topic',
+            default_value=(
+                '/ascamera/camera_publisher/'
+                'rgb0/camera_info'
+            ),
+        ),
+        DeclareLaunchArgument(
+            'apriltag_topic',
+            default_value='/apriltag_detections',
+        ),
+        DeclareLaunchArgument(
+            'tag_size_m',
+            default_value='0.0162',
+        ),
+        DeclareLaunchArgument(
+            'tag_min_side_px',
+            default_value='15.0',
+        ),
+        DeclareLaunchArgument(
+            'tag_min_aspect_ratio',
+            default_value='0.60',
+        ),
+        DeclareLaunchArgument(
+            'tag_max_aspect_ratio',
+            default_value='1.50',
+        ),
+        DeclareLaunchArgument(
+            'cube_crop_scale',
+            default_value='2.30',
+        ),
+        DeclareLaunchArgument(
+            'camera_data_timeout_s',
+            default_value='0.75',
+        ),
+
+        # The newer v1 distance calibration.
+        DeclareLaunchArgument(
+            'distance_scale',
+            default_value='1.18',
+        ),
+        DeclareLaunchArgument(
+            'distance_bias_cm',
+            default_value='-3.19',
+        ),
+        DeclareLaunchArgument(
+            'cube_center_offset_cm',
+            default_value='1.50',
+        ),
+        DeclareLaunchArgument(
+            'minimum_detection_distance_cm',
+            default_value='8.0',
+        ),
+        DeclareLaunchArgument(
+            'maximum_detection_distance_cm',
+            default_value='35.0',
+        ),
+
+        DeclareLaunchArgument(
+            'camera_forward_offset_cm',
+            default_value='8.0',
+        ),
+        DeclareLaunchArgument(
+            'camera_left_offset_cm',
+            default_value='0.0',
+        ),
+        DeclareLaunchArgument(
+            'cube_merge_distance_cm',
+            default_value='20.0',
+        ),
+        DeclareLaunchArgument(
+            'cube_cell_assignment_tolerance_cm',
+            default_value='13.0',
+        ),
+        DeclareLaunchArgument(
+            'block_cube_cells',
+            default_value='true',
+        ),
+        DeclareLaunchArgument(
+            'observation_hold_s',
+            default_value='0.60',
+        ),
+
+        DeclareLaunchArgument(
+            'submit_cubes_to_grader',
+            default_value='true',
+        ),
+        DeclareLaunchArgument(
+            'cube_grade_service_name',
+            default_value='/grade_cubes',
+        ),
+        DeclareLaunchArgument(
+            'cube_grade_service_timeout_s',
+            default_value='10.0',
+        ),
+        DeclareLaunchArgument(
+            'cube_grade_result_required',
+            default_value='false',
+        ),
+
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                PathJoinSubstitution([
+                    FindPackageShare('peripherals'),
+                    'launch',
+                    'image_pipeline.launch.py',
+                ])
+            ),
+            condition=IfCondition(
+                launch_camera_pipeline
+            ),
+        ),
+
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                PathJoinSubstitution([
+                    FindPackageShare('peripherals'),
+                    'launch',
+                    'apriltag.launch.py',
+                ])
+            ),
+            condition=IfCondition(
+                launch_apriltag
+            ),
+        ),
+
+        Node(
+            package='search_rescue',
+            executable='search_rescue_node',
+            name='search_rescue_node',
+            output='screen',
+            parameters=[
+                search_rescue_parameters
+            ],
+        ),
+    ])
 
 
 # ================== FILE 253: ros2_ws/src/search_rescue/resource/search_rescue ==================
@@ -30377,65 +30977,168 @@ if __name__ == "__main__":
 
 # ================== FILE 256: ros2_ws/src/search_rescue/search_rescue/cube_tracker.py ==================
 
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Dict, List, Tuple
+
+
+MAX_CUBES = 4
+
+ADD_RESULT_ADDED = 'added'
+ADD_RESULT_UPDATED = 'updated'
+ADD_RESULT_CAPACITY = 'capacity'
+
+
+@dataclass
 class Cube:
-    def __init__(self, x_cm, y_cm, color_id):
-        self.x_cm = round(x_cm)
-        self.y_cm = round(y_cm)
-        self.seen_count = 1
+    x_cm: float
+    y_cm: float
+    color_votes: Dict[int, int] = field(default_factory=dict)
+    seen_count: int = 0
+
+    def __init__(
+        self,
+        x_cm: float,
+        y_cm: float,
+        color_id: int,
+    ) -> None:
+        self.x_cm = float(x_cm)
+        self.y_cm = float(y_cm)
         self.color_votes = {}
+        self.seen_count = 1
         self.add_color_vote(color_id)
 
-    def add_color_vote(self, color_id):
-        if color_id not in self.color_votes:
-            self.color_votes[color_id] = 0
-        self.color_votes[color_id] += 1
+    def add_color_vote(self, color_id: int) -> None:
+        normalized_color = int(color_id)
+        self.color_votes[normalized_color] = (
+            self.color_votes.get(normalized_color, 0) + 1
+        )
 
-    def distance_to(self, x_cm, y_cm):
-        dx = self.x_cm - x_cm
-        dy = self.y_cm - y_cm
+    def distance_to(
+        self,
+        x_cm: float,
+        y_cm: float,
+    ) -> float:
+        dx = self.x_cm - float(x_cm)
+        dy = self.y_cm - float(y_cm)
         return (dx * dx + dy * dy) ** 0.5
 
-    def update(self, x_cm, y_cm, color_id):
+    def update(
+        self,
+        x_cm: float,
+        y_cm: float,
+        color_id: int,
+    ) -> None:
+        old_count = self.seen_count
         self.seen_count += 1
-        self.x_cm = round((self.x_cm * (self.seen_count - 1) + x_cm) / self.seen_count)
-        self.y_cm = round((self.y_cm * (self.seen_count - 1) + y_cm) / self.seen_count)
+
+        self.x_cm = (
+            self.x_cm * old_count + float(x_cm)
+        ) / self.seen_count
+
+        self.y_cm = (
+            self.y_cm * old_count + float(y_cm)
+        ) / self.seen_count
+
         self.add_color_vote(color_id)
 
-    def get_color_id(self):
-        return max(self.color_votes, key=self.color_votes.get)
-
+    def get_color_id(self) -> int:
+        return int(max(self.color_votes, key=self.color_votes.get))
 
 
 class CubeTracker:
-    def __init__(self, limit_distance_cm=20):
-        self.cubes = []
-        self.limit_distance_cm = limit_distance_cm
+    def __init__(
+        self,
+        limit_distance_cm: float = 20.0,
+        max_cubes: int = MAX_CUBES,
+    ) -> None:
+        self.cubes: List[Cube] = []
+        self.limit_distance_cm = float(limit_distance_cm)
 
-    def add_cube(self, x_cm, y_cm, color_id):
+        # This is deliberately capped at four, regardless of caller input.
+        self.max_cubes = min(
+            MAX_CUBES,
+            max(1, int(max_cubes)),
+        )
+
+    def add_cube(
+        self,
+        x_cm: float,
+        y_cm: float,
+        color_id: int,
+    ) -> str:
+        nearest_cube = None
+        nearest_distance = float('inf')
+
         for cube in self.cubes:
-            if cube.distance_to(x_cm, y_cm) <= self.limit_distance_cm:
-                cube.update(x_cm, y_cm, color_id)
-                return False
+            distance = cube.distance_to(x_cm, y_cm)
 
-        cube = Cube(x_cm, y_cm, color_id)
-        self.cubes.append(cube)
-        return True
+            if distance < nearest_distance:
+                nearest_cube = cube
+                nearest_distance = distance
 
-    def export_for_service(self):
-        n = len(self.cubes)
-        xs = []
-        ys = []
-        colors = []
+        if (
+            nearest_cube is not None
+            and nearest_distance <= self.limit_distance_cm
+        ):
+            nearest_cube.update(
+                x_cm,
+                y_cm,
+                color_id,
+            )
+            return ADD_RESULT_UPDATED
 
-        for cube in self.cubes:
-            xs.append(cube.x_cm)
-            ys.append(cube.y_cm)
-            colors.append(cube.get_color_id())
+        if len(self.cubes) >= self.max_cubes:
+            return ADD_RESULT_CAPACITY
 
-        return n,xs,ys,colors
-    
-    def get_cube_count(self):
-        return len(self.cubes)
+        self.cubes.append(
+            Cube(
+                x_cm,
+                y_cm,
+                color_id,
+            )
+        )
+        return ADD_RESULT_ADDED
+
+    def snapshot(
+        self,
+    ) -> List[Tuple[float, float, int, int]]:
+        return [
+            (
+                float(cube.x_cm),
+                float(cube.y_cm),
+                int(cube.get_color_id()),
+                int(cube.seen_count),
+            )
+            for cube in self.cubes[:MAX_CUBES]
+        ]
+
+    def export_for_service(
+        self,
+    ) -> Tuple[int, List[int], List[int], List[int]]:
+        cubes = self.snapshot()
+
+        xs = [
+            int(round(cube[0]))
+            for cube in cubes
+        ]
+        ys = [
+            int(round(cube[1]))
+            for cube in cubes
+        ]
+        colors = [
+            int(cube[2])
+            for cube in cubes
+        ]
+
+        return len(cubes), xs, ys, colors
+
+    def get_cube_count(self) -> int:
+        return min(
+            len(self.cubes),
+            MAX_CUBES,
+        )
 
 
 # ================== FILE 257: ros2_ws/src/search_rescue/search_rescue/exploration.py ==================
@@ -30445,2028 +31148,1558 @@ class CubeTracker:
 
 # ================== FILE 258: ros2_ws/src/search_rescue/search_rescue/search_rescue_node.py ==================
 
-import rclpy
-import cv2
-import time
-import heapq
+from __future__ import annotations
+
 import math
-from collections import deque
-from dataclasses import dataclass
-from rclpy.node import Node
-from search_rescue.vision import detect_color
-from search_rescue.cube_tracker import CubeTracker
-from sensor_msgs.msg import Image, CameraInfo
-from cv_bridge import CvBridge
-from apriltag_msgs.msg import AprilTagDetectionArray
-from maze_interface.srv import GradeCubes
-from pathlib import Path
-from statistics import median
-from typing import Any, Deque, Dict, List, Optional, Sequence, Tuple
+import time
+from typing import List, Optional, Tuple
 
 import rclpy
-from darth_maul_control_interfaces.action import ExecuteMotionPrimitive
-from maze_interface.msg import RosMaze
-from maze_interface.srv import GradeMaze
-from rclpy.action import ActionClient
-from rclpy.node import Node
-from sensor_msgs.msg import LaserScan
+from apriltag_msgs.msg import AprilTagDetectionArray
+from cv_bridge import CvBridge
+from maze_interface.srv import GradeCubes
+from maze_explorer_node import (
+    Cell,
+    DIR_NAME,
+    OPEN,
+    MazeExplorerNode,
+    MotionStep,
+    NEG_X,
+    NEG_Y,
+    POS_X,
+    POS_Y,
+    SparseMazeMap,
+    neighbor,
+    parse_bool,
+)
+from sensor_msgs.msg import CameraInfo, Image
+
+from search_rescue.cube_tracker import (
+    ADD_RESULT_ADDED,
+    ADD_RESULT_CAPACITY,
+    MAX_CUBES,
+    CubeTracker,
+)
+from search_rescue.vision import detect_color
 
 
-# Course maze encoding:
-#   1 = +x, 2 = -x, 4 = +y, 8 = -y
-POS_X = 1
-NEG_X = 2
-POS_Y = 4
-NEG_Y = 8
-DIRECTIONS = (POS_X, POS_Y, NEG_X, NEG_Y)
+class SearchRescueMazeMap(SparseMazeMap):
+    """The v87 maze map plus Task 3-only dynamic cube obstacles."""
 
-UNKNOWN = 0
-OPEN = 1
-WALL = 2
-
-DIR_NAME = {POS_X: '+x', NEG_X: '-x', POS_Y: '+y', NEG_Y: '-y'}
-STATE_NAME = {UNKNOWN: 'unknown', OPEN: 'open', WALL: 'wall'}
-
-DIR_DELTAS = {
-    POS_X: (1, 0),
-    NEG_X: (-1, 0),
-    POS_Y: (0, 1),
-    NEG_Y: (0, -1),
-}
-OPPOSITE = {POS_X: NEG_X, NEG_X: POS_X, POS_Y: NEG_Y, NEG_Y: POS_Y}
-LEFT_OF = {POS_X: POS_Y, POS_Y: NEG_X, NEG_X: NEG_Y, NEG_Y: POS_X}
-RIGHT_OF = {POS_X: NEG_Y, NEG_Y: NEG_X, NEG_X: POS_Y, POS_Y: POS_X}
-
-Cell = Tuple[int, int]
-
-
-@dataclass(frozen=True)
-class MotionStep:
-    kind: str
-    direction: int = 0
-    value: float = 0.0
-    target_cell: Optional[Cell] = None
-    run_cells: int = 1
-
-
-def parse_bool(value: Any) -> bool:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return bool(value)
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        if normalized in {'true', '1', 'yes', 'y', 'on'}:
-            return True
-        if normalized in {'false', '0', 'no', 'n', 'off'}:
-            return False
-    raise ValueError(f'Cannot parse boolean value: {value!r}')
-
-
-def normalize_angle(angle: float) -> float:
-    while angle > math.pi:
-        angle -= 2.0 * math.pi
-    while angle < -math.pi:
-        angle += 2.0 * math.pi
-    return angle
-
-
-def orientation_angle(orientation: int) -> float:
-    if orientation == POS_X:
-        return 0.0
-    if orientation == POS_Y:
-        return math.pi / 2.0
-    if orientation == NEG_X:
-        return math.pi
-    if orientation == NEG_Y:
-        return -math.pi / 2.0
-    raise ValueError(f'Invalid orientation: {orientation}')
-
-
-def turn_between(current: int, target: int) -> float:
-    return normalize_angle(orientation_angle(target) - orientation_angle(current))
-
-
-def neighbor(cell: Cell, direction: int) -> Cell:
-    dx, dy = DIR_DELTAS[direction]
-    return (cell[0] + dx, cell[1] + dy)
-
-
-def advance_cell(cell: Cell, direction: int, cells: int) -> Cell:
-    dx, dy = DIR_DELTAS[direction]
-    count = int(cells)
-    return (cell[0] + dx * count, cell[1] + dy * count)
-
-
-def direction_between(a: Cell, b: Cell) -> int:
-    dx = b[0] - a[0]
-    dy = b[1] - a[1]
-    if (dx, dy) == (1, 0):
-        return POS_X
-    if (dx, dy) == (-1, 0):
-        return NEG_X
-    if (dx, dy) == (0, 1):
-        return POS_Y
-    if (dx, dy) == (0, -1):
-        return NEG_Y
-    raise ValueError(f'Cells are not adjacent: {a} -> {b}')
-
-
-def valid_ranges_in_sector(scan: LaserScan, center_rad: float, width_deg: float) -> List[float]:
-    if scan is None:
-        return []
-
-    half_width = math.radians(float(width_deg)) / 2.0
-    center = normalize_angle(float(center_rad))
-    angle = float(scan.angle_min)
-    values: List[float] = []
-
-    for raw in scan.ranges:
-        value = float(raw)
-        if abs(normalize_angle(angle - center)) <= half_width:
-            if math.isfinite(value) and scan.range_min <= value <= scan.range_max:
-                values.append(value)
-        angle += float(scan.angle_increment)
-
-    return values
-
-
-class SparseMazeMap:
-    def __init__(self, confirm_hits: int = 1, conflict_override_hits: int = 3) -> None:
-        self.confirm_hits = max(1, int(confirm_hits))
-        self.conflict_override_hits = max(self.confirm_hits + 1, int(conflict_override_hits))
-        self.cells: Dict[Cell, Dict[int, int]] = {}
-        self.visits: Dict[Cell, int] = {}
-        self.evidence: Dict[Tuple[Cell, int], Dict[int, int]] = {}
-
-    def ensure_cell(self, cell: Cell) -> None:
-        if cell not in self.cells:
-            self.cells[cell] = {direction: UNKNOWN for direction in DIRECTIONS}
-            self.visits[cell] = 0
-
-    def mark_visited(self, cell: Cell) -> None:
-        self.ensure_cell(cell)
-        self.visits[cell] += 1
-
-    def is_visited(self, cell: Cell) -> bool:
-        return self.visits.get(cell, 0) > 0
-
-    def visited_count(self) -> int:
-        return sum(1 for count in self.visits.values() if count > 0)
-
-    def wall_state(self, cell: Cell, direction: int) -> int:
-        self.ensure_cell(cell)
-        return self.cells[cell].get(direction, UNKNOWN)
-
-    def update_edge(self, cell: Cell, direction: int, observed_state: int) -> List[str]:
-        if observed_state == UNKNOWN:
-            return []
-
-        self.ensure_cell(cell)
-        messages = self._update_one_side(cell, direction, observed_state)
-
-        other = neighbor(cell, direction)
-
-        if observed_state == OPEN:
-            self.ensure_cell(other)
-            messages.extend(self._update_one_side(other, OPPOSITE[direction], OPEN))
-        elif other in self.cells:
-            messages.extend(self._update_one_side(other, OPPOSITE[direction], WALL))
-
-        return messages
-
-    def _update_one_side(self, cell: Cell, direction: int, observed_state: int) -> List[str]:
-        key = (cell, direction)
-        if key not in self.evidence:
-            self.evidence[key] = {OPEN: 0, WALL: 0}
-
-        self.evidence[key][observed_state] += 1
-        votes = self.evidence[key]
-        committed = self.cells[cell][direction]
-
-        if committed == UNKNOWN:
-            if votes[WALL] >= self.confirm_hits:
-                self.cells[cell][direction] = WALL
-            elif votes[OPEN] >= self.confirm_hits:
-                self.cells[cell][direction] = OPEN
-            return []
-
-        if committed == observed_state:
-            return []
-
-        if votes[observed_state] >= self.conflict_override_hits:
-            old = committed
-            self.cells[cell][direction] = observed_state
-            return [
-                f'overrode {cell} {DIR_NAME[direction]} from '
-                f'{STATE_NAME[old]} to {STATE_NAME[observed_state]}'
-            ]
-
-        return [
-            f'kept {cell} {DIR_NAME[direction]}={STATE_NAME[committed]} '
-            f'despite {STATE_NAME[observed_state]} evidence '
-            f'({votes[observed_state]}/{self.conflict_override_hits})'
-        ]
-
-    def open_neighbors(self, cell: Cell) -> List[Tuple[int, Cell]]:
-        self.ensure_cell(cell)
-        result = []
-        for direction in DIRECTIONS:
-            if self.cells[cell].get(direction, UNKNOWN) == OPEN:
-                result.append((direction, neighbor(cell, direction)))
-        return result
-
-    def has_unvisited_open_neighbor(self, cell: Cell) -> bool:
-        for _, next_cell in self.open_neighbors(cell):
-            if not self.is_visited(next_cell):
-                return True
-        return False
-
-    def unresolved_directions(self, cell: Cell) -> List[int]:
-        self.ensure_cell(cell)
-        return [
-            direction for direction in DIRECTIONS
-            if self.cells[cell].get(direction, UNKNOWN) == UNKNOWN
-        ]
-
-    def nearest_frontier_path(self, start: Cell) -> Optional[List[Cell]]:
-        if self.has_unvisited_open_neighbor(start):
-            return [start]
-
-        queue = deque([start])
-        previous: Dict[Cell, Optional[Cell]] = {start: None}
-
-        while queue:
-            cell = queue.popleft()
-            for _, next_cell in self.open_neighbors(cell):
-                if next_cell in previous:
-                    continue
-
-                previous[next_cell] = cell
-
-                if self.has_unvisited_open_neighbor(next_cell):
-                    path = [next_cell]
-                    cursor = cell
-                    while cursor is not None:
-                        path.append(cursor)
-                        cursor = previous[cursor]
-                    path.reverse()
-                    return path
-
-                queue.append(next_cell)
-
-        return None
-
-    def export_ros_maze(
+    def __init__(
         self,
-        start_cell: Cell,
-        current_cell: Cell,
-        start_orientation: int,
-        unknown_as_wall: bool,
-    ) -> Tuple[RosMaze, Dict[str, int]]:
-        if not self.cells:
-            self.ensure_cell(start_cell)
+        confirm_hits: int = 1,
+        conflict_override_hits: int = 3,
+    ) -> None:
+        super().__init__(
+            confirm_hits,
+            conflict_override_hits,
+        )
+        self.blocked_cells: set[Cell] = set()
 
-        xs = [cell[0] for cell in self.cells]
-        ys = [cell[1] for cell in self.cells]
-        min_x, max_x = min(xs), max(xs)
-        min_y, max_y = min(ys), max(ys)
+    def block_cell(
+        self,
+        cell: Cell,
+    ) -> bool:
+        if cell in self.blocked_cells:
+            return False
 
-        n = max_x - min_x + 1
-        m = max_y - min_y + 1
-        flattened = [15 for _ in range(n * m)]
+        self.blocked_cells.add(cell)
+        return True
 
-        unknown_edges = 0
-        open_edges = 0
-        wall_edges = 0
+    def open_neighbors(
+        self,
+        cell: Cell,
+    ) -> List[Tuple[int, Cell]]:
+        return [
+            (direction, next_cell)
+            for direction, next_cell in super().open_neighbors(cell)
+            if next_cell not in self.blocked_cells
+        ]
 
-        for cell, walls in self.cells.items():
-            i = cell[0] - min_x + 1
-            j = cell[1] - min_y + 1
-            index = (j - 1) * n + i
 
-            bits = 0
-            for direction in DIRECTIONS:
-                state = walls.get(direction, UNKNOWN)
-                if state == WALL:
-                    bits |= direction
-                    wall_edges += 1
-                elif state == OPEN:
-                    open_edges += 1
-                else:
-                    unknown_edges += 1
-                    if unknown_as_wall:
-                        bits |= direction
+class SearchRescueNode(MazeExplorerNode):
+    """Task 3 perception and grading layered on the unchanged v87 explorer."""
 
-            flattened[index - 1] = bits
+    def __init__(self) -> None:
+        super().__init__()
 
-        def to_index(cell: Cell) -> int:
-            i = cell[0] - min_x + 1
-            j = cell[1] - min_y + 1
-            return (j - 1) * n + i
+        # Task 3 submits cube tuples, not the Task 2 maze service.
+        if self.submit_maze_to_grader:
+            self.get_logger().warn(
+                'Ignoring submit_maze_to_grader=true in Task 3. '
+                'Only /grade_cubes will be submitted.'
+            )
+            self.submit_maze_to_grader = False
 
-        msg = RosMaze()
-        msg.n = int(n)
-        msg.m = int(m)
-        msg.start_idx = int(to_index(start_cell))
-        msg.end_idx = int(to_index(current_cell))
-        msg.start_orientation = int(start_orientation)
-        msg.l = [int(value) for value in flattened]
+        # Prevent the base explorer from shutting down before the asynchronous
+        # cube service request has completed.
+        self.task3_shutdown_on_complete = bool(
+            self.shutdown_on_complete
+        )
+        self.shutdown_on_complete = False
 
-        stats = {
-            'n': n,
-            'm': m,
-            'cells': len(self.cells),
-            'visited_cells': self.visited_count(),
-            'start_idx': int(msg.start_idx),
-            'end_idx': int(msg.end_idx),
-            'unknown_edges': unknown_edges,
-            'open_edges': open_edges,
-            'wall_edges': wall_edges,
-        }
-        return msg, stats
+        self.declare_parameter(
+            'rect_image_topic',
+            '/ascamera/camera_publisher/rgb0/image_rect',
+        )
+        self.declare_parameter(
+            'raw_image_topic',
+            '/ascamera/camera_publisher/rgb0/image',
+        )
+        self.declare_parameter(
+            'camera_info_topic',
+            '/ascamera/camera_publisher/rgb0/camera_info',
+        )
+        self.declare_parameter(
+            'apriltag_topic',
+            '/apriltag_detections',
+        )
 
-    def ascii_summary(self) -> str:
-        if not self.cells:
-            return '<empty>'
+        self.declare_parameter(
+            'tag_size_m',
+            0.0162,
+        )
+        self.declare_parameter(
+            'tag_min_side_px',
+            15.0,
+        )
+        self.declare_parameter(
+            'tag_min_aspect_ratio',
+            0.60,
+        )
+        self.declare_parameter(
+            'tag_max_aspect_ratio',
+            1.50,
+        )
+        self.declare_parameter(
+            'cube_crop_scale',
+            2.30,
+        )
+        self.declare_parameter(
+            'camera_data_timeout_s',
+            0.75,
+        )
 
-        min_x = min(cell[0] for cell in self.cells)
-        max_x = max(cell[0] for cell in self.cells)
-        min_y = min(cell[1] for cell in self.cells)
-        max_y = max(cell[1] for cell in self.cells)
+        # These are the newer physical corrections from v1.
+        self.declare_parameter(
+            'distance_scale',
+            1.18,
+        )
+        self.declare_parameter(
+            'distance_bias_cm',
+            -3.19,
+        )
+        self.declare_parameter(
+            'cube_center_offset_cm',
+            1.50,
+        )
+        self.declare_parameter(
+            'minimum_detection_distance_cm',
+            8.0,
+        )
+        self.declare_parameter(
+            'maximum_detection_distance_cm',
+            35.0,
+        )
 
-        rows = []
-        for y in range(max_y, min_y - 1, -1):
-            chars = []
-            for x in range(min_x, max_x + 1):
-                cell = (x, y)
-                if cell not in self.cells:
-                    chars.append(' ')
-                elif self.is_visited(cell):
-                    chars.append('V')
-                else:
-                    chars.append('.')
-            rows.append(''.join(chars))
-        return '\n'.join(rows)
+        self.declare_parameter(
+            'camera_forward_offset_cm',
+            8.0,
+        )
+        self.declare_parameter(
+            'camera_left_offset_cm',
+            0.0,
+        )
+        self.declare_parameter(
+            'cube_merge_distance_cm',
+            20.0,
+        )
+        self.declare_parameter(
+            'cube_cell_assignment_tolerance_cm',
+            13.0,
+        )
+        self.declare_parameter(
+            'block_cube_cells',
+            True,
+        )
+        self.declare_parameter(
+            'observation_hold_s',
+            0.60,
+        )
 
-class SearchRescueNode(Node):
-    def __init__(self):
-        super().__init__("search_rescue_node")
+        self.declare_parameter(
+            'submit_cubes_to_grader',
+            True,
+        )
+        self.declare_parameter(
+            'cube_grade_service_name',
+            '/grade_cubes',
+        )
+        self.declare_parameter(
+            'cube_grade_service_timeout_s',
+            10.0,
+        )
+        self.declare_parameter(
+            'cube_grade_result_required',
+            False,
+        )
 
-        self.tracker = CubeTracker()
+        self.rect_image_topic = str(
+            self.get_parameter(
+                'rect_image_topic'
+            ).value
+        ).strip()
+
+        self.raw_image_topic = str(
+            self.get_parameter(
+                'raw_image_topic'
+            ).value
+        ).strip()
+
+        self.camera_info_topic = str(
+            self.get_parameter(
+                'camera_info_topic'
+            ).value
+        ).strip()
+
+        self.apriltag_topic = str(
+            self.get_parameter(
+                'apriltag_topic'
+            ).value
+        ).strip()
+
+        self.tag_size_m = float(
+            self.get_parameter(
+                'tag_size_m'
+            ).value
+        )
+
+        self.tag_min_side_px = float(
+            self.get_parameter(
+                'tag_min_side_px'
+            ).value
+        )
+
+        self.tag_min_aspect_ratio = float(
+            self.get_parameter(
+                'tag_min_aspect_ratio'
+            ).value
+        )
+
+        self.tag_max_aspect_ratio = float(
+            self.get_parameter(
+                'tag_max_aspect_ratio'
+            ).value
+        )
+
+        self.cube_crop_scale = float(
+            self.get_parameter(
+                'cube_crop_scale'
+            ).value
+        )
+
+        self.camera_data_timeout_s = float(
+            self.get_parameter(
+                'camera_data_timeout_s'
+            ).value
+        )
+
+        self.distance_scale = float(
+            self.get_parameter(
+                'distance_scale'
+            ).value
+        )
+
+        self.distance_bias_cm = float(
+            self.get_parameter(
+                'distance_bias_cm'
+            ).value
+        )
+
+        self.cube_center_offset_cm = float(
+            self.get_parameter(
+                'cube_center_offset_cm'
+            ).value
+        )
+
+        self.minimum_detection_distance_cm = float(
+            self.get_parameter(
+                'minimum_detection_distance_cm'
+            ).value
+        )
+
+        self.maximum_detection_distance_cm = float(
+            self.get_parameter(
+                'maximum_detection_distance_cm'
+            ).value
+        )
+
+        self.camera_forward_offset_cm = float(
+            self.get_parameter(
+                'camera_forward_offset_cm'
+            ).value
+        )
+
+        self.camera_left_offset_cm = float(
+            self.get_parameter(
+                'camera_left_offset_cm'
+            ).value
+        )
+
+        self.cube_merge_distance_cm = float(
+            self.get_parameter(
+                'cube_merge_distance_cm'
+            ).value
+        )
+
+        self.cube_cell_assignment_tolerance_cm = float(
+            self.get_parameter(
+                'cube_cell_assignment_tolerance_cm'
+            ).value
+        )
+
+        self.block_cube_cells = parse_bool(
+            self.get_parameter(
+                'block_cube_cells'
+            ).value
+        )
+
+        self.observation_hold_s = float(
+            self.get_parameter(
+                'observation_hold_s'
+            ).value
+        )
+
+        self.submit_cubes_to_grader = parse_bool(
+            self.get_parameter(
+                'submit_cubes_to_grader'
+            ).value
+        )
+
+        self.cube_grade_service_name = str(
+            self.get_parameter(
+                'cube_grade_service_name'
+            ).value
+        ).strip()
+
+        self.cube_grade_service_timeout_s = float(
+            self.get_parameter(
+                'cube_grade_service_timeout_s'
+            ).value
+        )
+
+        self.cube_grade_result_required = parse_bool(
+            self.get_parameter(
+                'cube_grade_result_required'
+            ).value
+        )
+
+        self._validate_task3_parameters()
+
+        # The base constructor has just created an empty SparseMazeMap.
+        # Replace only that empty map with a Task 3-specific subclass.
+        self.maze = SearchRescueMazeMap(
+            confirm_hits=int(
+                self.get_parameter(
+                    'wall_confirm_hits'
+                ).value
+            ),
+            conflict_override_hits=int(
+                self.get_parameter(
+                    'conflict_override_hits'
+                ).value
+            ),
+        )
+
+        self.tracker = CubeTracker(
+            limit_distance_cm=self.cube_merge_distance_cm,
+            max_cubes=MAX_CUBES,
+        )
+
         self.bridge = CvBridge()
 
         self.latest_rect_image = None
         self.latest_raw_image = None
-        self.received_first_image = False
-        self.camera_info = None
+        self.latest_rect_image_monotonic = 0.0
+        self.latest_raw_image_monotonic = 0.0
+        self.camera_info: Optional[CameraInfo] = None
 
-        self.tag_size_m = 0.0162
-        self.submitted_count = 0
-
-        self.declare_parameter('scan_topic', '/ldlidar_node/scan')
-        self.declare_parameter('motion_action_name', '/darth_maul_control/execute_motion_primitive')
-        self.declare_parameter('cell_length_m', 0.254)
-        self.declare_parameter('start_heading', POS_X)
-
-        self.declare_parameter('sector_width_deg', 24.0)
-        self.declare_parameter('sector_min_samples', 3)
-        self.declare_parameter('wall_threshold_m', 0.18)
-        self.declare_parameter('open_threshold_m', 0.30)
-        self.declare_parameter('stale_scan_timeout_s', 0.8)
-
-        self.declare_parameter('wall_confirm_hits', 1)
-        self.declare_parameter('conflict_override_hits', 3)
-        self.declare_parameter('unknown_as_wall_on_export', True)
-
-        self.declare_parameter('max_cells_to_visit', 0)
-        self.declare_parameter('shutdown_on_complete', True)
-        self.declare_parameter('output_maze_file', '')
-
-        self.declare_parameter('drive_max_linear_x_mps', 0.18)
-        self.declare_parameter('reverse_max_linear_x_mps', 0.075)
-        self.declare_parameter('reverse_backtracking_enabled', True)
-        self.declare_parameter('reverse_backtracking_max_consecutive_cells', 0)
-        self.declare_parameter('reverse_position_tolerance_m', 0.020)
-        self.declare_parameter('reverse_heading_tolerance_rad', 0.070)
-        self.declare_parameter('rotate_max_angular_z_radps', 0.85)
-        self.declare_parameter('motion_timeout_s', 0.0)
-        self.declare_parameter('direction_priority', 'left_straight_right_back')
-
-        self.declare_parameter('race_planner_enabled', True)
-        self.declare_parameter('race_compact_known_transit', True)
-        self.declare_parameter('race_turn_reverse_at_safe_junction', True)
-        self.declare_parameter('race_reverse_into_new_cells', False)
-        self.declare_parameter('race_cost_drive_forward', 3.4)
-        self.declare_parameter('race_cost_drive_backward', 3.8)
-        self.declare_parameter('race_cost_turn_90', 3.4)
-        self.declare_parameter('race_cost_turn_180', 6.8)
-        self.declare_parameter('race_cost_unvisited_info_bonus', 0.20)
-        self.declare_parameter('race_cost_straight_bonus', 0.25)
-        self.declare_parameter('race_lidar_lookahead_bonus', 0.20)
-
-        self.scan_topic = str(self.get_parameter('scan_topic').value).strip()
-        self.motion_action_name = str(self.get_parameter('motion_action_name').value).strip()
-        self.cell_length_m = float(self.get_parameter('cell_length_m').value)
-        self.start_heading = int(self.get_parameter('start_heading').value)
-
-        self.sector_width_deg = float(self.get_parameter('sector_width_deg').value)
-        self.sector_min_samples = int(self.get_parameter('sector_min_samples').value)
-        self.wall_threshold_m = float(self.get_parameter('wall_threshold_m').value)
-        self.open_threshold_m = float(self.get_parameter('open_threshold_m').value)
-        self.stale_scan_timeout_s = float(self.get_parameter('stale_scan_timeout_s').value)
-
-        self.unknown_as_wall_on_export = parse_bool(
-            self.get_parameter('unknown_as_wall_on_export').value
-        )
-        self.max_cells_to_visit = int(self.get_parameter('max_cells_to_visit').value)
-        self.shutdown_on_complete = parse_bool(self.get_parameter('shutdown_on_complete').value)
-        self.output_maze_file = str(self.get_parameter('output_maze_file').value).strip()
-
-
-        self.drive_max_linear_x_mps = float(self.get_parameter('drive_max_linear_x_mps').value)
-        self.reverse_max_linear_x_mps = float(
-            self.get_parameter('reverse_max_linear_x_mps').value
-        )
-        self.reverse_backtracking_enabled = parse_bool(
-            self.get_parameter('reverse_backtracking_enabled').value
-        )
-        self.reverse_backtracking_max_consecutive_cells = int(
-            self.get_parameter('reverse_backtracking_max_consecutive_cells').value
-        )
-        self.reverse_position_tolerance_m = float(
-            self.get_parameter('reverse_position_tolerance_m').value
-        )
-        self.reverse_heading_tolerance_rad = float(
-            self.get_parameter('reverse_heading_tolerance_rad').value
-        )
-        self.rotate_max_angular_z_radps = float(
-            self.get_parameter('rotate_max_angular_z_radps').value
-        )
-        self.motion_timeout_s = float(self.get_parameter('motion_timeout_s').value)
-        self.direction_priority = str(self.get_parameter('direction_priority').value).strip()
-
-        self.race_planner_enabled = parse_bool(
-            self.get_parameter('race_planner_enabled').value
-        )
-        self.race_compact_known_transit = parse_bool(
-            self.get_parameter('race_compact_known_transit').value
-        )
-        self.race_turn_reverse_at_safe_junction = parse_bool(
-            self.get_parameter('race_turn_reverse_at_safe_junction').value
-        )
-        self.race_reverse_into_new_cells = parse_bool(
-            self.get_parameter('race_reverse_into_new_cells').value
-        )
-        self.race_cost_drive_forward = float(
-            self.get_parameter('race_cost_drive_forward').value
-        )
-        self.race_cost_drive_backward = float(
-            self.get_parameter('race_cost_drive_backward').value
-        )
-        self.race_cost_turn_90 = float(self.get_parameter('race_cost_turn_90').value)
-        self.race_cost_turn_180 = float(self.get_parameter('race_cost_turn_180').value)
-        self.race_cost_unvisited_info_bonus = float(
-            self.get_parameter('race_cost_unvisited_info_bonus').value
-        )
-        self.race_cost_straight_bonus = float(
-            self.get_parameter('race_cost_straight_bonus').value
-        )
-        self.race_lidar_lookahead_bonus = float(
-            self.get_parameter('race_lidar_lookahead_bonus').value
+        # Allow camera observations before the first motion.
+        self.observation_hold_until_monotonic = (
+            time.monotonic()
+            + self.observation_hold_s
         )
 
-        self._validate_parameters()
-
-        self.maze = SparseMazeMap(
-            confirm_hits=int(self.get_parameter('wall_confirm_hits').value),
-            conflict_override_hits=int(self.get_parameter('conflict_override_hits').value),
+        self.rect_image_subscriber = self.create_subscription(
+            Image,
+            self.rect_image_topic,
+            self.callback_rect_image,
+            10,
         )
 
-        self.start_cell: Cell = (0, 0)
-        self.current_cell: Cell = self.start_cell
-        self.heading = int(self.start_heading)
+        self.raw_image_subscriber = self.create_subscription(
+            Image,
+            self.raw_image_topic,
+            self.callback_raw_image,
+            10,
+        )
 
-        self.latest_scan: Optional[LaserScan] = None
-        self.latest_scan_monotonic = 0.0
-        self.last_motion_result_monotonic = 0.0
+        self.camera_info_subscriber = self.create_subscription(
+            CameraInfo,
+            self.camera_info_topic,
+            self.callback_camera_info,
+            10,
+        )
 
-        self.motion_queue: Deque[MotionStep] = deque()
-        self.motion_in_flight = False
-        self.active_step: Optional[MotionStep] = None
+        self.apriltag_subscriber = self.create_subscription(
+            AprilTagDetectionArray,
+            self.apriltag_topic,
+            self.callback_apriltag,
+            10,
+        )
 
-        self.completed = False
-        self.shutdown_requested = False
-        self.exit_code = 0
+        self.cube_grade_client = self.create_client(
+            GradeCubes,
+            self.cube_grade_service_name,
+        )
 
-        self.scan_sub = self.create_subscription(LaserScan, self.scan_topic, self._scan_callback, 10)
-        self.motion_client = ActionClient(self, ExecuteMotionPrimitive, self.motion_action_name)
-        self.maze_pub = self.create_publisher(RosMaze, '/discovered_maze', 10)
-       
-
-        # image_rect gives more accurate geometry for distance estimation.
-        # raw image keeps more natural colors for color detection. 
-        self.rect_image_subscriber = self.create_subscription(Image,"/ascamera/camera_publisher/rgb0/image_rect",self.callback_rect_image,10)
-        self.raw_image_subscriber = self.create_subscription(Image,"/ascamera/camera_publisher/rgb0/image",self.callback_raw_image,10)
-        self.apriltag_subscriber = self.create_subscription(AprilTagDetectionArray, "/apriltag_detections", self.callback_apriltag, 10)
-        self.camera_info_subscriber = self.create_subscription(CameraInfo,"/ascamera/camera_publisher/rgb0/camera_info", self.callback_camera_info, 10)
-        self.grade_future = None
-        self.grade_submit_time = None
-        self.timer = self.create_timer(0.10, self._tick)
+        self.cube_grade_future = None
+        self.cube_grade_submit_time = None
+        self.cube_submission_started = False
+        self.cube_submission_finished = False
 
         self.get_logger().info(
-            'Search rescue initialized: '
-            f'scan={self.scan_topic}, cell={self.cell_length_m:.3f} m, '
-            f'heading={DIR_NAME[self.heading]}, '
-            f'wall<={self.wall_threshold_m:.3f}, open>={self.open_threshold_m:.3f}'
+            'Task 3 search and rescue initialized on v87 explorer: '
+            f'max_cubes={MAX_CUBES}, '
+            f'tag_size={self.tag_size_m:.4f} m, '
+            f'distance={self.distance_scale:.3f}*measured'
+            f'{self.distance_bias_cm:+.3f} cm, '
+            f'cube_center_offset='
+            f'{self.cube_center_offset_cm:.2f} cm'
         )
 
-
-        # TODO: Enable this client only when the grading service is running.
-        # During local tests, keep it disabled to avoid blocking startup.
-        # self.client = self.create_client(GradeCubes, "/grade_cubes")
-        # while not self.client.wait_for_service(1.0):
-        #     self.get_logger().info("waiting for grade_cubes service ...")
-
-    # -------------------------------------------------------------------------
-    # Image and camera callbacks
-    # -------------------------------------------------------------------------
-
-    def callback_rect_image(self, msg):
-        # Store the rectified image used together with AprilTag pixel positions.
-        self.latest_rect_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
-        if self.received_first_image == False:
-            self.get_logger().info("received rect image")
-            self.received_first_image = True
-
-
-    def callback_raw_image(self, msg):
-        # Store the raw image. It is often better for color detection.
-        self.latest_raw_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
-
-    # -------------------------------------------------------------------------
-    # AprilTag detection pipeline
-    # -------------------------------------------------------------------------
-
-    def callback_apriltag(self, msg):
-        if not msg.detections:
-            return
-
-        if self.latest_rect_image is None:
-            self.get_logger().info("no rect image yet")
-            return
-
-        if self.latest_raw_image is None:
-            self.get_logger().info("no raw image yet")
-            return
-        
-        valid_detections = []
-        for d in msg.detections:
-            xs = [c.x for c in d.corners]
-            ys = [c.y for c in d.corners]
-            w = max(xs) - min(xs)
-            h = max(ys) - min(ys)
-            area = w * h
-            ratio = h / w if w > 0 else 0.0
-
-            if w < 15 or h < 15:
-                continue
-
-            if ratio < 0.6 or ratio > 1.5:
-                continue
-
-            valid_detections.append((d, area))
-
-        if not valid_detections:
-            return
-
-        detection,area = max(valid_detections, key=lambda item: item[1])
-
-        relative_position = self.estimate_cube_relative_position(detection)
-        if relative_position is None:
-            return
- 
-        xr_cm, yr_cm = relative_position
-
-        
-        #TODO: Convert robot-relative cube position to global map coordinates.
-        rect_crop = self.crop_cube_from_detection(self.latest_rect_image, detection)
-        raw_crop = self.crop_cube_from_detection(self.latest_raw_image, detection)
-
-        if rect_crop is None or raw_crop is None:
-            self.get_logger().info("error: crop failed")
-            return
-
-        cv2.imwrite("/tmp/search_rescue_rect_crop.jpg", rect_crop)
-        cv2.imwrite("/tmp/search_rescue_raw_crop.jpg", raw_crop)
-
-        # TODO: xr_cm and yr_cm are currently robot-relative coordinates.
-        # The competition requires absolute maze coordinates, so convert them
-        # using the robot's global pose before calling process_cube_detection().
-        self.process_cube_detection(xr_cm, yr_cm, raw_crop) 
-
-    def crop_cube_from_detection(self, image, detection):
-        if image is None:
-            return None
-
-        height, width = image.shape[:2]
-
-        cx = int(detection.centre.x)
-        cy = int(detection.centre.y)
-
-        corners = detection.corners
-
-        xs = [corner.x for corner in corners]
-        ys = [corner.y for corner in corners]
-
-        tag_width = max(xs) - min(xs)
-        tag_height = max(ys) - min(ys)
-
-        tag_size = max(tag_width, tag_height)
-
-        if tag_size <= 0:
-            return None
-
-        scale = 2.3
-        crop_size = int(tag_size * scale)
-        half = crop_size // 2
-
-        x1 = max(0, cx - half)
-        x2 = min(width, cx + half)
-        y1 = max(0, cy - half)
-        y2 = min(height, cy + half)
-
-        if x2 <= x1 or y2 <= y1:
-            return None
-
-        crop = image[y1:y2, x1:x2]
-
-        return crop
-    
-    def process_cube_detection(self,x_cm,y_cm,image):
-        if image is None:
-            self.get_logger().info("error: no image")
-            return
-        color_id = detect_color(image)
-
-        if color_id is None:
-            return
-        
-        is_new_cube = self.tracker.add_cube(x_cm, y_cm, color_id)
-        if is_new_cube:
-            n,xs,ys,colors = self.tracker.export_for_service()
-            self.get_logger().info(
-                f"new cube: n={n}, x={round(x_cm)}, y={round(y_cm)}, color={color_id}"
-            )
-        
-    # self.camera_info_subscriber
-    def callback_camera_info(self, msg):
-        if self.camera_info is not None:
-            return
-
-        self.camera_info = msg
-
-    # -------------------------------------------------------------------------
-    # Position estimation
-    # -------------------------------------------------------------------------
-    def estimate_cube_relative_position(self, detection):
-        """
-        Estimate cube position relative to the robot/camera.
-
-        Returns:
-            (forward_cm, left_cm), where forward is the camera-facing distance
-            and left is the lateral offset. This is not yet the absolute maze
-            coordinate required by the task.
-        """
-        if self.camera_info is None:
-            self.get_logger().info("no camera info yet")
-            return None
-        
-        fx = self.camera_info.p[0]
-        cx = self.camera_info.p[2]
-
-        corners = detection.corners
-        side_lengths = []
-        for i in range(4):
-            p1 = corners[i]
-            p2 = corners[(i + 1) % 4]
-            dx = p1.x - p2.x
-            dy = p1.y - p2.y
-            side_lengths.append(math.sqrt(dx * dx + dy * dy))
-        tag_width_px = max(side_lengths)
-
-        if tag_width_px <= 0:
-            return None
-
-        distance_m = self.tag_size_m * fx / tag_width_px
-
-        image_offset_x = detection.centre.x - cx
-        lateral_m = image_offset_x * distance_m / fx
-
-        forward_cm = distance_m * 100
-        left_cm = -lateral_m * 100
-
-        return forward_cm, left_cm
-    
-    # def maybe_submit_cubes(self, is_new_cube):
-    #     if not is_new_cube:
-    #        return
-
-    #     n, _, _, _ = self.tracker.export_for_service()
-
-    #     if n > self.submitted_count and n <= 4:
-    #         self.submit_cubes()
-    #         self.submitted_count = n
-    
-    # def submit_cubes(self):
-    #     n,xs,ys,colors = self.tracker.export_for_service()
-
-    #     request = GradeCubes.Request()
-    #     request.n = n
-    #     request.x = xs
-    #     request.y = ys
-    #     request.color = colors
-
-    #     future = self.client.call_async(request)
-    #     future.add_done_callback(self.handle_grade_response)
-    #     self.get_logger().info("submitted cubes")
-
-    # def handle_grade_response(self, future):
-    #     response = future.result()
-    #     self.get_logger().info(f"score: {response.score}")  
-    
-    # -------------------------------------------------------------------------
-    # Explorer node 
-    # -------------------------------------------------------------------------
-    def _validate_parameters(self) -> None:
+    def _validate_task3_parameters(self) -> None:
         errors = []
-        valid_priorities = {
-            'left_straight_right_back',
-            'straight_left_right_back',
-            'right_straight_left_back',
-            'straight_right_left_back',
+
+        topic_parameters = {
+            'rect_image_topic': self.rect_image_topic,
+            'raw_image_topic': self.raw_image_topic,
+            'camera_info_topic': self.camera_info_topic,
+            'apriltag_topic': self.apriltag_topic,
         }
 
-        if self.start_heading not in DIRECTIONS:
-            errors.append(f'start_heading={self.start_heading} invalid; use 1, 2, 4, or 8')
-        if not self.scan_topic:
-            errors.append('scan_topic must not be empty')
-        if not self.motion_action_name:
-            errors.append('motion_action_name must not be empty')
-        if not math.isfinite(self.cell_length_m) or self.cell_length_m <= 0.0:
-            errors.append('cell_length_m must be finite and > 0')
-        if self.wall_threshold_m <= 0.0:
-            errors.append('wall_threshold_m must be > 0')
-        if self.open_threshold_m <= self.wall_threshold_m:
-            errors.append('open_threshold_m must be greater than wall_threshold_m')
-        if self.sector_width_deg <= 0.0 or self.sector_width_deg > 90.0:
-            errors.append('sector_width_deg must be in (0, 90]')
-        if self.sector_min_samples < 1:
-            errors.append('sector_min_samples must be >= 1')
-        if self.max_cells_to_visit < 0:
-            errors.append('max_cells_to_visit must be >= 0')
-        if self.stale_scan_timeout_s <= 0.0:
-            errors.append('stale_scan_timeout_s must be > 0')
-        if self.drive_max_linear_x_mps <= 0.0:
-            errors.append('drive_max_linear_x_mps must be > 0')
-        if self.reverse_max_linear_x_mps <= 0.0:
-            errors.append('reverse_max_linear_x_mps must be > 0')
-        if self.reverse_backtracking_max_consecutive_cells < 0:
-            errors.append('reverse_backtracking_max_consecutive_cells must be >= 0')
-        if self.reverse_position_tolerance_m <= 0.0:
-            errors.append('reverse_position_tolerance_m must be > 0')
-        if self.reverse_heading_tolerance_rad <= 0.0:
-            errors.append('reverse_heading_tolerance_rad must be > 0')
-        if self.rotate_max_angular_z_radps <= 0.0:
-            errors.append('rotate_max_angular_z_radps must be > 0')
-        if self.motion_timeout_s < 0.0:
-            errors.append('motion_timeout_s must be >= 0')
-        if self.direction_priority not in valid_priorities:
-            errors.append(
-                'direction_priority must be one of '
-                + ', '.join(sorted(valid_priorities))
-            )
-        race_costs = {
-            'race_cost_drive_forward': self.race_cost_drive_forward,
-            'race_cost_drive_backward': self.race_cost_drive_backward,
-            'race_cost_turn_90': self.race_cost_turn_90,
-            'race_cost_turn_180': self.race_cost_turn_180,
-            'race_cost_unvisited_info_bonus': self.race_cost_unvisited_info_bonus,
-            'race_cost_straight_bonus': self.race_cost_straight_bonus,
-            'race_lidar_lookahead_bonus': self.race_lidar_lookahead_bonus,
+        for name, value in topic_parameters.items():
+            if not value:
+                errors.append(
+                    f'{name} must not be empty'
+                )
+
+        positive_parameters = {
+            'tag_size_m': self.tag_size_m,
+            'tag_min_side_px': self.tag_min_side_px,
+            'cube_crop_scale': self.cube_crop_scale,
+            'camera_data_timeout_s': (
+                self.camera_data_timeout_s
+            ),
+            'minimum_detection_distance_cm': (
+                self.minimum_detection_distance_cm
+            ),
+            'maximum_detection_distance_cm': (
+                self.maximum_detection_distance_cm
+            ),
+            'cube_merge_distance_cm': (
+                self.cube_merge_distance_cm
+            ),
+            'cube_cell_assignment_tolerance_cm': (
+                self.cube_cell_assignment_tolerance_cm
+            ),
+            'cube_grade_service_timeout_s': (
+                self.cube_grade_service_timeout_s
+            ),
         }
-        for name, value in race_costs.items():
-            if not math.isfinite(float(value)) or float(value) < 0.0:
-                errors.append(f'{name} must be finite and >= 0')
+
+        for name, value in positive_parameters.items():
+            if (
+                not math.isfinite(value)
+                or value <= 0.0
+            ):
+                errors.append(
+                    f'{name} must be finite and > 0'
+                )
+
+        if (
+            not math.isfinite(self.distance_scale)
+            or self.distance_scale <= 0.0
+        ):
+            errors.append(
+                'distance_scale must be finite and > 0'
+            )
+
+        if not math.isfinite(
+            self.distance_bias_cm
+        ):
+            errors.append(
+                'distance_bias_cm must be finite'
+            )
+
+        if not math.isfinite(
+            self.cube_center_offset_cm
+        ):
+            errors.append(
+                'cube_center_offset_cm must be finite'
+            )
+
+        if not math.isfinite(
+            self.camera_forward_offset_cm
+        ):
+            errors.append(
+                'camera_forward_offset_cm must be finite'
+            )
+
+        if not math.isfinite(
+            self.camera_left_offset_cm
+        ):
+            errors.append(
+                'camera_left_offset_cm must be finite'
+            )
+
+        if (
+            self.maximum_detection_distance_cm
+            <= self.minimum_detection_distance_cm
+        ):
+            errors.append(
+                'maximum_detection_distance_cm must be '
+                'greater than minimum_detection_distance_cm'
+            )
+
+        if self.tag_min_aspect_ratio <= 0.0:
+            errors.append(
+                'tag_min_aspect_ratio must be > 0'
+            )
+
+        if (
+            self.tag_max_aspect_ratio
+            < self.tag_min_aspect_ratio
+        ):
+            errors.append(
+                'tag_max_aspect_ratio must be '
+                '>= tag_min_aspect_ratio'
+            )
+
+        if self.observation_hold_s < 0.0:
+            errors.append(
+                'observation_hold_s must be >= 0'
+            )
+
+        if (
+            self.submit_cubes_to_grader
+            and not self.cube_grade_service_name
+        ):
+            errors.append(
+                'cube_grade_service_name must not be empty '
+                'when submit_cubes_to_grader=true'
+            )
 
         if errors:
             message = '; '.join(errors)
             self.get_logger().error(message)
             raise ValueError(message)
 
-    def _scan_callback(self, msg: LaserScan) -> None:
-        self.latest_scan = msg
-        self.latest_scan_monotonic = time.monotonic()
-
-    def _tick(self) -> None:
-        if self.shutdown_requested:
-            return
-
-        if self.tracker.get_cube_count() >= 4 and not self.completed:
-            self.get_logger().info("Found 4 cubes! Halting exploration and submitting to grader.")
-            # self.submit_cubes()
-            self.completed = True
-            self.shutdown_requested = True
-            return
-
-        if self.completed or self.motion_in_flight:
-            return
-
-        if self.motion_queue:
-            self._send_next_motion_step()
-            return
-
-        if not self._scan_is_fresh():
-            self.get_logger().warn('Waiting for fresh scan.', throttle_duration_sec=2.0)
-            return
-
-        if not self.motion_client.server_is_ready():
-            if not self.motion_client.wait_for_server(timeout_sec=0.05):
-                self.get_logger().warn(
-                    f'Waiting for motion action server {self.motion_action_name}.',
-                    throttle_duration_sec=2.0,
+    def callback_rect_image(
+        self,
+        msg: Image,
+    ) -> None:
+        try:
+            self.latest_rect_image = (
+                self.bridge.imgmsg_to_cv2(
+                    msg,
+                    desired_encoding='bgr8',
                 )
-                return
+            )
+        except Exception as exc:
+            self.get_logger().warn(
+                f'Failed to convert rectified image: {exc}',
+                throttle_duration_sec=2.0,
+            )
+            return
 
-        self._exploration_step()
-
-    def _scan_is_fresh(self) -> bool:
-        return (
-            self.latest_scan is not None
-            and time.monotonic() - self.latest_scan_monotonic <= self.stale_scan_timeout_s
+        self.latest_rect_image_monotonic = (
+            time.monotonic()
         )
 
-    def _exploration_step(self) -> None:
-        self._observe_and_update_current_cell()
-
-        if (
-            self.max_cells_to_visit > 0
-            and self.maze.visited_count() >= self.max_cells_to_visit
-        ):
-            self._finish_exploration(f'max_cells_to_visit={self.max_cells_to_visit} reached')
-            return
-
-        if self.race_planner_enabled:
-            plan = self._race_frontier_plan()
-            if plan is None:
-                self._finish_exploration('no reachable frontier remains')
-                return
-
-            path, reverse_flags, cost, reason = plan
-
-            if len(path) < 2:
-                self._finish_exploration('race frontier path unexpectedly empty')
-                return
-
-            self.get_logger().info(
-                f'Race planner selected path: cost={cost:.2f}, '
-                f'path={path}, reverse_flags={reverse_flags}; {reason}'
+    def callback_raw_image(
+        self,
+        msg: Image,
+    ) -> None:
+        try:
+            self.latest_raw_image = (
+                self.bridge.imgmsg_to_cv2(
+                    msg,
+                    desired_encoding='bgr8',
+                )
             )
-            self._enqueue_planned_path(path, reverse_flags)
-            return
-
-        # Legacy fallback. Keep this for A/B testing and emergency launch override.
-        direction = self._choose_unvisited_open_neighbor(self.current_cell)
-        if direction is not None:
-            self._enqueue_step(direction)
-            return
-
-        path = self.maze.nearest_frontier_path(self.current_cell)
-        if path is None:
-            self._finish_exploration('no reachable frontier remains')
-            return
-
-        if len(path) < 2:
-            self._finish_exploration('frontier path unexpectedly empty')
-            return
-
-        self.get_logger().info(f'Backtracking to frontier through path: {path}')
-        self._enqueue_path(path)
-
-    def _observe_and_update_current_cell(self) -> None:
-        if self.latest_scan is None:
-            return
-
-        self.maze.mark_visited(self.current_cell)
-        observations = self._observe_walls(self.latest_scan)
-
-        parts = []
-        for direction, state, distance, reason in observations:
-            for message in self.maze.update_edge(self.current_cell, direction, state):
-                self.get_logger().warn(message)
-
-            parts.append(
-                f'{DIR_NAME[direction]}={STATE_NAME[state]}'
-                f'({distance:.3f} m; {reason})'
+        except Exception as exc:
+            self.get_logger().warn(
+                f'Failed to convert raw image: {exc}',
+                throttle_duration_sec=2.0,
             )
+            return
 
-        self._publish_current_maze()
+        self.latest_raw_image_monotonic = (
+            time.monotonic()
+        )
+
+    def callback_camera_info(
+        self,
+        msg: CameraInfo,
+    ) -> None:
+        if self.camera_info is not None:
+            return
+
+        self.camera_info = msg
 
         self.get_logger().info(
-            f'Cell={self.current_cell}, heading={DIR_NAME[self.heading]}, '
-            f'visit={self.maze.visits[self.current_cell]}: '
-            + '; '.join(parts)
+            f'Camera intrinsics received: '
+            f'fx={float(msg.p[0]):.2f}, '
+            f'cx={float(msg.p[2]):.2f}'
         )
 
-    def _observe_walls(self, scan: LaserScan) -> List[Tuple[int, int, float, str]]:
-        specs = [
-            ('front', 0.0, self.heading),
-            ('left', math.pi / 2.0, LEFT_OF[self.heading]),
-            ('right', -math.pi / 2.0, RIGHT_OF[self.heading]),
-            ('rear', math.pi, OPPOSITE[self.heading]),
-        ]
+    def callback_apriltag(
+        self,
+        msg: AprilTagDetectionArray,
+    ) -> None:
+        if (
+            self.completed
+            or self.motion_in_flight
+            or not msg.detections
+        ):
+            return
 
-        observations = []
-        for name, angle, direction in specs:
-            values = valid_ranges_in_sector(scan, angle, self.sector_width_deg)
-            state, distance, reason = self._classify_sector(name, values)
-            observations.append((direction, state, distance, reason))
+        now = time.monotonic()
 
-        return observations
+        if (
+            self.latest_rect_image is None
+            or (
+                now
+                - self.latest_rect_image_monotonic
+                > self.camera_data_timeout_s
+            )
+        ):
+            self.get_logger().debug(
+                'Ignoring tag detection without '
+                'a fresh rectified image.'
+            )
+            return
 
-    def _classify_sector(self, name: str, values: Sequence[float]) -> Tuple[int, float, str]:
-        if len(values) < self.sector_min_samples:
-            return UNKNOWN, float('nan'), f'{name}: samples {len(values)} < {self.sector_min_samples}'
+        if (
+            self.latest_raw_image is None
+            or (
+                now
+                - self.latest_raw_image_monotonic
+                > self.camera_data_timeout_s
+            )
+        ):
+            self.get_logger().debug(
+                'Ignoring tag detection without '
+                'a fresh raw image.'
+            )
+            return
 
-        distance = float(median(values))
+        valid_detections = []
 
-        if distance <= self.wall_threshold_m:
-            return WALL, distance, f'{name}: median <= wall threshold'
-
-        if distance >= self.open_threshold_m:
-            return OPEN, distance, f'{name}: median >= open threshold'
-
-        return UNKNOWN, distance, f'{name}: ambiguous between thresholds'
-
-    def _choose_unvisited_open_neighbor(self, cell: Cell) -> Optional[int]:
-        for direction in self._ordered_directions():
-            if self.maze.wall_state(cell, direction) != OPEN:
+        for detection in msg.detections:
+            if len(detection.corners) < 4:
                 continue
 
-            next_cell = neighbor(cell, direction)
-            if not self.maze.is_visited(next_cell):
+            xs = [
+                float(corner.x)
+                for corner in detection.corners
+            ]
+            ys = [
+                float(corner.y)
+                for corner in detection.corners
+            ]
+
+            width_px = max(xs) - min(xs)
+            height_px = max(ys) - min(ys)
+
+            if (
+                width_px < self.tag_min_side_px
+                or height_px < self.tag_min_side_px
+            ):
+                continue
+
+            aspect_ratio = (
+                height_px / width_px
+                if width_px > 0.0
+                else 0.0
+            )
+
+            if (
+                aspect_ratio
+                < self.tag_min_aspect_ratio
+                or aspect_ratio
+                > self.tag_max_aspect_ratio
+            ):
+                continue
+
+            valid_detections.append(
+                (
+                    detection,
+                    width_px * height_px,
+                )
+            )
+
+        if not valid_detections:
+            return
+
+        detection, _ = max(
+            valid_detections,
+            key=lambda item: item[1],
+        )
+
+        relative_position = (
+            self.estimate_cube_relative_position(
+                detection
+            )
+        )
+
+        if relative_position is None:
+            return
+
+        forward_cm, left_cm = relative_position
+
+        # Preserve the newer v1 physical calibration.
+        forward_cm = (
+            self.distance_scale * forward_cm
+            + self.distance_bias_cm
+        )
+
+        # Convert tag/front-face distance to cube-center distance.
+        forward_cm += self.cube_center_offset_cm
+
+        if (
+            forward_cm
+            < self.minimum_detection_distance_cm
+            or forward_cm
+            > self.maximum_detection_distance_cm
+        ):
+            return
+
+        local_x_cm, local_y_cm = (
+            self.cube_camera_to_local(
+                forward_cm,
+                left_cm,
+            )
+        )
+
+        # The AprilTag itself is enough to identify a cube obstacle.
+        # Color detection is not required before avoiding its cell.
+        if self.block_cube_cells:
+            cube_cell = self.infer_cube_cell(
+                local_x_cm,
+                local_y_cm,
+            )
+
+            if (
+                cube_cell is not None
+                and cube_cell != self.current_cell
+            ):
+                if self.maze.block_cell(cube_cell):
+                    # A previously queued route may pass through this cell.
+                    self.motion_queue.clear()
+
+                    self.get_logger().warn(
+                        f'Cube obstacle added at '
+                        f'cell={cube_cell}; '
+                        'discarded queued route and will replan.'
+                    )
+
+                    self._publish_current_maze()
+
+        raw_crop = self.crop_cube_from_detection(
+            self.latest_raw_image,
+            detection,
+        )
+
+        if raw_crop is None:
+            return
+
+        color_id = detect_color(raw_crop)
+
+        if color_id is None:
+            return
+
+        add_result = self.tracker.add_cube(
+            local_x_cm,
+            local_y_cm,
+            int(color_id),
+        )
+
+        if add_result == ADD_RESULT_ADDED:
+            self.get_logger().info(
+                f'New cube accepted: '
+                f'count={self.tracker.get_cube_count()}'
+                f'/{MAX_CUBES}, '
+                f'local_x={local_x_cm:.1f} cm, '
+                f'local_y={local_y_cm:.1f} cm, '
+                f'color={int(color_id)}'
+            )
+
+        elif add_result == ADD_RESULT_CAPACITY:
+            self.get_logger().warn(
+                'Rejected a fifth distinct cube hypothesis. '
+                'The Task 3 request is strictly capped '
+                'at four cubes.',
+                throttle_duration_sec=2.0,
+            )
+
+    def crop_cube_from_detection(
+        self,
+        image,
+        detection,
+    ):
+        if (
+            image is None
+            or len(detection.corners) < 4
+        ):
+            return None
+
+        height, width = image.shape[:2]
+
+        center_x = int(detection.centre.x)
+        center_y = int(detection.centre.y)
+
+        xs = [
+            float(corner.x)
+            for corner in detection.corners
+        ]
+        ys = [
+            float(corner.y)
+            for corner in detection.corners
+        ]
+
+        tag_size_px = max(
+            max(xs) - min(xs),
+            max(ys) - min(ys),
+        )
+
+        if tag_size_px <= 0.0:
+            return None
+
+        crop_size = max(
+            1,
+            int(
+                tag_size_px
+                * self.cube_crop_scale
+            ),
+        )
+
+        half_size = crop_size // 2
+
+        x1 = max(
+            0,
+            center_x - half_size,
+        )
+        x2 = min(
+            width,
+            center_x + half_size,
+        )
+        y1 = max(
+            0,
+            center_y - half_size,
+        )
+        y2 = min(
+            height,
+            center_y + half_size,
+        )
+
+        if (
+            x2 <= x1
+            or y2 <= y1
+        ):
+            return None
+
+        return image[y1:y2, x1:x2]
+
+    def estimate_cube_relative_position(
+        self,
+        detection,
+    ) -> Optional[Tuple[float, float]]:
+        """
+        Return camera-relative coordinates as:
+
+            forward_cm
+            left_cm
+        """
+
+        if (
+            self.camera_info is None
+            or len(detection.corners) < 4
+        ):
+            return None
+
+        focal_x = float(
+            self.camera_info.p[0]
+        )
+        principal_x = float(
+            self.camera_info.p[2]
+        )
+
+        if (
+            not math.isfinite(focal_x)
+            or focal_x <= 0.0
+        ):
+            return None
+
+        side_lengths = []
+        corners = detection.corners
+
+        for index in range(4):
+            first = corners[index]
+            second = corners[
+                (index + 1) % 4
+            ]
+
+            dx = (
+                float(first.x)
+                - float(second.x)
+            )
+            dy = (
+                float(first.y)
+                - float(second.y)
+            )
+
+            side_lengths.append(
+                math.hypot(dx, dy)
+            )
+
+        tag_width_px = max(side_lengths)
+
+        if (
+            not math.isfinite(tag_width_px)
+            or tag_width_px <= 0.0
+        ):
+            return None
+
+        distance_m = (
+            self.tag_size_m
+            * focal_x
+            / tag_width_px
+        )
+
+        image_offset_x = (
+            float(detection.centre.x)
+            - principal_x
+        )
+
+        lateral_m = (
+            image_offset_x
+            * distance_m
+            / focal_x
+        )
+
+        forward_cm = distance_m * 100.0
+
+        # A positive image offset is camera-right.
+        # The Task 3 local convention uses positive left.
+        left_cm = -lateral_m * 100.0
+
+        return forward_cm, left_cm
+
+    def cube_camera_to_local(
+        self,
+        forward_cm: float,
+        left_cm: float,
+    ) -> Tuple[float, float]:
+        """
+        Convert camera-relative coordinates into the same local grid frame
+        used by the v87 maze explorer.
+        """
+
+        cell_cm = (
+            self.cell_length_m
+            * 100.0
+        )
+
+        # The explorer's integer cell coordinate represents the cell center.
+        robot_x_cm = (
+            float(self.current_cell[0])
+            * cell_cm
+        )
+        robot_y_cm = (
+            float(self.current_cell[1])
+            * cell_cm
+        )
+
+        forward_from_robot_cm = (
+            float(forward_cm)
+            + self.camera_forward_offset_cm
+        )
+
+        left_from_robot_cm = (
+            float(left_cm)
+            + self.camera_left_offset_cm
+        )
+
+        if self.heading == POS_X:
+            dx_cm = forward_from_robot_cm
+            dy_cm = left_from_robot_cm
+
+        elif self.heading == POS_Y:
+            dx_cm = -left_from_robot_cm
+            dy_cm = forward_from_robot_cm
+
+        elif self.heading == NEG_X:
+            dx_cm = -forward_from_robot_cm
+            dy_cm = -left_from_robot_cm
+
+        elif self.heading == NEG_Y:
+            dx_cm = left_from_robot_cm
+            dy_cm = -forward_from_robot_cm
+
+        else:
+            raise ValueError(
+                f'Invalid heading: {self.heading}'
+            )
+
+        return (
+            robot_x_cm + dx_cm,
+            robot_y_cm + dy_cm,
+        )
+
+    def infer_cube_cell(
+        self,
+        local_x_cm: float,
+        local_y_cm: float,
+    ) -> Optional[Cell]:
+        cell_cm = (
+            self.cell_length_m
+            * 100.0
+        )
+
+        cell = (
+            int(
+                round(
+                    float(local_x_cm)
+                    / cell_cm
+                )
+            ),
+            int(
+                round(
+                    float(local_y_cm)
+                    / cell_cm
+                )
+            ),
+        )
+
+        center_x_cm = (
+            float(cell[0])
+            * cell_cm
+        )
+        center_y_cm = (
+            float(cell[1])
+            * cell_cm
+        )
+
+        center_error_cm = math.hypot(
+            float(local_x_cm)
+            - center_x_cm,
+            float(local_y_cm)
+            - center_y_cm,
+        )
+
+        if (
+            center_error_cm
+            > self.cube_cell_assignment_tolerance_cm
+        ):
+            self.get_logger().debug(
+                f'Cube at '
+                f'({local_x_cm:.1f}, '
+                f'{local_y_cm:.1f}) cm is '
+                f'{center_error_cm:.1f} cm from '
+                'the nearest cell center; '
+                'not using it as a planner obstacle.'
+            )
+            return None
+
+        return cell
+
+    def _choose_unvisited_open_neighbor(
+        self,
+        cell: Cell,
+    ) -> Optional[int]:
+        """
+        The v87 legacy neighbor selection with one Task 3 addition:
+        cube-occupied cells are excluded.
+        """
+
+        for direction in self._ordered_directions():
+            if (
+                self.maze.wall_state(
+                    cell,
+                    direction,
+                )
+                != OPEN
+            ):
+                continue
+
+            next_cell = neighbor(
+                cell,
+                direction,
+            )
+
+            if next_cell in self.maze.blocked_cells:
+                continue
+
+            if not self.maze.is_visited(
+                next_cell
+            ):
                 self.get_logger().info(
-                    f'Choosing frontier: {cell} -> {next_cell} via {DIR_NAME[direction]}'
+                    f'Choosing frontier: '
+                    f'{cell} -> {next_cell} '
+                    f'via {DIR_NAME[direction]}'
                 )
                 return direction
 
-        unresolved = self.maze.unresolved_directions(cell)
+        unresolved = (
+            self.maze.unresolved_directions(
+                cell
+            )
+        )
+
         if unresolved:
             self.get_logger().warn(
-                f'No open unvisited edge from {cell}; unresolved='
-                + ','.join(DIR_NAME[d] for d in unresolved)
+                f'No open unvisited edge from {cell}; '
+                'unresolved='
+                + ','.join(
+                    DIR_NAME[direction]
+                    for direction in unresolved
+                )
             )
 
         return None
 
-    def _race_frontier_plan(
+    def _handle_motion_result(
         self,
-    ) -> Optional[Tuple[List[Cell], List[bool], float, str]]:
-        """Return the fastest path to the next unvisited open cell.
-
-        This is Dijkstra over (cell, heading, reverse_streak). It optimizes
-        expected motion time, not just cell count. It still uses only confirmed
-        OPEN edges for correctness.
-        """
-        if not self.maze.has_unvisited_open_neighbor(self.current_cell):
-            # Fast fail only if there is no frontier anywhere reachable.
-            # The Dijkstra below also handles this, but this keeps logs clearer.
-            pass
-
-        live_open_distances = self._live_open_distance_by_direction()
-
-        start_state = (self.current_cell, int(self.heading), 0)
-        best_cost: Dict[Tuple[Cell, int, int], float] = {start_state: 0.0}
-        previous: Dict[
-            Tuple[Cell, int, int],
-            Tuple[Tuple[Cell, int, int], Cell, bool],
-        ] = {}
-
-        heap: List[Tuple[float, int, Cell, int, int]] = []
-        counter = 0
-        heapq.heappush(heap, (0.0, counter, self.current_cell, int(self.heading), 0))
-
-        final_state: Optional[Tuple[Cell, int, int]] = None
-        final_reason = ''
-
-        while heap:
-            cost, _, cell, heading, reverse_streak = heapq.heappop(heap)
-            state = (cell, heading, reverse_streak)
-
-            if cost > best_cost.get(state, float('inf')) + 1.0e-9:
-                continue
-
-            if cell != self.current_cell and not self.maze.is_visited(cell):
-                final_state = state
-                final_reason = (
-                    f'reached unvisited cell={cell}; '
-                    f'heading={DIR_NAME[heading]}; '
-                    f'reverse_streak={reverse_streak}'
-                )
-                break
-
-            for direction, next_cell in self.maze.open_neighbors(cell):
-                for (
-                    next_heading,
-                    used_reverse,
-                    step_cost,
-                    action_reason,
-                ) in self._race_motion_options(
-                    cell=cell,
-                    heading=heading,
-                    reverse_streak=reverse_streak,
-                    direction=direction,
-                    next_cell=next_cell,
-                    live_open_distances=live_open_distances,
-                ):
-                    next_reverse_streak = reverse_streak + 1 if used_reverse else 0
-                    next_state = (next_cell, next_heading, next_reverse_streak)
-                    next_cost = cost + step_cost
-
-                    if next_cost + 1.0e-9 >= best_cost.get(next_state, float('inf')):
-                        continue
-
-                    best_cost[next_state] = next_cost
-                    previous[next_state] = (state, next_cell, used_reverse)
-                    counter += 1
-                    heapq.heappush(
-                        heap,
-                        (
-                            next_cost,
-                            counter,
-                            next_cell,
-                            next_heading,
-                            next_reverse_streak,
-                        ),
-                    )
-
-        if final_state is None:
-            return None
-
-        path_reversed = [final_state[0]]
-        reverse_flags_reversed: List[bool] = []
-
-        cursor = final_state
-        while cursor != start_state:
-            if cursor not in previous:
-                return None
-            prev_state, reached_cell, used_reverse = previous[cursor]
-            reverse_flags_reversed.append(bool(used_reverse))
-            path_reversed.append(prev_state[0])
-            cursor = prev_state
-
-        path = list(reversed(path_reversed))
-        reverse_flags = list(reversed(reverse_flags_reversed))
-
-        if len(reverse_flags) != len(path) - 1:
-            self._fatal(
-                f'Race planner produced invalid path/flags: '
-                f'path={path}, reverse_flags={reverse_flags}'
-            )
-            return None
-
-        return (
-            path,
-            reverse_flags,
-            float(best_cost[final_state]),
-            final_reason,
+        future,
+    ) -> None:
+        completed_step: Optional[MotionStep] = (
+            self.active_step
         )
 
-    def _race_motion_options(
-        self,
-        *,
-        cell: Cell,
-        heading: int,
-        reverse_streak: int,
-        direction: int,
-        next_cell: Cell,
-        live_open_distances: Dict[int, float],
-    ) -> List[Tuple[int, bool, float, str]]:
-        options: List[Tuple[int, bool, float, str]] = []
-        next_is_visited = self.maze.is_visited(next_cell)
-        turn = turn_between(heading, direction)
-
-        if abs(turn) <= 1.0e-6:
-            cost = self._race_forward_cost(
-                cell=cell,
-                direction=direction,
-                next_cell=next_cell,
-                live_open_distances=live_open_distances,
-                turn_cost=0.0,
-            )
-            options.append(
-                (
-                    direction,
-                    False,
-                    cost,
-                    f'forward straight {cell}->{next_cell} via {DIR_NAME[direction]}',
-                )
-            )
-        else:
-            rotation_safe, rotation_reason = self._rotation_safe_at_cell(cell, heading)
-            if rotation_safe:
-                turn_cost = self._race_turn_cost(turn)
-                cost = self._race_forward_cost(
-                    cell=cell,
-                    direction=direction,
-                    next_cell=next_cell,
-                    live_open_distances=live_open_distances,
-                    turn_cost=turn_cost,
-                )
-                options.append(
-                    (
-                        direction,
-                        False,
-                        cost,
-                        f'rotate then forward {cell}->{next_cell} via '
-                        f'{DIR_NAME[direction]}; turn={turn:.3f}; {rotation_reason}',
-                    )
-                )
-
-        can_reverse = bool(
-            self.reverse_backtracking_enabled
-            and direction == OPPOSITE[heading]
-            and self._race_reverse_budget_allows(reverse_streak)
+        # This performs all normal v87 result validation and pose updates.
+        super()._handle_motion_result(
+            future
         )
 
-        if can_reverse:
-            rotation_safe, _ = self._rotation_safe_at_cell(cell, heading)
-            reverse_into_new_allowed = bool(
-                next_is_visited
-                or self.race_reverse_into_new_cells
-                or not rotation_safe
-            )
-
-            if reverse_into_new_allowed:
-                cost = self._race_backward_cost(
-                    cell=cell,
-                    direction=direction,
-                    next_cell=next_cell,
-                    live_open_distances=live_open_distances,
-                )
-                options.append(
-                    (
-                        heading,
-                        True,
-                        cost,
-                        f'reverse {cell}->{next_cell} via {DIR_NAME[direction]} '
-                        f'while heading stays {DIR_NAME[heading]}',
-                    )
-                )
-
-        return options
-
-    def _race_turn_cost(self, turn_rad: float) -> float:
-        magnitude = abs(normalize_angle(turn_rad))
-        if magnitude <= 1.0e-6:
-            return 0.0
-        if magnitude <= (math.pi / 2.0) + 0.20:
-            return float(self.race_cost_turn_90)
-        return float(self.race_cost_turn_180)
-
-    def _race_forward_cost(
-        self,
-        *,
-        cell: Cell,
-        direction: int,
-        next_cell: Cell,
-        live_open_distances: Dict[int, float],
-        turn_cost: float,
-    ) -> float:
-        cost = float(self.race_cost_drive_forward) + float(turn_cost)
-
-        if direction == self.heading and cell == self.current_cell:
-            cost -= float(self.race_cost_straight_bonus)
-
-        if not self.maze.is_visited(next_cell):
-            cost -= self._race_information_bonus(next_cell)
-
-        cost -= self._race_lidar_lookahead_bonus(
-            cell=cell,
-            direction=direction,
-            live_open_distances=live_open_distances,
-        )
-
-        return max(0.05, float(cost))
-
-    def _race_backward_cost(
-        self,
-        *,
-        cell: Cell,
-        direction: int,
-        next_cell: Cell,
-        live_open_distances: Dict[int, float],
-    ) -> float:
-        cost = float(self.race_cost_drive_backward)
-
-        if not self.maze.is_visited(next_cell):
-            cost -= 0.5 * self._race_information_bonus(next_cell)
-
-        cost -= 0.5 * self._race_lidar_lookahead_bonus(
-            cell=cell,
-            direction=direction,
-            live_open_distances=live_open_distances,
-        )
-
-        return max(0.05, float(cost))
-
-    def _race_information_bonus(self, cell: Cell) -> float:
-        unknown_count = 0
-        for direction in DIRECTIONS:
-            if self.maze.wall_state(cell, direction) == UNKNOWN:
-                unknown_count += 1
-        return float(unknown_count) * float(self.race_cost_unvisited_info_bonus)
-
-    def _race_lidar_lookahead_bonus(
-        self,
-        *,
-        cell: Cell,
-        direction: int,
-        live_open_distances: Dict[int, float],
-    ) -> float:
-        if cell != self.current_cell:
-            return 0.0
-
-        distance = live_open_distances.get(direction)
-        if distance is None or not math.isfinite(distance):
-            return 0.0
-
-        visible_extra_cells = max(
-            0,
-            min(3, int(distance / max(self.cell_length_m, 1.0e-6)) - 1),
-        )
-        return float(visible_extra_cells) * float(self.race_lidar_lookahead_bonus)
-
-    def _live_open_distance_by_direction(self) -> Dict[int, float]:
-        if self.latest_scan is None:
-            return {}
-
-        result: Dict[int, float] = {}
-        for direction, state, distance, _ in self._observe_walls(self.latest_scan):
-            if state == OPEN and math.isfinite(distance):
-                result[int(direction)] = float(distance)
-        return result
-
-    def _race_reverse_budget_allows(self, reverse_streak: int) -> bool:
-        configured_budget = int(self.reverse_backtracking_max_consecutive_cells)
-        if configured_budget == 0:
-            return True
-        return int(reverse_streak) < configured_budget
-
-    def _ordered_directions(self) -> List[int]:
-        if self.direction_priority == 'straight_left_right_back':
-            return [self.heading, LEFT_OF[self.heading], RIGHT_OF[self.heading], OPPOSITE[self.heading]]
-        if self.direction_priority == 'right_straight_left_back':
-            return [RIGHT_OF[self.heading], self.heading, LEFT_OF[self.heading], OPPOSITE[self.heading]]
-        if self.direction_priority == 'straight_right_left_back':
-            return [self.heading, RIGHT_OF[self.heading], LEFT_OF[self.heading], OPPOSITE[self.heading]]
-        return [LEFT_OF[self.heading], self.heading, RIGHT_OF[self.heading], OPPOSITE[self.heading]]
-
-    def _reverse_backtracking_budget_allows_reverse(self, reverse_budget: int) -> bool:
-        configured_budget = int(self.reverse_backtracking_max_consecutive_cells)
-
-        if configured_budget == 0:
-            return True
-
-        return int(reverse_budget) > 0
-
-    def _rotation_safe_at_cell(self, cell: Cell, heading: int) -> Tuple[bool, str]:
-        left_direction = LEFT_OF[heading]
-        right_direction = RIGHT_OF[heading]
-
-        left_state = self.maze.wall_state(cell, left_direction)
-        right_state = self.maze.wall_state(cell, right_direction)
-
-        if left_state == OPEN or right_state == OPEN:
-            return (
-                True,
-                f'rotation allowed at cell={cell}; '
-                f'heading={DIR_NAME[heading]}; '
-                f'left={STATE_NAME[left_state]}; '
-                f'right={STATE_NAME[right_state]}'
-            )
-
-        return (
-            False,
-            f'rotation forbidden at cell={cell}; '
-            f'heading={DIR_NAME[heading]}; '
-            f'left={STATE_NAME[left_state]}; '
-            f'right={STATE_NAME[right_state]}; '
-            'requires at least one known open side'
-        )
-
-    def _scan_is_fresh_after_last_motion(self) -> bool:
-        return (
-            self.latest_scan is not None
-            and self.latest_scan_monotonic >= self.last_motion_result_monotonic
-            and time.monotonic() - self.latest_scan_monotonic <= self.stale_scan_timeout_s
-        )
-
-    def _rotation_safe_for_dispatch(self, target_heading: int) -> Tuple[Optional[bool], str]:
-        map_safe, map_reason = self._rotation_safe_at_cell(self.current_cell, self.heading)
-        if not map_safe:
-            return False, map_reason
-
-        if not self._scan_is_fresh_after_last_motion():
-            return None, (
-                'waiting for fresh post-motion scan before rotation; '
-                f'cell={self.current_cell}; heading={DIR_NAME[self.heading]}; '
-                f'target={DIR_NAME[target_heading]}'
-            )
-
-        observations = self._observe_walls(self.latest_scan)
-        state_by_direction = {
-            direction: (state, distance, reason)
-            for direction, state, distance, reason in observations
-        }
-
-        accepted_sides = []
-        rejected_sides = []
-
-        for side_name, side_direction in (
-            ('left', LEFT_OF[self.heading]),
-            ('right', RIGHT_OF[self.heading]),
+        if (
+            completed_step is not None
+            and not self.shutdown_requested
+            and not self.motion_in_flight
+            and self.active_step is None
         ):
-            map_state = self.maze.wall_state(self.current_cell, side_direction)
-            live_state, distance, reason = state_by_direction.get(
-                side_direction,
-                (UNKNOWN, float('nan'), 'no live observation'),
+            # Delay the next dispatch so the stationary camera receives several
+            # image and AprilTag messages at the newly updated robot pose.
+            self.observation_hold_until_monotonic = (
+                time.monotonic()
+                + self.observation_hold_s
             )
 
-            if map_state == OPEN and live_state == OPEN:
-                accepted_sides.append(
-                    f'{side_name}={DIR_NAME[side_direction]} '
-                    f'open live distance={distance:.3f} m'
-                )
-            else:
-                rejected_sides.append(
-                    f'{side_name}={DIR_NAME[side_direction]} '
-                    f'map={STATE_NAME[map_state]} live={STATE_NAME[live_state]} '
-                    f'distance={distance:.3f} m reason={reason}'
-                )
+    def _tick(self) -> None:
+        self._check_cube_grade_timeout()
 
-        if accepted_sides:
-            return True, (
-                f'rotation dispatch allowed at cell={self.current_cell}; '
-                f'heading={DIR_NAME[self.heading]}; '
-                f'target={DIR_NAME[target_heading]}; '
-                + '; '.join(accepted_sides)
+        if (
+            not self.completed
+            and not self.motion_in_flight
+            and (
+                time.monotonic()
+                < self.observation_hold_until_monotonic
             )
-
-        return False, (
-            f'rotation dispatch refused at cell={self.current_cell}; '
-            f'heading={DIR_NAME[self.heading]}; '
-            f'target={DIR_NAME[target_heading]}; '
-            f'map_reason={map_reason}; '
-            + '; '.join(rejected_sides)
-        )
-
-    def _should_drive_backward_for_segment(
-        self,
-        *,
-        from_cell: Cell,
-        from_heading: int,
-        direction: int,
-        reverse_budget: int,
-        target_cell: Optional[Cell] = None,
-        planned_reverse: Optional[bool] = None,
-    ) -> bool:
-        if not self.reverse_backtracking_enabled:
-            return False
-
-        if direction != OPPOSITE[from_heading]:
-            return False
-
-        if not self._reverse_backtracking_budget_allows_reverse(reverse_budget):
-            return False
-
-        if planned_reverse is not None:
-            return bool(planned_reverse)
-
-        rotation_safe, _ = self._rotation_safe_at_cell(from_cell, from_heading)
-
-        if target_cell is not None and self.maze.is_visited(target_cell):
-            return True
-
-        return not rotation_safe
-
-    def _enqueue_path(self, path: Sequence[Cell]) -> None:
-        if len(path) < 2:
-            self._fatal(f'Cannot enqueue path with fewer than 2 cells: {path}')
+        ):
             return
 
-        reverse_flags: List[bool] = []
+        # All exploration, planning and motion dispatch remain v87 behavior.
+        super()._tick()
 
-        simulated_cell = self.current_cell
-        simulated_heading = self.heading
+        self._maybe_request_task3_shutdown()
 
-        if path[0] != simulated_cell:
-            self._fatal(
-                f'Backtracking path does not start at current cell: '
-                f'current={self.current_cell}, path={path}'
-            )
-            return
-
-        reverse_budget = int(self.reverse_backtracking_max_consecutive_cells)
-
-        for target_cell in path[1:]:
-            direction = direction_between(simulated_cell, target_cell)
-
-            allow_reverse = self._should_drive_backward_for_segment(
-                from_cell=simulated_cell,
-                from_heading=simulated_heading,
-                direction=direction,
-                target_cell=target_cell,
-                reverse_budget=reverse_budget,
-            )
-            reverse_flags.append(bool(allow_reverse))
-
-            if allow_reverse:
-                if reverse_budget > 0:
-                    reverse_budget -= 1
-            else:
-                reverse_budget = int(self.reverse_backtracking_max_consecutive_cells)
-                simulated_heading = direction
-
-            simulated_cell = target_cell
-
-        self._enqueue_planned_path(path, reverse_flags)
-
-    def _enqueue_planned_path(
+    def _finish_exploration(
         self,
-        path: Sequence[Cell],
-        reverse_flags: Sequence[bool],
+        reason: str,
     ) -> None:
-        if len(path) < 2:
-            self._fatal(f'Cannot enqueue path with fewer than 2 cells: {path}')
-            return
-
-        if len(reverse_flags) != len(path) - 1:
-            self._fatal(
-                f'Invalid planned path flags: path={path}, '
-                f'reverse_flags={reverse_flags}'
-            )
-            return
-
-        if path[0] != self.current_cell:
-            self._fatal(
-                f'Planned path does not start at current cell: '
-                f'current={self.current_cell}, path={path}'
-            )
-            return
-
-        adjusted_reverse_flags = self._turn_reverse_runs_at_safe_junctions(
-            path,
-            reverse_flags,
-        )
-        compacted = self._compact_planned_segments(path, adjusted_reverse_flags)
-
-        simulated_cell = self.current_cell
-        simulated_heading = self.heading
-        reverse_budget = int(self.reverse_backtracking_max_consecutive_cells)
-
-        for direction, target_cell, use_reverse, run_cells in compacted:
-            allow_reverse = self._should_drive_backward_for_segment(
-                from_cell=simulated_cell,
-                from_heading=simulated_heading,
-                direction=direction,
-                target_cell=target_cell,
-                reverse_budget=reverse_budget,
-                planned_reverse=use_reverse,
-            )
-
-            if bool(use_reverse) and not allow_reverse:
-                self._fatal(
-                    f'Race plan requested reverse but reverse is not allowed: '
-                    f'from={simulated_cell}, heading={DIR_NAME[simulated_heading]}, '
-                    f'target={target_cell}, direction={DIR_NAME[direction]}'
-                )
-                return
-
-            simulated_heading, used_reverse = self._enqueue_segment(
-                from_cell=simulated_cell,
-                from_heading=simulated_heading,
-                direction=direction,
-                target_cell=target_cell,
-                allow_reverse=allow_reverse,
-                run_cells=run_cells,
-            )
-
-            if used_reverse and reverse_budget > 0:
-                reverse_budget -= int(run_cells)
-            elif not used_reverse:
-                reverse_budget = int(self.reverse_backtracking_max_consecutive_cells)
-
-            simulated_cell = target_cell
-
-    def _turn_reverse_runs_at_safe_junctions(
-        self,
-        path: Sequence[Cell],
-        reverse_flags: Sequence[bool],
-    ) -> List[bool]:
-        """Convert long reverse transit into reverse-until-junction, then forward.
-
-        If a planned path says to keep reversing along a corridor, we keep reversing
-        only while rotation is unsafe. At the first cell in that reverse run where
-        rotation is safe, the remaining same-direction run is changed to forward.
-        This causes _enqueue_segment() to insert a 180-degree rotation at that
-        safe junction, then forward compact through the rest of the known corridor.
-
-        This is geometry-based:
-        - narrow corridor -> keep reversing
-        - safe side opening/junction -> rotate there and continue forward
-        """
-        adjusted = [bool(value) for value in reverse_flags]
-
-        if not self.race_turn_reverse_at_safe_junction:
-            return adjusted
-
-        if len(path) < 2 or len(adjusted) != len(path) - 1:
-            return adjusted
-
-        index = 0
-        simulated_heading = int(self.heading)
-
-        while index < len(adjusted):
-            direction = direction_between(path[index], path[index + 1])
-            use_reverse = bool(adjusted[index])
-
-            if not use_reverse:
-                simulated_heading = direction
-                index += 1
-                continue
-
-            run_start = index
-            run_direction = direction
-            scan = index
-
-            while scan < len(adjusted):
-                current_direction = direction_between(path[scan], path[scan + 1])
-                if not adjusted[scan]:
-                    break
-                if current_direction != run_direction:
-                    break
-                scan += 1
-
-            run_end_exclusive = scan
-
-            turn_index: Optional[int] = None
-            for candidate_index in range(run_start, run_end_exclusive):
-                candidate_cell = path[candidate_index]
-
-                rotation_safe, rotation_reason = self._rotation_safe_at_cell(
-                    candidate_cell,
-                    simulated_heading,
-                )
-
-                if not rotation_safe:
-                    continue
-
-                turn_index = candidate_index
-                self.get_logger().info(
-                    f'Race reverse-to-forward conversion at safe junction: '
-                    f'cell={candidate_cell}, heading={DIR_NAME[simulated_heading]}, '
-                    f'run_direction={DIR_NAME[run_direction]}, '
-                    f'reverse_run_segments={run_end_exclusive - run_start}, '
-                    f'convert_from_segment={turn_index}; {rotation_reason}'
-                )
-                break
-
-            if turn_index is not None:
-                for flag_index in range(turn_index, run_end_exclusive):
-                    adjusted[flag_index] = False
-
-                simulated_heading = run_direction
-
-            index = run_end_exclusive
-
-        return adjusted
-
-    def _compact_planned_segments(
-        self,
-        path: Sequence[Cell],
-        reverse_flags: Sequence[bool],
-    ) -> List[Tuple[int, Cell, bool, int]]:
-        raw: List[Tuple[int, Cell, bool, int]] = []
-
-        for index, target_cell in enumerate(path[1:]):
-            from_cell = path[index]
-            direction = direction_between(from_cell, target_cell)
-            raw.append((direction, target_cell, bool(reverse_flags[index]), 1))
-
-        if not self.race_compact_known_transit:
-            return raw
-
-        compacted: List[Tuple[int, Cell, bool, int]] = []
-        index = 0
-
-        while index < len(raw):
-            direction, target_cell, use_reverse, run_cells = raw[index]
-            start_cell = path[index]
-            final_target = target_cell
-            final_run_cells = int(run_cells)
-
-            scan = index + 1
-            while scan < len(raw):
-                next_direction, next_target, next_reverse, _ = raw[scan]
-
-                if next_direction != direction:
-                    break
-                if bool(next_reverse) != bool(use_reverse):
-                    break
-
-                # Never compact into a new/unvisited cell. We still want a
-                # separate observation at the first newly explored cell.
-                if not self.maze.is_visited(next_target):
-                    break
-
-                expected_target = advance_cell(
-                    start_cell,
-                    direction,
-                    final_run_cells + 1,
-                )
-                if next_target != expected_target:
-                    break
-
-                final_target = next_target
-                final_run_cells += 1
-                scan += 1
-
-            compacted.append(
-                (direction, final_target, bool(use_reverse), int(final_run_cells))
-            )
-            index = scan
-
-        return compacted
-
-    def _enqueue_step(self, direction: int) -> None:
-        target_cell = neighbor(self.current_cell, direction)
-
-        allow_reverse = self._should_drive_backward_for_segment(
-            from_cell=self.current_cell,
-            from_heading=self.heading,
-            direction=direction,
-            target_cell=target_cell,
-            reverse_budget=int(self.reverse_backtracking_max_consecutive_cells),
-        )
-
-        self._enqueue_segment(
-            from_cell=self.current_cell,
-            from_heading=self.heading,
-            direction=direction,
-            target_cell=target_cell,
-            allow_reverse=allow_reverse,
-            run_cells=1,
-        )
-
-    def _enqueue_segment(
-        self,
-        *,
-        from_cell: Cell,
-        from_heading: int,
-        direction: int,
-        target_cell: Cell,
-        allow_reverse: bool,
-        run_cells: int = 1,
-    ) -> tuple[int, bool]:
-        run_cells = max(1, int(run_cells))
-        expected_target = advance_cell(from_cell, direction, run_cells)
-
-        if target_cell != expected_target:
-            self._fatal(
-                f'Invalid segment target: from={from_cell}, '
-                f'direction={DIR_NAME[direction]}, run_cells={run_cells}, '
-                f'target={target_cell}, expected={expected_target}'
-            )
-            return from_heading, False
-
-        should_reverse = bool(
-            allow_reverse
-            and self.reverse_backtracking_enabled
-            and direction == OPPOSITE[from_heading]
-        )
-
-        distance_m = float(run_cells) * float(self.cell_length_m)
-
-        if should_reverse:
-            self.motion_queue.append(
-                MotionStep(
-                    'drive_backward',
-                    direction,
-                    distance_m,
-                    target_cell,
-                    run_cells,
-                )
-            )
-
-            self.get_logger().info(
-                f'Queued reverse race segment {from_cell} -> {target_cell} '
-                f'via {DIR_NAME[direction]} '
-                f'(heading stays {DIR_NAME[from_heading]}, '
-                f'run_cells={run_cells}, drive_backward={distance_m:.3f})'
-            )
-
-            return from_heading, True
-
-        turn = turn_between(from_heading, direction)
-
-        if abs(turn) > 1.0e-6:
-            rotation_safe, rotation_reason = self._rotation_safe_at_cell(
-                from_cell,
-                from_heading,
-            )
-
-            if not rotation_safe:
-                self._fatal(
-                    f'Refusing unsafe rotation before moving '
-                    f'{from_cell} -> {target_cell} via {DIR_NAME[direction]}: '
-                    f'{rotation_reason}'
-                )
-                return from_heading, False
-
-            self.motion_queue.append(MotionStep('rotate', direction, turn, None, 1))
-
-        self.motion_queue.append(
-            MotionStep(
-                'drive_forward',
-                direction,
-                distance_m,
-                target_cell,
-                run_cells,
-            )
-        )
-
-        self.get_logger().info(
-            f'Queued forward race segment {from_cell} -> {target_cell} '
-            f'via {DIR_NAME[direction]} '
-            f'(from_heading={DIR_NAME[from_heading]}, turn={turn:.3f}, '
-            f'run_cells={run_cells}, drive_forward={distance_m:.3f})'
-        )
-
-        return direction, False
-
-    def _attach_grid_context_to_drive_goal(
-        self,
-        goal: ExecuteMotionPrimitive.Goal,
-        step: MotionStep,
-    ) -> None:
-        if step.target_cell is None:
-            self._clear_grid_context(goal)
-            return
-
-        run_cells = max(1, int(step.run_cells))
-        expected_target = advance_cell(self.current_cell, step.direction, run_cells)
-
-        if step.target_cell != expected_target:
-            self._fatal(
-                f'Cannot attach grid context for {step}: '
-                f'current={self.current_cell}, '
-                f'direction={DIR_NAME.get(step.direction, "none")}, '
-                f'run_cells={run_cells}, expected_target={expected_target}'
-            )
-            return
-
-        # Controller-only context, kept separate from final grader identity.
-        msg, _ = self.maze.export_ros_maze(
-            self.start_cell,
-            self.current_cell,
-            self.start_heading,
-            False,
-        )
-
-        goal.grid_n = int(msg.n)
-        goal.grid_m = int(msg.m)
-        goal.grid_start_idx = int(msg.end_idx)
-        goal.grid_heading = int(step.direction)
-        goal.grid_robot_heading = int(self.heading)
-        goal.grid_run_cells = int(run_cells)
-        goal.grid_l = [int(value) for value in msg.l]
-
-    @staticmethod
-    def _clear_grid_context(goal: ExecuteMotionPrimitive.Goal) -> None:
-        goal.grid_n = 0
-        goal.grid_m = 0
-        goal.grid_start_idx = 0
-        goal.grid_heading = 0
-        goal.grid_robot_heading = 0
-        goal.grid_run_cells = 0
-        goal.grid_l = []
-
-    def _send_next_motion_step(self) -> None:
-        if self.motion_in_flight or not self.motion_queue:
-            return
-
-        step = self.motion_queue[0]
-
-        if step.kind == 'rotate':
-            safe, reason = self._rotation_safe_for_dispatch(step.direction)
-            if safe is None:
-                self.get_logger().warn(
-                    reason,
-                    throttle_duration_sec=1.0,
-                )
-                return
-
-            if not safe:
-                self.get_logger().warn(
-                    'Discarding queued plan because rotation is not safe now: '
-                    + reason
-                )
-                self.motion_queue.clear()
-                self.active_step = None
-                return
-
-        step = self.motion_queue.popleft()
-        self.active_step = step
-
-        goal = ExecuteMotionPrimitive.Goal()
-
-        if step.kind == 'rotate':
-            goal.primitive_type = ExecuteMotionPrimitive.Goal.ROTATE_RELATIVE
-            goal.value = float(step.value)
-            goal.collision_check_enabled = False
-            goal.max_linear_x_mps = 0.0
-            goal.max_linear_y_mps = 0.0
-            goal.max_angular_z_radps = float(self.rotate_max_angular_z_radps)
-        elif step.kind == 'drive_forward':
-            goal.primitive_type = ExecuteMotionPrimitive.Goal.DRIVE_FORWARD
-            goal.value = float(step.value)
-            goal.collision_check_enabled = True
-            goal.max_linear_x_mps = float(self.drive_max_linear_x_mps)
-            goal.max_linear_y_mps = 0.0
-            goal.max_angular_z_radps = 0.0
-        elif step.kind == 'drive_backward':
-            goal.primitive_type = ExecuteMotionPrimitive.Goal.DRIVE_BACKWARD
-            goal.value = float(step.value)
-            goal.collision_check_enabled = True
-            goal.max_linear_x_mps = float(self.reverse_max_linear_x_mps)
-            goal.max_linear_y_mps = 0.0
-            goal.max_angular_z_radps = 0.0
-        else:
-            self._fatal(f'Unknown motion step: {step}')
-            return
-
-        if step.kind == 'drive_backward':
-            goal.position_tolerance_m = float(self.reverse_position_tolerance_m)
-            goal.heading_tolerance_rad = float(self.reverse_heading_tolerance_rad)
-        else:
-            goal.position_tolerance_m = 0.0
-            goal.heading_tolerance_rad = 0.0
-        goal.timeout_s = float(self.motion_timeout_s)
-
-        if step.kind in ('drive_forward', 'drive_backward'):
-            self._attach_grid_context_to_drive_goal(goal, step)
-            if self.shutdown_requested:
-                return
-        else:
-            self._clear_grid_context(goal)
-
-        self.motion_in_flight = True
-
-        self.get_logger().info(
-            f'Sending {step.kind}: value={step.value:.3f}, '
-            f'direction={DIR_NAME.get(step.direction, "none")}, '
-            f'target={step.target_cell}'
-        )
-
-        future = self.motion_client.send_goal_async(
-            goal,
-            feedback_callback=self._handle_motion_feedback,
-        )
-        future.add_done_callback(self._handle_motion_goal_response)
-
-    def _handle_motion_feedback(self, feedback_msg) -> None:
-        feedback = feedback_msg.feedback
-        self.get_logger().debug(
-            f'Motion feedback: state={feedback.state}, progress={feedback.progress:.3f}, '
-            f'remaining={feedback.distance_remaining_m:.3f}, '
-            f'heading={feedback.heading_remaining_rad:.3f}, '
-            f'front={feedback.front_clearance_m:.3f}'
-        )
-
-    def _handle_motion_goal_response(self, future) -> None:
-        try:
-            goal_handle = future.result()
-        except Exception as exc:
-            self._fatal(f'Motion goal failed for {self.active_step}: {exc}')
-            return
-
-        if goal_handle is None:
-            self._fatal(f'Motion goal returned no handle for {self.active_step}')
-            return
-
-        if not goal_handle.accepted:
-            self._fatal(f'Motion goal rejected for {self.active_step}')
-            return
-
-        result_future = goal_handle.get_result_async()
-        result_future.add_done_callback(self._handle_motion_result)
-
-    def _handle_motion_result(self, future) -> None:
-        step = self.active_step
-
-        try:
-            wrapped_result = future.result()
-            result = wrapped_result.result
-        except Exception as exc:
-            self._fatal(f'Motion result failed for {step}: {exc}')
-            return
-
-        if result.success:
-            if step is not None and step.kind in ('drive_forward', 'drive_backward') and step.run_cells > 1:
-                self.get_logger().info(
-                    f'Motion result for {step}: success=True, '
-                    f'code={result.result_code}, '
-                    f'pos_error={result.final_position_error_m:.3f}, '
-                    f'heading_error={result.final_heading_error_rad:.3f}, '
-                    f'message={result.message}'
-                )
-            else:
-                self.get_logger().info(
-                    f'Motion result for {step.kind if step else "none"}: '
-                    f'success=True, code={result.result_code}, '
-                    f'pos_error={result.final_position_error_m:.3f}, '
-                    f'heading_error={result.final_heading_error_rad:.3f}'
-                )
-        else:
-            self.get_logger().error(
-                f'Motion result for {step}: success=False, '
-                f'code={result.result_code}, pos_error={result.final_position_error_m:.3f}, '
-                f'heading_error={result.final_heading_error_rad:.3f}, message={result.message}'
-            )
-
-        if not result.success:
-            self._fatal('Stopping exploration because motion failed.')
-            return
-
-        if step is not None:
-            if step.kind == 'rotate':
-                self.heading = int(step.direction)
-            elif step.kind in ('drive_forward', 'drive_backward'):
-                if step.target_cell is None:
-                    self._fatal('Drive succeeded but target_cell is missing.')
-                    return
-                self.current_cell = step.target_cell
-
-        self.last_motion_result_monotonic = time.monotonic()
-        self.active_step = None
-        self.motion_in_flight = False
-
-    def _finish_exploration(self, reason: str) -> None:
         if self.completed:
             return
 
-        self.completed = True
-        msg, stats = self.maze.export_ros_maze(
-            self.start_cell,
-            self.current_cell,
-            self.start_heading,
-            self.unknown_as_wall_on_export,
+        # Export the final maze and preserve all normal v87 completion logging.
+        super()._finish_exploration(
+            reason
         )
-        self.maze_pub.publish(msg)
 
+        if not self.completed:
+            return
+
+        # Cube positions are translated to the final maze-origin frame only
+        # after the explored maze bounds are known.
+        self._submit_cubes_once()
+
+        self._maybe_request_task3_shutdown()
+
+    def _maze_origin_in_local_cm(
+        self,
+    ) -> Tuple[float, float]:
+        if not self.maze.cells:
+            self.maze.ensure_cell(
+                self.start_cell
+            )
+
+        minimum_x = min(
+            cell[0]
+            for cell in self.maze.cells
+        )
+        minimum_y = min(
+            cell[1]
+            for cell in self.maze.cells
+        )
+
+        cell_cm = (
+            self.cell_length_m
+            * 100.0
+        )
+
+        # Integer coordinates represent cell centers. The origin lies half a
+        # cell before the minimum-coordinate center on each maze axis.
+        origin_x_cm = (
+            float(minimum_x) - 0.5
+        ) * cell_cm
+
+        origin_y_cm = (
+            float(minimum_y) - 0.5
+        ) * cell_cm
+
+        return (
+            origin_x_cm,
+            origin_y_cm,
+        )
+
+    def _cube_service_arrays(
+        self,
+    ) -> Tuple[
+        int,
+        List[int],
+        List[int],
+        List[int],
+    ]:
+        origin_x_cm, origin_y_cm = (
+            self._maze_origin_in_local_cm()
+        )
+
+        # This slice is a second independent four-cube safety guard.
+        cubes = (
+            self.tracker.snapshot()[
+                :MAX_CUBES
+            ]
+        )
+
+        xs = [
+            int(
+                round(
+                    cube[0]
+                    - origin_x_cm
+                )
+            )
+            for cube in cubes
+        ]
+
+        ys = [
+            int(
+                round(
+                    cube[1]
+                    - origin_y_cm
+                )
+            )
+            for cube in cubes
+        ]
+
+        colors = [
+            int(cube[2])
+            for cube in cubes
+        ]
+
+        if not (
+            len(xs)
+            == len(ys)
+            == len(colors)
+        ):
+            raise RuntimeError(
+                'Cube service arrays have '
+                'different lengths.'
+            )
+
+        if len(xs) > MAX_CUBES:
+            raise RuntimeError(
+                'Refusing to create a request '
+                'with more than four cubes.'
+            )
+
+        for value in xs + ys:
+            if (
+                value < -32768
+                or value > 32767
+            ):
+                raise ValueError(
+                    f'Cube coordinate {value} '
+                    'does not fit int16.'
+                )
+
+        for color_id in colors:
+            if (
+                color_id < 0
+                or color_id > 255
+            ):
+                raise ValueError(
+                    f'Cube color {color_id} '
+                    'does not fit uint8.'
+                )
+
+        return (
+            len(xs),
+            xs,
+            ys,
+            colors,
+        )
+
+    def _submit_cubes_once(self) -> None:
+        if self.cube_submission_started:
+            return
+
+        self.cube_submission_started = True
+
+        if not self.submit_cubes_to_grader:
+            self.get_logger().info(
+                'Cube grader submission is disabled.'
+            )
+            self.cube_submission_finished = True
+            return
+
+        try:
+            (
+                cube_count,
+                xs,
+                ys,
+                colors,
+            ) = self._cube_service_arrays()
+
+        except Exception as exc:
+            self.get_logger().error(
+                f'Cube request validation failed: {exc}'
+            )
+
+            if self.cube_grade_result_required:
+                self.exit_code = 1
+
+            self.cube_submission_finished = True
+            return
+
+        # Third and final hard guard. The outgoing service request can never
+        # contain n > 4, even if another component is modified incorrectly.
+        cube_count = min(
+            int(cube_count),
+            MAX_CUBES,
+        )
+        xs = xs[:MAX_CUBES]
+        ys = ys[:MAX_CUBES]
+        colors = colors[:MAX_CUBES]
+
+        if not self.cube_grade_client.wait_for_service(
+            timeout_sec=(
+                self.cube_grade_service_timeout_s
+            )
+        ):
+            self.get_logger().error(
+                f'Cube grade service '
+                f'{self.cube_grade_service_name} '
+                'was not available after '
+                f'{self.cube_grade_service_timeout_s:.1f} s.'
+            )
+
+            if self.cube_grade_result_required:
+                self.exit_code = 1
+
+            self.cube_submission_finished = True
+            return
+
+        request = GradeCubes.Request()
+
+        request.n = int(
+            cube_count
+        )
+        request.x = [
+            int(value)
+            for value in xs
+        ]
+        request.y = [
+            int(value)
+            for value in ys
+        ]
+        request.color = [
+            int(value)
+            for value in colors
+        ]
 
         self.get_logger().info(
-            'Exploration complete: '
-            f'{reason}; n={stats["n"]}, m={stats["m"]}, cells={stats["cells"]}, '
-            f'visited={stats["visited_cells"]}, start_idx={stats["start_idx"]}, '
-            f'end_idx={stats["end_idx"]}, unknown_edges={stats["unknown_edges"]}, '
-            f'open_edges={stats["open_edges"]}, wall_edges={stats["wall_edges"]}'
+            f'Submitting Task 3 cubes: '
+            f'n={request.n}, '
+            f'x={list(request.x)}, '
+            f'y={list(request.y)}, '
+            f'color={list(request.color)}'
         )
-        self.get_logger().info('Visited map:\n' + self.maze.ascii_summary())
-        self.get_logger().info('Final L: ' + ','.join(str(int(v)) for v in msg.l))
 
-        if self.shutdown_on_complete:
+        self.cube_grade_submit_time = (
+            self.get_clock().now()
+        )
+
+        self.cube_grade_future = (
+            self.cube_grade_client.call_async(
+                request
+            )
+        )
+
+        self.cube_grade_future.add_done_callback(
+            self._cube_grade_response_callback
+        )
+
+    def _cube_grade_response_callback(
+        self,
+        future,
+    ) -> None:
+        if self.cube_submission_finished:
+            return
+
+        self.cube_grade_submit_time = None
+
+        try:
+            response = future.result()
+
+        except Exception as exc:
+            self.get_logger().error(
+                f'Cube grade service call failed: {exc}'
+            )
+
+            if self.cube_grade_result_required:
+                self.exit_code = 1
+
+        else:
+            self.get_logger().info(
+                'Cube grade service response: '
+                f'score={int(response.score)}'
+            )
+
+            print(
+                f'TASK3_GRADE_SCORE='
+                f'{int(response.score)}',
+                flush=True,
+            )
+
+        self.cube_submission_finished = True
+        self._maybe_request_task3_shutdown()
+
+    def _check_cube_grade_timeout(
+        self,
+    ) -> None:
+        if (
+            self.cube_submission_finished
+            or self.cube_grade_future is None
+            or self.cube_grade_future.done()
+            or self.cube_grade_submit_time is None
+        ):
+            return
+
+        elapsed_s = (
+            self.get_clock().now()
+            - self.cube_grade_submit_time
+        ).nanoseconds * 1.0e-9
+
+        if (
+            elapsed_s
+            <= self.cube_grade_service_timeout_s
+        ):
+            return
+
+        self.get_logger().error(
+            'Cube grade service response timed out '
+            f'after {elapsed_s:.1f} s; '
+            f'service={self.cube_grade_service_name}'
+        )
+
+        try:
+            self.cube_grade_future.cancel()
+        except Exception:
+            pass
+
+        if self.cube_grade_result_required:
+            self.exit_code = 1
+
+        self.cube_grade_submit_time = None
+        self.cube_submission_finished = True
+
+        self._maybe_request_task3_shutdown()
+
+    def _maybe_request_task3_shutdown(
+        self,
+    ) -> None:
+        if (
+            not self.completed
+            or not self.task3_shutdown_on_complete
+        ):
+            return
+
+        if self.cube_submission_finished:
             self.shutdown_requested = True
 
 
-    def _fatal(self, message: str) -> None:
-        self.get_logger().error(message)
-        self.motion_queue.clear()
-        self.motion_in_flight = False
-        self.active_step = None
-        self.exit_code = 1
-        self.shutdown_requested = True
-
-
-
-def main(args=None):
+def main(args=None) -> None:
     rclpy.init(args=args)
-    node = SearchRescueNode()
-    rclpy.spin(node)
-    rclpy.shutdown()
 
-if __name__ == "__main__":
+    node: Optional[SearchRescueNode] = None
+    exit_code = 0
+
+    try:
+        node = SearchRescueNode()
+
+        while (
+            rclpy.ok()
+            and not node.shutdown_requested
+        ):
+            rclpy.spin_once(
+                node,
+                timeout_sec=0.1,
+            )
+
+        exit_code = node.exit_code
+
+    except KeyboardInterrupt:
+        exit_code = 130
+
+    finally:
+        if node is not None:
+            try:
+                node.destroy_node()
+            except KeyboardInterrupt:
+                exit_code = 130
+
+        if rclpy.ok():
+            try:
+                rclpy.shutdown()
+            except KeyboardInterrupt:
+                exit_code = 130
+
+    if exit_code:
+        raise SystemExit(exit_code)
+
+
+if __name__ == '__main__':
     main()
 
 
