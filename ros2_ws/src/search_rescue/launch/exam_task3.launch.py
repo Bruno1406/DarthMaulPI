@@ -4,7 +4,10 @@ from launch.actions import (
     IncludeLaunchDescription,
     TimerAction,
 )
-from launch.conditions import IfCondition
+from launch.conditions import (
+    IfCondition,
+    UnlessCondition,
+)
 from launch.launch_description_sources import (
     PythonLaunchDescriptionSource,
 )
@@ -41,6 +44,10 @@ def generate_launch_description():
 
     camera_horizontal_position = LaunchConfiguration(
         'camera_horizontal_position'
+    )
+
+    camera_yaw_offset_rad = LaunchConfiguration(
+        'camera_yaw_offset_rad'
     )
 
     camera_settle_delay_s = LaunchConfiguration(
@@ -343,6 +350,9 @@ def generate_launch_description():
         'camera_left_offset_cm': (
             camera_left_offset_cm
         ),
+        'camera_yaw_offset_rad': (
+            camera_yaw_offset_rad
+        ),
         'cube_merge_distance_cm': (
             cube_merge_distance_cm
         ),
@@ -395,11 +405,15 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'camera_horizontal_position',
-            default_value='2000',
+            default_value='1500',
+        ),
+        DeclareLaunchArgument(
+            'camera_yaw_offset_rad',
+            default_value='0.0',
         ),
         DeclareLaunchArgument(
             'camera_settle_delay_s',
-            default_value='1.0',
+            default_value='3.0',
         ),
 
         # These defaults match the v87 Task 2 launch unless Task 3 requires
@@ -651,7 +665,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'cube_grade_result_required',
-            default_value='false',
+            default_value='true',
         ),
 
         IncludeLaunchDescription(
@@ -702,8 +716,24 @@ def generate_launch_description():
             }],
         ),
 
+        Node(
+            package='search_rescue',
+            executable='search_rescue_node',
+            name='search_rescue_node',
+            output='screen',
+            condition=UnlessCondition(
+                set_camera_pose
+            ),
+            parameters=[
+                search_rescue_parameters
+            ],
+        ),
+
         TimerAction(
             period=camera_settle_delay_s,
+            condition=IfCondition(
+                set_camera_pose
+            ),
             actions=[
                 Node(
                     package='search_rescue',

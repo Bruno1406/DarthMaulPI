@@ -180,6 +180,10 @@ class SearchRescueNode(MazeExplorerNode):
             0.0,
         )
         self.declare_parameter(
+            'camera_yaw_offset_rad',
+            0.0,
+        )
+        self.declare_parameter(
             'cube_merge_distance_cm',
             20.0,
         )
@@ -214,7 +218,7 @@ class SearchRescueNode(MazeExplorerNode):
         )
         self.declare_parameter(
             'cube_grade_result_required',
-            False,
+            True,
         )
 
         self.rect_image_topic = str(
@@ -344,6 +348,12 @@ class SearchRescueNode(MazeExplorerNode):
             ).value
         )
 
+        self.camera_yaw_offset_rad = float(
+            self.get_parameter(
+                'camera_yaw_offset_rad'
+            ).value
+        )
+
         self.cube_merge_distance_cm = float(
             self.get_parameter(
                 'cube_merge_distance_cm'
@@ -442,13 +452,30 @@ class SearchRescueNode(MazeExplorerNode):
         ] = now
         self.perception_ready_once = False
 
-        self.observation_required_after_stamp_ns = now_ros_ns
+        observation_hold_ns = int(
+            round(
+                self.observation_hold_s
+                * 1_000_000_000
+            )
+        )
+
+        # Require an image whose capture timestamp is after the camera and
+        # robot have completed the configured settling period.
+        self.observation_required_after_stamp_ns = (
+            now_ros_ns
+            + observation_hold_ns
+        )
+
         self.observation_hold_until_monotonic = (
             now + self.observation_hold_s
         )
+
+        # observation_timeout_s is the maximum additional wait after settling.
         self.observation_timeout_at_monotonic = (
-            now + self.observation_timeout_s
+            self.observation_hold_until_monotonic
+            + self.observation_timeout_s
         )
+
         self.observation_timeout_warned = False
 
         self.rect_image_subscriber = self.create_subscription(
@@ -603,6 +630,19 @@ class SearchRescueNode(MazeExplorerNode):
                 'camera_left_offset_cm must be finite'
             )
 
+        if not math.isfinite(
+            self.camera_yaw_offset_rad
+        ):
+            errors.append(
+                'camera_yaw_offset_rad must be finite'
+            )
+
+        elif abs(self.camera_yaw_offset_rad) > math.pi:
+            errors.append(
+                'camera_yaw_offset_rad must be between '
+                '-pi and +pi'
+            )
+
         if (
             self.maximum_detection_distance_cm
             <= self.minimum_detection_distance_cm
@@ -626,18 +666,15 @@ class SearchRescueNode(MazeExplorerNode):
                 '>= tag_min_aspect_ratio'
             )
 
-        if self.observation_hold_s < 0.0:
-            errors.append(
-                'observation_hold_s must be >= 0'
-            )
-
         if (
-            self.observation_timeout_s
-            < self.observation_hold_s
+            not math.isfinite(
+                self.observation_hold_s
+            )
+            or self.observation_hold_s < 0.0
         ):
             errors.append(
-                'observation_timeout_s must be '
-                '>= observation_hold_s'
+                'observation_hold_s must be '
+                'finite and >= 0'
             )
 
         if self.max_cube_hypotheses < MAX_CUBES:
@@ -850,6 +887,31 @@ class SearchRescueNode(MazeExplorerNode):
                 for corner in detection.corners
             ]
 
+            center_x = float(
+                detection.centre.x
+            )
+            center_y = float(
+                detection.centre.y
+            )
+
+            coordinate_values = [
+                *xs,
+                *ys,
+                center_x,
+                center_y,
+            ]
+
+            if not all(
+                math.isfinite(value)
+                for value in coordinate_values
+            ):
+                self.get_logger().warn(
+                    'Ignoring an AprilTag detection '
+                    'with non-finite pixel coordinates.',
+                    throttle_duration_sec=2.0,
+                )
+                continue
+
             width_px = max(xs) - min(xs)
             height_px = max(ys) - min(ys)
 
@@ -951,35 +1013,68 @@ class SearchRescueNode(MazeExplorerNode):
         if relative_position is None:
             return None
 
-        forward_cm, left_cm = relative_position
+        (
+            raw_forward_cm,
+            raw_left_cm,
+        ) = relative_position
 
-        # Preserve the newer physical calibration from v1.
-        forward_cm = (
-            self.distance_scale * forward_cm
+        if not (
+            math.isfinite(raw_forward_cm)
+            and math.isfinite(raw_left_cm)
+        ):
+            return None
+
+        if raw_forward_cm <= 0.0:
+            return None
+
+        # Preserve the empirically measured v1 correction.
+        corrected_face_forward_cm = (
+            self.distance_scale
+            * raw_forward_cm
             + self.distance_bias_cm
         )
 
-        # Convert front-face distance to cube-center distance.
-        forward_cm += self.cube_center_offset_cm
+        if (
+            not math.isfinite(
+                corrected_face_forward_cm
+            )
+            or corrected_face_forward_cm <= 0.0
+        ):
+            return None
+
+        # The raw lateral estimate was calculated using raw_forward_cm.
+        # Apply the same corrected depth to the lateral coordinate.
+        corrected_left_cm = (
+            raw_left_cm
+            * corrected_face_forward_cm
+            / raw_forward_cm
+        )
+
+        # The AprilTag lies on the cube face. Move forward by half the
+        # cube depth to estimate the cube center.
+        cube_center_forward_cm = (
+            corrected_face_forward_cm
+            + self.cube_center_offset_cm
+        )
 
         if (
-            forward_cm
+            cube_center_forward_cm
             < self.minimum_detection_distance_cm
-            or forward_cm
+            or cube_center_forward_cm
             > self.maximum_detection_distance_cm
         ):
             return None
 
         local_x_cm, local_y_cm = (
             self.cube_camera_to_local(
-                forward_cm,
-                left_cm,
+                cube_center_forward_cm,
+                corrected_left_cm,
             )
         )
 
         return (
-            forward_cm,
-            left_cm,
+            cube_center_forward_cm,
+            corrected_left_cm,
             local_x_cm,
             local_y_cm,
         )
@@ -1219,16 +1314,28 @@ class SearchRescueNode(MazeExplorerNode):
         left_cm: float,
     ) -> Tuple[float, float]:
         """
-        Convert camera-relative coordinates into the same local grid frame
-        used by the v87 maze explorer.
+        Convert camera-relative coordinates into the local maze frame.
+
+        camera_yaw_offset_rad is positive when the camera points left
+        relative to the robot's forward direction.
+
+        camera_forward_offset_cm and camera_left_offset_cm are expressed
+        in the robot body frame.
         """
+
+        if not (
+            math.isfinite(forward_cm)
+            and math.isfinite(left_cm)
+        ):
+            raise ValueError(
+                'Cube camera coordinates must be finite.'
+            )
 
         cell_cm = (
             self.cell_length_m
             * 100.0
         )
 
-        # The explorer's integer cell coordinate represents the cell center.
         robot_x_cm = (
             float(self.current_cell[0])
             * cell_cm
@@ -1238,13 +1345,31 @@ class SearchRescueNode(MazeExplorerNode):
             * cell_cm
         )
 
+        yaw = self.camera_yaw_offset_rad
+        cos_yaw = math.cos(yaw)
+        sin_yaw = math.sin(yaw)
+
+        # Rotate the measured vector from the camera frame into the
+        # robot body frame.
+        measured_robot_forward_cm = (
+            cos_yaw * float(forward_cm)
+            - sin_yaw * float(left_cm)
+        )
+
+        measured_robot_left_cm = (
+            sin_yaw * float(forward_cm)
+            + cos_yaw * float(left_cm)
+        )
+
+        # Camera translation is expressed relative to the robot center
+        # in the robot body frame.
         forward_from_robot_cm = (
-            float(forward_cm)
+            measured_robot_forward_cm
             + self.camera_forward_offset_cm
         )
 
         left_from_robot_cm = (
-            float(left_cm)
+            measured_robot_left_cm
             + self.camera_left_offset_cm
         )
 
@@ -1331,6 +1456,74 @@ class SearchRescueNode(MazeExplorerNode):
 
         return cell
 
+    def _race_motion_options(
+        self,
+        *,
+        cell: Cell,
+        heading: int,
+        reverse_streak: int,
+        direction: int,
+        next_cell: Cell,
+        live_open_distances: dict[int, float],
+    ) -> List[Tuple[int, bool, float, str]]:
+        """
+        Preserve the v87 race planner, but never reverse into an
+        unvisited cell during Task 3.
+
+        Reverse travel through already visited cells remains available
+        for efficient backtracking.
+        """
+
+        options = super()._race_motion_options(
+            cell=cell,
+            heading=heading,
+            reverse_streak=reverse_streak,
+            direction=direction,
+            next_cell=next_cell,
+            live_open_distances=live_open_distances,
+        )
+
+        if self.maze.is_visited(next_cell):
+            return options
+
+        return [
+            option
+            for option in options
+            if not option[1]
+        ]
+
+    def _should_drive_backward_for_segment(
+        self,
+        *,
+        from_cell: Cell,
+        from_heading: int,
+        direction: int,
+        reverse_budget: int,
+        target_cell: Optional[Cell] = None,
+        planned_reverse: Optional[bool] = None,
+    ) -> bool:
+        """
+        Defensively forbid all Task 3 reverse entry into unvisited cells,
+        including legacy and fallback planner paths.
+        """
+
+        if (
+            target_cell is not None
+            and not self.maze.is_visited(
+                target_cell
+            )
+        ):
+            return False
+
+        return super()._should_drive_backward_for_segment(
+            from_cell=from_cell,
+            from_heading=from_heading,
+            direction=direction,
+            reverse_budget=reverse_budget,
+            target_cell=target_cell,
+            planned_reverse=planned_reverse,
+        )
+
     def _choose_unvisited_open_neighbor(
         self,
         cell: Cell,
@@ -1388,17 +1581,31 @@ class SearchRescueNode(MazeExplorerNode):
 
     def _begin_observation_window(self) -> None:
         now = time.monotonic()
+        now_ros_ns = self.get_clock().now().nanoseconds
 
-        self.observation_required_after_stamp_ns = (
-            self.get_clock().now().nanoseconds
+        observation_hold_ns = int(
+            round(
+                self.observation_hold_s
+                * 1_000_000_000
+            )
         )
 
         self.observation_hold_until_monotonic = (
-            now + self.observation_hold_s
+            now
+            + self.observation_hold_s
         )
 
+        # A matched frame captured before this timestamp cannot satisfy
+        # the observation requirement, even if its callback is delayed.
+        self.observation_required_after_stamp_ns = (
+            now_ros_ns
+            + observation_hold_ns
+        )
+
+        # Allow the detector the full timeout period after settling.
         self.observation_timeout_at_monotonic = (
-            now + self.observation_timeout_s
+            self.observation_hold_until_monotonic
+            + self.observation_timeout_s
         )
 
         self.observation_timeout_warned = False
