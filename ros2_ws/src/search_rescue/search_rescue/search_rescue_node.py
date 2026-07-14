@@ -1781,17 +1781,25 @@ class SearchRescueNode(MazeExplorerNode):
     def _finish_exploration(
         self,
         reason: str,
+        *,
+        failed: bool = False,
     ) -> None:
         if self.completed:
             return
 
         # Export the final maze and preserve all normal v87 completion logging.
         super()._finish_exploration(
-            reason
+            reason,
+            failed=failed,
         )
 
         if not self.completed:
             return
+
+        # The base failure finalizer normally exits after its own grader work.
+        # Task 3 must remain alive until the cube request also completes.
+        if self.fatal_finalization:
+            self.shutdown_requested = False
 
         # Cube positions are translated to the final maze-origin frame only
         # after the explored maze bounds are known.
@@ -1968,8 +1976,13 @@ class SearchRescueNode(MazeExplorerNode):
             if self.cube_grade_result_required:
                 self.exit_code = 1
 
-            self.cube_submission_finished = True
-            return
+            self.get_logger().warn(
+                'Submitting an empty best-effort cube result instead.'
+            )
+            cube_count = 0
+            xs = []
+            ys = []
+            colors = []
 
         # Third and final hard guard. The outgoing service request can never
         # contain n > 4, even if another component is modified incorrectly.
@@ -2120,12 +2133,39 @@ class SearchRescueNode(MazeExplorerNode):
     ) -> None:
         if (
             not self.completed
-            or not self.task3_shutdown_on_complete
+            or not (
+                self.task3_shutdown_on_complete
+                or self.fatal_finalization
+            )
         ):
             return
 
         if self.cube_submission_finished:
             self.shutdown_requested = True
+
+
+def _attempt_failure_submission(
+    node: SearchRescueNode,
+    message: str,
+) -> None:
+    """Submit collected cubes before leaving an unexpectedly failed run."""
+    try:
+        node._fatal(message)
+
+        while (
+            rclpy.ok()
+            and not node.shutdown_requested
+        ):
+            rclpy.spin_once(
+                node,
+                timeout_sec=0.1,
+            )
+
+    except Exception as exc:
+        node.get_logger().error(
+            'Best-effort cube failure submission could not finish: '
+            f'{exc}'
+        )
 
 
 def main(args=None) -> None:
@@ -2150,6 +2190,21 @@ def main(args=None) -> None:
 
     except KeyboardInterrupt:
         exit_code = 130
+
+        if node is not None and rclpy.ok():
+            _attempt_failure_submission(
+                node,
+                'Task 3 was interrupted before normal completion.',
+            )
+
+    except Exception as exc:
+        exit_code = 1
+
+        if node is not None and rclpy.ok():
+            _attempt_failure_submission(
+                node,
+                f'Unhandled Task 3 failure: {exc}',
+            )
 
     finally:
         if node is not None:
