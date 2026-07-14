@@ -516,6 +516,7 @@ class MazeExplorerNode(Node):
 
         self.completed = False
         self.shutdown_requested = False
+        self.fatal_finalization = False
         self.exit_code = 0
 
         self.scan_sub = self.create_subscription(LaserScan, self.scan_topic, self._scan_callback, 10)
@@ -632,7 +633,7 @@ class MazeExplorerNode(Node):
                 )
                 if self.grade_result_required:
                     self.exit_code = 1
-                if self.shutdown_on_complete:
+                if self.shutdown_on_complete or self.fatal_finalization:
                     self.shutdown_requested = True
                 return
 
@@ -1910,9 +1911,12 @@ class MazeExplorerNode(Node):
 
         return None
 
-    def _finish_exploration(self, reason: str) -> None:
+    def _finish_exploration(self, reason: str, *, failed: bool = False) -> None:
         if self.completed:
             return
+
+        if failed:
+            self.fatal_finalization = True
 
         self.completed = True
         msg, stats = self.maze.export_ros_maze(
@@ -1932,15 +1936,17 @@ class MazeExplorerNode(Node):
             if self.grade_result_required:
                 self.exit_code = 1
             if self.submit_maze_to_grader:
-                self.get_logger().error(
-                    'Maze was not submitted to grader because identity is invalid.'
+                self.get_logger().warn(
+                    'Attempting best-effort grader submission despite invalid identity.'
                 )
-                if self.shutdown_on_complete:
-                    self.shutdown_requested = True
-                return
 
+        completion_label = (
+            'Exploration failed; preserving partial maze'
+            if failed
+            else 'Exploration complete'
+        )
         self.get_logger().info(
-            'Exploration complete: '
+            f'{completion_label}: '
             f'{reason}; n={stats["n"]}, m={stats["m"]}, cells={stats["cells"]}, '
             f'visited={stats["visited_cells"]}, start_idx={stats["start_idx"]}, '
             f'end_idx={stats["end_idx"]}, unknown_edges={stats["unknown_edges"]}, '
@@ -1956,7 +1962,7 @@ class MazeExplorerNode(Node):
             if self._submit_maze_to_grader(msg):
                 return
 
-        if self.shutdown_on_complete:
+        if self.shutdown_on_complete or self.fatal_finalization:
             self.shutdown_requested = True
 
     def _submit_maze_to_grader(self, msg: RosMaze) -> bool:
@@ -2002,7 +2008,7 @@ class MazeExplorerNode(Node):
             )
             print(f'TASK2_GRADE_SCORE={int(result.score)}', flush=True)
 
-        if self.shutdown_on_complete:
+        if self.shutdown_on_complete or self.fatal_finalization:
             self.shutdown_requested = True
 
     def _write_maze_file(self, path: Path, msg: RosMaze) -> None:
@@ -2027,7 +2033,15 @@ class MazeExplorerNode(Node):
         self.motion_in_flight = False
         self.active_step = None
         self.exit_code = 1
-        self.shutdown_requested = True
+        self.fatal_finalization = True
+
+        if self.completed:
+            return
+
+        self._finish_exploration(
+            f'fatal error: {message}',
+            failed=True,
+        )
 
 
 def main(args=None) -> None:
