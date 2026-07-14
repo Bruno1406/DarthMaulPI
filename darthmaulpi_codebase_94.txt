@@ -2,7 +2,7 @@
 
 Project root: /home/dtdav/Development/DarthMaulPI
 Included files: 281
-Skipped files: 6374
+Skipped files: 7519
 
 # Included File Index
 
@@ -293,7 +293,7 @@ Skipped files: 6374
 - binary, media, generated, or not useful as text: 59
 - not UTF-8 text: 2
 - previous merged output: 1
-- skipped directory: 6312
+- skipped directory: 7457
 
 # File Contents
 
@@ -27391,9 +27391,9 @@ def generate_launch_description():
         # Default false now: camera should be positioned separately before task.
         DeclareLaunchArgument('camera_face_down', default_value='false'),
         DeclareLaunchArgument('camera_vertical_servo_id', default_value='1'),
-        DeclareLaunchArgument('camera_down_position', default_value='2000'),
+        DeclareLaunchArgument('camera_down_position', default_value='2500'),
         DeclareLaunchArgument('camera_horizontal_servo_id', default_value='2'),
-        DeclareLaunchArgument('camera_left_position', default_value='2000'),
+        DeclareLaunchArgument('camera_left_position', default_value='2500'),
 
         Node(
             package='maze_solver',
@@ -27563,9 +27563,9 @@ def generate_launch_description():
 
         DeclareLaunchArgument('camera_face_down', default_value='false'),
         DeclareLaunchArgument('camera_vertical_servo_id', default_value='1'),
-        DeclareLaunchArgument('camera_down_position', default_value='2000'),
+        DeclareLaunchArgument('camera_down_position', default_value='2500'),
         DeclareLaunchArgument('camera_horizontal_servo_id', default_value='2'),
-        DeclareLaunchArgument('camera_left_position', default_value='2000'),
+        DeclareLaunchArgument('camera_left_position', default_value='2500'),
 
         Node(
             package='maze_solver',
